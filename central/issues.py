@@ -6,9 +6,9 @@ import sqlite3
 from .db import now_iso
 
 ISSUE_LABELS = {
-    "registro_homonimo": "Planilha concorrente ao registro oficial",
-    "registro_nao_definido": "Registro oficial não definido",
-    "registro_alterado": "Mudança no registro oficial precisa de revisão",
+    "registro_homonimo": "Planilha concorrente ao quadro de atividades",
+    "registro_nao_definido": "Quadro de atividades não definido",
+    "registro_alterado": "Mudança na planilha oficial precisa de revisão",
     "fonte_indisponivel": "Fonte indisponível",
     "erro_leitura": "Erro ao ler arquivo",
     "responsavel_desconhecido": "Responsável não reconhecido",

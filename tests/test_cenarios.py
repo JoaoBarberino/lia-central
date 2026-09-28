@@ -77,7 +77,7 @@ def test_planilha_vazia_homonima_nao_apaga(conn, sync, folder):
     assert len(acts.list_activities(conn)) == 4
     issues = open_issues(conn, "registro_homonimo")
     assert len(issues) == 1
-    assert "Nada foi substituído" in issues[0]["detail"]
+    assert "Nada foi alterado" in issues[0]["detail"]
     assert pending(conn) == []
 
 
@@ -250,7 +250,7 @@ def test_formato_nao_suportado_e_explicado(conn, sync, folder):
     add_file(folder, "02_ADICIONAR_DEPOIS_DA_CARGA", "Ata_2026-10-03.docx")
     sync()
     row = conn.execute("SELECT * FROM sources WHERE name='Ata_2026-10-03.docx'").fetchone()
-    assert row["sync_status"] == "nao_suportado" and "Google Docs" in row["status_message"]
+    assert row["sync_status"] == "nao_suportado" and "Documentos Google" in row["status_message"]
 
 
 # --- Atividade manual e persistência -------------------------------------------------

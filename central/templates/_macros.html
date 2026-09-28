@@ -30,10 +30,10 @@
   {{ date_block(a.due_date, a.status) }}
   <div>
     <h2 class="item-title"><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a></h2>
-    <p class="meta">{{ a.front or 'Sem frente' }}, <span class="id">{{ a.activity_id }}</span>.{% if a.due_date and d.kind == 'ok' %} {{ d.label }}.{% endif %}</p>
+    <p class="meta">{{ a.front or 'Sem frente' }}, <span class="id">código {{ a.activity_id }}</span>.{% if a.due_date and d.kind == 'ok' %} {{ d.label }}.{% endif %}</p>
     {% if a.status == 'Bloqueada' and a.notes %}<p class="next blocker">Bloqueio: {{ a.notes }}</p>{% endif %}
     <p class="next">Próximo passo: {{ (a.next_step or 'não definido').rstrip('.') }}.</p>
-    {% if a.pending_suggestions %}<p class="proposal"><strong>{{ 'Mudança proposta' if a.pending_suggestions == 1 else a.pending_suggestions ~ ' mudanças propostas' }}</strong>, ainda não oficial. <a href="/atividades/{{ a.activity_id }}#sugestoes">Ver o que muda</a></p>{% endif %}
+    {% if a.pending_suggestions %}<p class="proposal"><strong>{{ 'Sugestão' if a.pending_suggestions == 1 else a.pending_suggestions ~ ' sugestões' }} aguardando revisão.</strong> <a href="/atividades/{{ a.activity_id }}#sugestoes">Ver o que muda</a></p>{% endif %}
   </div>
   <div class="side">
     <div class="names">{{ people(a.owners, NAMES) }}</div>
@@ -45,8 +45,8 @@
 
 {% macro source_ref(src) -%}
   {% if src %}
-    {% if src.url %}<a href="{{ src.url }}" target="_blank" rel="noopener">{{ src.name }}<span class="sr"> (abre o original)</span></a>{% else %}{{ src.name }}{% endif %}
-    {% if src.status == 'indisponivel' %}<span class="tag err">(fonte indisponível)</span>{% elif src.status == 'erro' %}<span class="tag soon">(erro na última leitura)</span>{% endif %}
-    {% if src.file_id %}<a class="small" href="/fontes/{{ src.file_id }}">detalhes</a>{% endif %}
+    {% if src.file_id %}<a href="/fontes/{{ src.file_id }}">{{ src.name }}</a>{% else %}{{ src.name }}{% endif %}
+    {% if src.status == 'indisponivel' %}<span class="tag err">(indisponível)</span>{% elif src.status == 'erro' %}<span class="tag soon">(erro na última leitura)</span>{% endif %}
+    {% if src.url %}<a class="small drive-link" href="{{ src.url }}" target="_blank" rel="noopener">abrir no Drive<span class="sr"> (nova aba)</span></a>{% endif %}
   {% else %}—{% endif %}
 {%- endmacro %}

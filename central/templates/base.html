@@ -18,21 +18,21 @@
       <span>
       {%- if last_run -%}
         {%- set when = fmt_when(last_run.finished_at or last_run.started_at) -%}
-        {%- if last_run.status == 'ok' -%}<a href="/sincronizacao"><span class="wide">Drive s</span><span class="narrow">S</span>incronizado às <b class="num">{{ when }}</b></a>
-        {%- elif last_run.status == 'parcial' -%}<a href="/sincronizacao">Sincronizado às <b class="num">{{ when }}</b>, com erro em arquivos</a>
-        {%- elif last_run.status == 'rodando' -%}<a href="/sincronizacao"><b>Sincronizando agora</b></a>
-        {%- else -%}<a href="/sincronizacao"><b>Sincronização falhou</b> às {{ when }}</a>{% if last_ok %}; dados de {{ fmt_when(last_ok.finished_at) }}{% endif %}{%- endif -%}
-      {%- else -%}<a href="/sincronizacao">Ainda não sincronizado</a>{%- endif -%}
-      {%- if not llm_enabled %}<span class="wide">. IA desativada.</span>{% endif -%}
+        {%- if last_run.status == 'ok' -%}<a href="/sincronizacao"><span class="wide">Atualizado com o Drive</span><span class="narrow">Atualizado</span> às <b class="num">{{ when }}</b></a>
+        {%- elif last_run.status == 'parcial' -%}<a href="/sincronizacao">Atualizado às <b class="num">{{ when }}</b>, com erro em arquivos</a>
+        {%- elif last_run.status == 'rodando' -%}<a href="/sincronizacao"><b>Atualizando agora…</b></a>
+        {%- else -%}<a href="/sincronizacao"><b>A atualização falhou</b> às {{ when }}</a>{% if last_ok %}; dados de {{ fmt_when(last_ok.finished_at) }}{% endif %}{%- endif -%}
+      {%- else -%}<a href="/sincronizacao">Ainda não atualizado com o Drive</a>{%- endif -%}
+      {%- if not llm_enabled %}<span class="wide">. IA desligada.</span>{% endif -%}
       </span>
-      <form method="post" action="/sincronizar"><button class="linkish" type="submit" data-busy="Sincronizando…">Sincronizar agora</button></form>
+      <form method="post" action="/sincronizar"><button class="linkish" type="submit" data-busy="Atualizando…">Atualizar agora</button></form>
     </div>
     <form class="who" method="post" action="/entrar">
-      <label class="sr" for="member-switch">Pessoa de demonstração</label>
+      <label class="sr" for="member-switch">Ver o site como</label>
       <select id="member-switch" name="member_id" onchange="this.form.submit()">
         {% if not me %}<option value="">Quem é você?</option>{% endif %}
         {% for m in members %}
-        <option value="{{ m.member_id }}" {% if me and me.member_id == m.member_id %}selected{% endif %}>{{ m.display_name }}{% if m.can_review %} (revisa){% endif %}, {{ m.front }}</option>
+        <option value="{{ m.member_id }}" {% if me and me.member_id == m.member_id %}selected{% endif %}>{{ m.display_name }}{% if m.can_review %} (aprova){% endif %}, {{ m.front }}</option>
         {% endfor %}
       </select>
       <noscript><button type="submit">Trocar</button></noscript>
@@ -46,7 +46,7 @@
       <a href="/sugestoes" {% if path.startswith('/sugestoes') %}aria-current="page"{% endif %}>Sugestões{% if n_pending %}<span class="count"><span class="sr">: </span>{{ n_pending }}<span class="sr"> pendentes</span></span>{% endif %}</a>
       <a href="/novidades" {% if path.startswith('/novidades') %}aria-current="page"{% endif %}>O que mudou</a>
       <a href="/pendencias" {% if path.startswith('/pendencias') %}aria-current="page"{% endif %}>Pendências{% if n_issues %}<span class="count"><span class="sr">: </span>{{ n_issues }}<span class="sr"> abertas</span></span>{% endif %}</a>
-      <a href="/fontes" {% if path.startswith('/fontes') %}aria-current="page"{% endif %}>Fontes</a>
+      <a href="/fontes" {% if path.startswith('/fontes') %}aria-current="page"{% endif %}>Documentos</a>
     </nav>
   </div>
 </header>

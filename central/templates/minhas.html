@@ -14,9 +14,9 @@
     {% endif %}
   {% endif %}
   {% if me.can_review %}
-    {% if stats.to_review %}<a href="/sugestoes">{{ stats.to_review }} {{ 'sugestão espera' if stats.to_review == 1 else 'sugestões esperam' }} sua revisão</a>.{% endif %}
+    {% if stats.to_review %}<a href="/sugestoes">{{ stats.to_review }} {{ 'sugestão aguarda' if stats.to_review == 1 else 'sugestões aguardam' }} sua revisão</a>.{% endif %}
   {% elif stats.pending_me %}
-    {{ stats.pending_me }} {{ 'proposta envolvendo você espera' if stats.pending_me == 1 else 'propostas envolvendo você esperam' }} revisão de {{ members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') }}. <a href="/sugestoes">Ver propostas</a>
+    {{ stats.pending_me }} {{ 'sugestão envolvendo você aguarda' if stats.pending_me == 1 else 'sugestões envolvendo você aguardam' }} revisão de {{ members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') }}. <a href="/sugestoes">Ver sugestões</a>
   {% endif %}
 </p>
 
@@ -34,6 +34,6 @@
   {% for a in items %}{{ activity_card(a) }}{% endfor %}
 </div>
 {% else %}
-<div class="empty"><strong>Nada aberto com você.</strong>{% if not last_run %}A pasta ainda não foi sincronizada.{% else %}Quando alguém te atribuir uma tarefa, ela aparece aqui.{% endif %}</div>
+<div class="empty"><strong>Nada aberto com você.</strong>{% if not last_run %}A pasta do Drive ainda não foi lida.{% else %}Quando alguém te atribuir uma tarefa, ela aparece aqui.{% endif %}</div>
 {% endif %}
 {% endblock %}

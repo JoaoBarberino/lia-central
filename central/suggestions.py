@@ -17,6 +17,9 @@ from . import activities as acts
 from .db import dumps, now_iso, transaction
 
 
+SUG_STATUS = {"pendente": "Aguardando revisão", "aceita": "Aceita", "aceita_com_ajuste": "Aceita com ajuste",
+              "rejeitada": "Rejeitada", "desatualizada": "Substituída (a ata mudou)"}
+
 class ReviewError(Exception):
     pass
 
@@ -101,7 +104,8 @@ def accept(conn: sqlite3.Connection, suggestion_id: int, reviewer_id: str, adjus
         if not s:
             raise ReviewError("Sugestão não encontrada.")
         if s["review_status"] != "pendente":
-            raise ReviewError(f"Esta sugestão já foi revisada (estado: {s['review_status']}). Nada foi reaplicado.")
+            raise ReviewError(f"Esta sugestão já foi revisada ({SUG_STATUS.get(s['review_status'], s['review_status']).lower()}). "
+                              "Nada foi aplicado de novo.")
         fields = dict(s["proposed"])
         if adjusted:
             fields.update({k: v for k, v in adjusted.items() if k in acts.EDITABLE_FIELDS})

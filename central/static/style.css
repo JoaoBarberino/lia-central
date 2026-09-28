@@ -189,7 +189,7 @@ td a strong { font-weight: 600; }
 /* Textos longos (nomes de arquivo, IDs) quebram dentro da célula em vez de alargar a página */
 main.wrap { overflow-wrap: break-word; }
 main td { overflow-wrap: anywhere; }
-td.nw { white-space: nowrap; overflow-wrap: normal; }
+td.nw, span.nw { white-space: nowrap; overflow-wrap: normal; }
 .row-head .tag { white-space: normal; }
 /* Planilha na página da fonte: mais compacta, com Linha e ID fixos quando rola para o lado */
 .sheet table { font-size: .88rem; }
@@ -231,6 +231,10 @@ blockquote.evidence.small { font-size: .93rem; margin-top: .4rem; }
 .panel-more { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .panel-more > form { margin-top: .9rem; }
 .stack-actions { display: grid; gap: .6rem; margin-top: 1rem; }
+details.tech { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+details.tech > summary { color: var(--muted); font-size: .92rem; }
+details.tech > p:first-of-type { margin-top: .8rem; }
+.drive-link { margin-left: .5rem; }
 
 /* ------------------------------------------------------------------ Formulários */
 form.stack { display: grid; gap: 1rem; max-width: 640px; }

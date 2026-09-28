@@ -45,10 +45,16 @@ def _join_names(ids) -> str:
 
 
 templates.env.filters["nomes"] = _join_names
+templates.env.filters["humano"] = views.humano
+templates.env.filters["humano_linhas"] = views.humano_linhas
+templates.env.filters["field_label"] = lambda k: acts.FIELD_LABELS.get(k, k).lower()
+templates.env.filters["juntar"] = lambda xs: (" e ".join(xs) if len(xs) <= 2 else ", ".join(xs[:-1]) + " e " + xs[-1])
+templates.env.filters["frase"] = lambda t: (t[:1].upper() + t[1:]) if t else t
 templates.env.globals.update(
     NAMES=_NAMES, date_parts=views.date_parts,
+    humano=views.humano, sheet_ref=views.sheet_ref, doc_meta_items=views.doc_meta_items, doc_status=views.doc_status,
     fmt_date=views.fmt_date, fmt_ts=views.fmt_ts, fmt_when=views.fmt_when, due_info=views.due_info, ROLE_LABELS=ROLE_LABELS,
-    FIELD_LABELS=acts.FIELD_LABELS, ISSUE_LABELS=ISSUE_LABELS, STATUSES=acts.STATUSES,
+    FIELD_LABELS=acts.FIELD_LABELS, ISSUE_LABELS=ISSUE_LABELS, SUG_STATUS=sugg.SUG_STATUS, STATUSES=acts.STATUSES,
 )
 
 _sync_lock = threading.Lock()
@@ -178,7 +184,7 @@ def entrar_form(request: Request, conn=Depends(db)):
 def entrar(request: Request, member_id: str = Form(...), conn=Depends(db)):
     m = conn.execute("SELECT * FROM members WHERE member_id=?", (member_id,)).fetchone()
     if not m:
-        flash(request, "Pessoa não encontrada.", "erro")
+        flash(request, "Pessoa não encontrada. Escolha alguém da lista.", "erro")
         return to("/entrar")
     request.session["member_id"] = member_id
     # Marco para "o que mudou": a visita anterior
@@ -262,7 +268,7 @@ async def nova(request: Request, conn=Depends(db)):
     if errors:
         return render(request, conn, "atividade_form.html", a=None, errors=errors, values=values)
     new_id = acts.create_activity(conn, values, actor_id=me, creation_kind="manual", reason="Criada na interface")
-    flash(request, f"Atividade {new_id} criada.")
+    flash(request, f"Atividade “{values.get('title')}” criada no quadro ({new_id}).")
     return to(f"/atividades/{new_id}")
 
 
@@ -287,7 +293,11 @@ def detalhe(request: Request, activity_id: str, conn=Depends(db)):
     refs = [dict(r) | {"source": views.source_link(conn, r["file_id"])} for r in conn.execute(
         "SELECT * FROM activity_refs WHERE activity_id=? ORDER BY id", (activity_id,))]
     pend = [s for s in sugg.list_suggestions(conn) if s["target_activity_id"] == activity_id]
-    return render(request, conn, "atividade.html", a=row, history=history, refs=refs, pend=pend, names=names)
+    # "voltar" leva para a lista de onde a pessoa veio
+    ref = request.headers.get("referer") or ""
+    back = ("/atividades", "Todas as atividades") if "/atividades" in ref and "/atividades/" not in ref else ("/", "Minhas atividades")
+    return render(request, conn, "atividade.html", a=row, history=history, refs=refs, pend=pend, names=names,
+                  back_href=back[0], back_label=back[1])
 
 
 @app.get("/atividades/{activity_id}/editar", response_class=HTMLResponse)
@@ -309,7 +319,8 @@ async def editar(request: Request, activity_id: str, conn=Depends(db)):
         return render(request, conn, "atividade_form.html", a={"activity_id": activity_id}, errors=errors, values=values)
     reason = (form.get("reason") or "").strip() or "Editada na interface"
     diff = acts.update_activity(conn, activity_id, values, actor_id=me, reason=reason)
-    flash(request, f"{len(diff)} campo(s) alterado(s)." if diff else "Nada mudou.")
+    flash(request, (f"{len(diff)} {'campo alterado' if len(diff) == 1 else 'campos alterados'}." if diff
+                    else "Nada mudou: os valores já eram esses."))
     return to(f"/atividades/{activity_id}")
 
 
@@ -319,13 +330,13 @@ def mudar_estado(request: Request, activity_id: str, status: str = Form(...), re
     if not me:
         return to("/entrar")
     if status not in acts.STATUSES:
-        flash(request, "Estado inválido.", "erro")
+        flash(request, "Situação inválida. Escolha uma das opções da lista.", "erro")
         return to(f"/atividades/{activity_id}")
     changes = {"status": status}
     if status == "Bloqueada" and reason.strip():
         changes["notes"] = reason.strip()
     acts.update_activity(conn, activity_id, changes, actor_id=me, reason=reason.strip() or f"Marcada como {status}")
-    flash(request, f"{activity_id}: {status}.")
+    flash(request, f"Atividade marcada como {status.lower()}.")
     return to(f"/atividades/{activity_id}")
 
 
@@ -336,8 +347,10 @@ def mudar_estado(request: Request, activity_id: str, status: str = Form(...), re
 def sugestoes(request: Request, estado: str = "pendente", conn=Depends(db)):
     items = sugg.list_suggestions(conn, None if estado == "todas" else estado)
     names = views.member_names(conn)
+    titles = {r["activity_id"]: r["title"] for r in conn.execute("SELECT activity_id, title FROM activities")}
     for s in items:
         s["source"] = views.source_link(conn, s["source_file_id"])
+        s["target_title"] = titles.get(s["target_activity_id"])
     notes = [dict(r) | {"source": views.source_link(conn, r["file_id"])} for r in conn.execute(
         "SELECT n.* FROM extraction_notes n JOIN sources s ON s.file_id = n.file_id AND s.content_hash = n.source_version "
         "WHERE n.kind IN ('hipotese','barrada_validacao') ORDER BY n.id DESC")]
@@ -404,7 +417,8 @@ async def aceitar(request: Request, sid: int, conn=Depends(db)):
     except sugg.ReviewError as e:
         flash(request, str(e), "erro")
         return to(f"/sugestoes/{sid}")
-    flash(request, f"Sugestão aceita. {target} foi atualizada no registro oficial.")
+    t = conn.execute("SELECT title FROM activities WHERE activity_id=?", (target,)).fetchone()
+    flash(request, f"Sugestão aceita. “{t['title'] if t else target}” foi atualizada no quadro de atividades.")
     return to(f"/sugestoes/{sid}#decisao")
 
 
@@ -415,7 +429,7 @@ def rejeitar(request: Request, sid: int, reason: str = Form(""), conn=Depends(db
     except sugg.ReviewError as e:
         flash(request, str(e), "erro")
         return to(f"/sugestoes/{sid}")
-    flash(request, "Sugestão rejeitada. O registro oficial não mudou.")
+    flash(request, "Sugestão rejeitada. O quadro de atividades não mudou.")
     return to(f"/sugestoes/{sid}#decisao")
 
 
@@ -461,7 +475,7 @@ def fontes(request: Request, conn=Depends(db)):
 def fonte(request: Request, file_id: str, conn=Depends(db)):
     s = conn.execute("SELECT * FROM sources WHERE file_id=?", (file_id,)).fetchone()
     if not s:
-        return render(request, conn, "erro.html", message="Fonte não encontrada.")
+        return render(request, conn, "erro.html", message="Documento não encontrado.")
     versions = [dict(r) for r in conn.execute(
         "SELECT id, drive_version, content_hash, modified_at, name, fetched_at, extracted_text, extracted_json "
         "FROM source_versions WHERE file_id=? ORDER BY id DESC", (file_id,))]
@@ -496,7 +510,7 @@ def reanalisar(request: Request, file_id: str, conn=Depends(db)):
         meta = parse_text_document(v["extracted_text"]).meta
         conn.execute("UPDATE sources SET doc_meta=?, doc_status=? WHERE file_id=?",
                      (dumps(meta), meta.get("status"), file_id))
-    flash(request, "Nova análise solicitada. Ela acontece na próxima sincronização (automática ou 'Sincronizar agora').")
+    flash(request, "Nova análise pedida. Ela acontece na próxima atualização com o Drive (ou use “Atualizar agora”).")
     return to(f"/fontes/{file_id}")
 
 
@@ -516,16 +530,16 @@ def resolver(request: Request, issue_id: int, resolution: str = Form(""), conn=D
     if not me:
         return to("/entrar")
     if not resolution.strip():
-        flash(request, "Descreva a decisão tomada para encerrar a pendência.", "erro")
+        flash(request, "Escreva o que foi decidido para marcar a pendência como resolvida.", "erro")
         return to("/pendencias")
     resolve_issue(conn, issue_id=issue_id, by=me, resolution=resolution.strip())
-    flash(request, "Pendência encerrada. A decisão ficou registrada.")
+    flash(request, "Pendência resolvida. A decisão ficou registrada.")
     return to("/pendencias")
 
 
 @app.get("/sincronizacao", response_class=HTMLResponse)
 def sincronizacao(request: Request, conn=Depends(db)):
-    runs = conn.execute("SELECT * FROM sync_runs ORDER BY run_id DESC LIMIT 20").fetchall()
+    runs = views.group_runs(conn.execute("SELECT * FROM sync_runs ORDER BY run_id DESC LIMIT 40").fetchall())
     connected = bool(get_setting(conn, "google_token"))
     calls = conn.execute("SELECT COUNT(*) n, SUM(input_tokens) i, SUM(output_tokens) o FROM llm_calls WHERE ok=1").fetchone()
     return render(request, conn, "sincronizacao.html", runs=runs, connected=connected, settings=settings, calls=calls)
@@ -535,13 +549,16 @@ def sincronizacao(request: Request, conn=Depends(db)):
 def sincronizar(request: Request):
     r = do_sync("manual")
     if r.get("status") in ("ok", "parcial"):
-        flash(request, f"Sincronização concluída: {r['files_seen']} arquivo(s) vistos, {r['processed']} processado(s), "
-                       f"{r['ignored']} ignorado(s), {r['errors']} com erro.", "ok" if r["status"] == "ok" else "aviso")
+        changed = (f"{r['processed']} {'lido de novo' if r['processed'] == 1 else 'lidos de novo'}" if r["processed"]
+                   else "nenhum mudou")
+        errors = f", {r['errors']} com erro" if r["errors"] else ""
+        flash(request, f"Atualizado com o Drive: {r['files_seen']} arquivos conferidos, {changed}{errors}.",
+              "ok" if r["status"] == "ok" else "aviso")
     elif r.get("status") == "ocupado":
-        flash(request, "Uma sincronização já está em andamento (a automática ou outra manual). "
-                       "Aguarde cerca de 1 minuto e recarregue a página para ver o resultado.", "aviso")
+        flash(request, "Já existe uma atualização em andamento. Aguarde cerca de 1 minuto e recarregue a página.",
+              "aviso")
     else:
-        flash(request, f"Sincronização não concluída: {r.get('message')}", "erro")
+        flash(request, f"A atualização com o Drive falhou: {r.get('message')}", "erro")
     return to(request.headers.get("referer") or "/sincronizacao")
 
 
@@ -566,7 +583,7 @@ def auth_callback(request: Request, conn=Depends(db)):
         flash(request, f"Autorização não concedida: {request.query_params.get('error')}", "erro")
         return to("/sincronizacao")
     if not state or state != request.session.pop("oauth_state", None):
-        flash(request, "Falha de verificação (state inválido). Tente conectar de novo.", "erro")
+        flash(request, "A conexão com o Google expirou ou foi interrompida. Tente conectar de novo.", "erro")
         return to("/sincronizacao")
     try:
         drive_auth.finish_authorization(conn, settings, str(request.url), state, request.session.pop("oauth_verifier", None))
@@ -574,7 +591,7 @@ def auth_callback(request: Request, conn=Depends(db)):
         log.warning("Falha no OAuth: %s", type(e).__name__)  # não registra código nem token
         flash(request, "Não foi possível concluir a autorização do Google. Confira o redirect URI no Console.", "erro")
         return to("/sincronizacao")
-    flash(request, "Google Drive conectado. Rodando a primeira sincronização…")
+    flash(request, "Google Drive conectado. Fazendo a primeira atualização…")
     threading.Thread(target=do_sync, args=("manual",), daemon=True).start()
     return to("/sincronizacao")
 

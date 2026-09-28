@@ -187,7 +187,7 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
                     messages.append(f"{name['name']}: {n} sugestão(ões) da versão anterior marcadas como desatualizadas")
                 if llm is None:
                     conn.execute("UPDATE sources SET status_message=? WHERE file_id=?",
-                                 ("Indexada. IA desativada: sem sugestões por enquanto.", file_id))
+                                 ("Lida, mas a IA está desligada: sem sugestões por enquanto.", file_id))
                     continue  # não marca como processada: será analisada quando a IA estiver ativa
                 from .ai import analyze_minutes
                 wait_until = _ai_backoff_until(conn, file_id)
@@ -203,7 +203,7 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
                 msg = analyze_minutes(conn, llm, file_id)
                 set_setting(conn, f"ia_backoff:{file_id}", None)
             else:
-                msg = "indexado"
+                msg = "Lido como referência"
         except Exception as e:  # falha isolada não derruba a rodada
             from .ai import LLMError
             if isinstance(e, LLMError):

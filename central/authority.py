@@ -21,13 +21,13 @@ import re
 from .extractors import Extracted, looks_like_register, normalize
 
 ROLE_LABELS = {
-    "indice": "Índice do acervo",
-    "estado_atual": "Estado atual",
+    "indice": "Índice da pasta",
+    "estado_atual": "Resumo da Liga",
     "guia": "Guia de entrada",
     "ata": "Ata de reunião",
-    "registro_oficial": "Registro oficial de atividades",
-    "registro_candidato": "Planilha com formato de registro (sem autoridade)",
-    "historico": "Histórico (substituído)",
+    "registro_oficial": "Planilha oficial das atividades",
+    "registro_candidato": "Planilha parecida com a oficial",
+    "historico": "Documento antigo (substituído)",
     "outro": "Outro documento",
 }
 

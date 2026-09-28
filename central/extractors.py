@@ -134,7 +134,7 @@ def parse_pdf(data: bytes) -> Extracted:
         raise ExtractionError(f"Não foi possível abrir o PDF: {e}") from e
     text = "\n\n".join(pages).strip()
     if not text:
-        raise Unsupported("PDF sem texto selecionável (provavelmente digitalizado). OCR está fora do escopo.")
+        raise Unsupported("PDF escaneado, sem texto para ler. O protótipo não lê texto dentro de imagens.")
     return parse_text_document(text)
 
 
@@ -151,8 +151,8 @@ def extract(mime_type: str, name: str, data: bytes) -> Extracted:
     if mime_type == PDF or name.lower().endswith(".pdf"):
         return parse_pdf(data)
     if mime_type == DOCX or name.lower().endswith(".docx"):
-        raise Unsupported("Arquivo .docx não é lido diretamente. Converta para Google Docs nativo no Drive.")
-    raise Unsupported(f"Formato ainda não processado ({mime_type}).")
+        raise Unsupported("Arquivo .docx não é lido. No Drive, use Arquivo > Salvar como Documentos Google.")
+    raise Unsupported(f"O protótipo ainda não lê este formato ({mime_type}).")
 
 
 SUPPORTED_HINT = ".md, .xlsx, Google Docs, Google Sheets e PDF com texto"

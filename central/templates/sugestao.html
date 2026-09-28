@@ -5,10 +5,10 @@
 <a class="back" href="/sugestoes">Sugestões para revisar</a>
 <h1>{% if s.kind == 'update' and current %}{{ current.title }}{% else %}{{ s.proposed.get('title') or 'Atividade nova' }}{% endif %}</h1>
 <p class="meta-line">
-  Sugestão #{{ s.suggestion_id }}, {{ 'mudança em ' ~ s.target_activity_id if s.kind == 'update' else 'atividade nova' }}.&nbsp;
-  {% if s.review_status == 'pendente' %}<span class="tag pending">Pendente, ainda não oficial</span>
-  {% elif s.review_status.startswith('aceita') %}<span class="tag done">{{ s.review_status.replace('_',' ')|capitalize }}</span>
-  {% else %}<span class="tag neutral">{{ s.review_status|capitalize }}</span>{% endif %}
+  Sugestão #{{ s.suggestion_id }}, {{ 'mudança numa atividade (código ' ~ s.target_activity_id ~ ')' if s.kind == 'update' else 'atividade nova' }}.&nbsp;
+  {% if s.review_status == 'pendente' %}<span class="tag pending">Aguardando revisão</span>
+  {% elif s.review_status.startswith('aceita') %}<span class="tag done">{{ SUG_STATUS[s.review_status] }}</span>
+  {% else %}<span class="tag neutral">{{ SUG_STATUS.get(s.review_status, s.review_status) }}</span>{% endif %}
   {% if s.reviewer_id %}por {{ names.get(s.reviewer_id) }} em {{ fmt_ts(s.reviewed_at) }}{% if s.review_note %}: “{{ s.review_note }}”{% endif %}{% endif %}
 </p>
 
@@ -21,13 +21,13 @@
 <section>
   <h2>O que muda</h2>
   <table class="cmp">
-    <caption class="sr">Valores oficiais hoje e valores propostos</caption>
-    <thead><tr><th scope="col">Campo</th><th scope="col">{{ 'Oficial hoje' if s.review_status == 'pendente' else 'Antes' }}</th><th scope="col">Proposto</th></tr></thead>
+    <caption class="sr">Valores de hoje e valores sugeridos</caption>
+    <thead><tr><th scope="col">Campo</th><th scope="col">{{ 'Hoje' if s.review_status == 'pendente' else 'Antes' }}</th><th scope="col">Sugerido</th></tr></thead>
     <tbody>
     {% for r in rows %}
     <tr>
       <th scope="row">{{ r.label }}</th>
-      <td>{% if current %}<del>{{ r.official }}</del>{% else %}<del class="none">novo</del>{% endif %}</td>
+      <td>{% if current %}<del>{{ r.official }}</del>{% else %}<del class="none">—</del>{% endif %}</td>
       <td><span class="sr">passa a ser </span><ins>{{ r.proposed }}</ins></td>
     </tr>
     {% endfor %}
@@ -35,12 +35,12 @@
   </table>
 
   <h2>Por quê</h2>
-  <p class="label">Trecho do documento</p>
+  <p class="label">{{ 'O que diz a ata' if s.model else 'O que mudou na planilha' }}</p>
   <blockquote class="evidence">{{ s.evidence }}</blockquote>
-  <p class="srcline"><span>Fonte: {{ source_ref(s.source) }}</span>{% if s.doc_date %}<span>Reunião de {{ fmt_date(s.doc_date) }}</span>{% endif %}<span>{% if not s.model %}Criada pela comparação da planilha{% elif s.model == 'fake' %}Criada pela IA de teste{% else %}Criada pela IA ({{ s.model }}){% endif %} em {{ fmt_ts(s.created_at) }}</span></p>
-  {% if s.reason %}<p><strong>Motivo:</strong> {{ s.reason }}</p>{% endif %}
+  <p class="srcline"><span>Documento: {{ source_ref(s.source) }}</span>{% if s.doc_date %}<span>Reunião de {{ fmt_date(s.doc_date) }}</span>{% endif %}<span>{% if not s.model %}Criada pela comparação da planilha{% elif s.model == 'fake' %}Criada pela IA de teste{% else %}Criada pela IA ({{ s.model }}){% endif %} em {{ fmt_ts(s.created_at) }}</span></p>
+  {% if s.reason %}<p><strong>{{ 'Por que a IA sugeriu:' if s.model else 'Motivo:' }}</strong> {{ s.reason | humano }}</p>{% endif %}
   {% if s.uncertainties_list %}
-  <div class="uncert"><strong>Incertezas a revisar</strong><ul>{% for u in s.uncertainties_list %}<li>{{ u }}</li>{% endfor %}</ul></div>
+  <div class="uncert"><strong>Pontos para conferir</strong><ul>{% for u in s.uncertainties_list %}<li>{{ u }}</li>{% endfor %}</ul></div>
   {% endif %}
 </section>
 
@@ -50,9 +50,9 @@
     {% if me and me.can_review %}
     <h2>Sua decisão</h2>
     <p class="consequence">
-      {% if s.kind == 'update' %}Ao aceitar, o registro oficial de <strong>{{ s.target_activity_id }}</strong> passa a ter
+      {% if s.kind == 'update' %}Ao aceitar, <strong>{{ current.title if current else s.target_activity_id }}</strong> passa a ter
         {% for r in rows %}{{ r.label|lower }} <strong>{{ r.proposed }}</strong>{{ ', ' if loop.revindex > 2 else (' e ' if loop.revindex == 2 else '.') }}{% endfor %}
-      {% else %}Ao aceitar, <strong>“{{ s.proposed.get('title') or 'a atividade nova' }}”</strong> entra no registro oficial com um ID novo.{% endif %}
+      {% else %}Ao aceitar, <strong>“{{ s.proposed.get('title') or 'a atividade nova' }}”</strong> entra no quadro de atividades.{% endif %}
     </p>
     {% if changed_since %}
     <div class="notice warn changed" role="note">
@@ -92,26 +92,25 @@
     <details class="panel-more">
       <summary>Rejeitar</summary>
       <form method="post" action="/sugestoes/{{ s.suggestion_id }}/rejeitar" class="stack">
-        <p class="small muted" style="margin:0">Nada muda no registro oficial. O motivo fica guardado no histórico da sugestão.</p>
+        <p class="small muted" style="margin:0">Nada muda no quadro. O motivo fica guardado.</p>
         <div><label for="reason">Motivo da rejeição</label><input type="text" autocomplete="off" id="reason" name="reason" required></div>
         <button class="btn danger" type="submit" data-busy="Rejeitando…">Rejeitar sugestão</button>
       </form>
     </details>
     {% else %}
     <h2>Revisão</h2>
-    <p class="small">Só {{ members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') }} podem aceitar ou rejeitar. Para testar, troque a pessoa no topo da página.</p>
+    <p class="small">Só {{ members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') }} podem aprovar ou rejeitar. Para testar, troque a pessoa no topo.</p>
     {% endif %}
   {% else %}
-    <h2>{% if s.review_status.startswith('aceita') %}Sugestão aceita{% elif s.review_status == 'rejeitada' %}Sugestão rejeitada{% else %}Sugestão {{ s.review_status }}{% endif %}</h2>
+    <h2>{% if s.review_status.startswith('aceita') %}Sugestão aceita{% elif s.review_status == 'rejeitada' %}Sugestão rejeitada{% else %}Sugestão substituída{% endif %}</h2>
     <p class="small">
       {% if s.reviewer_id %}Decisão de {{ names.get(s.reviewer_id) }} em {{ fmt_ts(s.reviewed_at) }}{% if s.review_note %}: “{{ s.review_note }}”{% endif %}.{% endif %}
-      {% if s.review_status.startswith('aceita') %}O registro oficial já mostra a mudança.{% elif s.review_status == 'rejeitada' %}O registro oficial não mudou.{% endif %}
-      Reabrir esta página não repete a decisão.
+      {% if s.review_status.startswith('aceita') %}O quadro de atividades já mostra a mudança.{% elif s.review_status == 'rejeitada' %}O quadro de atividades não mudou.{% endif %}
     </p>
     <div class="stack-actions">
       {% if next_pending %}<a class="btn" href="/sugestoes/{{ next_pending }}">Próxima sugestão ({{ n_left }} {{ 'pendente' if n_left == 1 else 'pendentes' }})</a>
       {% else %}<p class="small muted" style="margin:0">Não há mais sugestões pendentes.</p>{% endif %}
-      {% if s.target_activity_id %}<a class="btn secondary" href="/atividades/{{ s.target_activity_id }}">Ver {{ s.target_activity_id }} no registro</a>{% endif %}
+      {% if s.target_activity_id %}<a class="btn secondary" href="/atividades/{{ s.target_activity_id }}">Ver a atividade</a>{% endif %}
       <a class="btn secondary" href="/sugestoes">Voltar para a lista</a>
     </div>
   {% endif %}

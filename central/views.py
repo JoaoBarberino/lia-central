@@ -128,7 +128,9 @@ def changes_for_member(conn: sqlite3.Connection, member_id: str, since_iso: str)
     for s in conn.execute("SELECT * FROM suggestions WHERE (review_status='pendente' OR reviewed_at > ?) "
                           "ORDER BY suggestion_id DESC", (since_iso,)):
         if affects(s):
+            t = conn.execute("SELECT title FROM activities WHERE activity_id=?", (s["target_activity_id"],)).fetchone()
             suggestions.append({"id": s["suggestion_id"], "kind": s["kind"], "target": s["target_activity_id"],
+                                "target_title": t["title"] if t else None,
                                 "status": s["review_status"], "proposed": json.loads(s["proposed_fields"]),
                                 "source": source_link(conn, s["source_file_id"]), "evidence": s["evidence"]})
 
@@ -223,7 +225,7 @@ def onboarding(conn: sqlite3.Connection, member_id: str | None) -> dict:
     steps = section(guia["extracted_text"], "Para um membro novo") if guia else []
 
     references = [dict(r) for r in conn.execute(
-        "SELECT name, web_url, role, sync_status, doc_status FROM sources "
+        "SELECT file_id, name, web_url, role, sync_status, doc_status FROM sources "
         "WHERE role IN ('indice','estado_atual','guia','registro_oficial') ORDER BY role")]
     historic = [dict(r) for r in conn.execute(
         "SELECT name, web_url, doc_meta FROM sources WHERE role='historico'")]
@@ -256,3 +258,127 @@ def since_options() -> dict[str, str]:
     return {"1d": (now - timedelta(days=1)).isoformat(timespec="seconds"),
             "7d": (now - timedelta(days=7)).isoformat(timespec="seconds"),
             "30d": (now - timedelta(days=30)).isoformat(timespec="seconds")}
+
+
+# ---------------------------------------------------------------------------
+# Textos para a tela: plural correto e vocabulário de quem usa (não o do código)
+# ---------------------------------------------------------------------------
+def plural(n: int, singular: str, plural_form: str) -> str:
+    return f"{n} {singular if n == 1 else plural_form}"
+
+
+def analysis_summary(created: int, unchanged: int, hypotheses: int, rejected: int) -> str:
+    """Resultado da leitura de uma ata em uma frase curta."""
+    parts = []
+    if created:
+        parts.append(plural(created, "sugestão criada", "sugestões criadas"))
+    if unchanged:
+        parts.append(plural(unchanged, "item já estava no quadro", "itens já estavam no quadro"))
+    if hypotheses:
+        parts.append(plural(hypotheses, "ideia sem decisão", "ideias sem decisão"))
+    if rejected:
+        parts.append(plural(rejected, "descartada na checagem", "descartadas na checagem"))
+    if not parts:
+        return "Nada novo nesta ata"
+    return (", ".join(parts[:-1]) + " e " + parts[-1]) if len(parts) > 1 else parts[0]
+
+
+_ANALYSIS_RE = re.compile(r"(\d+) sugestão\(ões\), (\d+) já no registro, (\d+) ideia\(s\) sem decisão, "
+                          r"(\d+) proposta\(s\) barrada\(s\) pela validação")
+_PLURAL_RE = re.compile(r"\b(\d+)((?:\s+[^\s(),.;:]+\((?:s|ões|es)\))+)")
+
+
+def _fix_plurals(text: str) -> str:
+    def repl(m):
+        n = int(m.group(1))
+        def word(w):
+            base, suf = w.group(1), w.group(2)
+            if n == 1:
+                return base
+            return base[:-2] + "ões" if suf == "ões" and base.endswith("ão") else base + suf
+        return m.group(1) + re.sub(r"([^\s(]+)\((s|ões|es)\)", word, m.group(2))
+    return _PLURAL_RE.sub(repl, text)
+
+
+def humano(text) -> str:
+    """Reescreve mensagens gravadas pelo sincronizador (inclusive as antigas, já salvas no banco)
+    no vocabulário da tela: 'quadro de atividades', plurais escritos, sem jargão."""
+    if not text:
+        return text or ""
+    t = str(text)
+    m = _ANALYSIS_RE.fullmatch(t.strip())
+    if m:
+        return analysis_summary(*map(int, m.groups()))
+    t = {"indexado": "Lido como referência",
+         "pendência de conflito registrada": "Conflito registrado em Pendências",
+         "Indexada. IA desativada: sem sugestões por enquanto.": "Lida, mas a IA está desligada: sem sugestões por enquanto."
+         }.get(t.strip(), t)
+    t = t.replace("PDF sem texto selecionável (provavelmente digitalizado). OCR está fora do escopo.",
+                  "PDF escaneado, sem texto para ler. O protótipo não lê texto dentro de imagens.")
+    t = re.sub(r"Formato ainda não processado \(([^)]*)\)\.", r"O protótipo ainda não lê este formato (\1).", t)
+    t = t.replace("Arquivo .docx não é lido diretamente. Converta para Google Docs nativo no Drive.",
+                  "Arquivo .docx não é lido. No Drive, use Arquivo > Salvar como Documentos Google.")
+    t = re.sub(r"Importação inicial do registro oficial \(([^,]+), linha (\d+)\)",
+               r"Importada da planilha (aba \1, linha \2)", t)
+    t = t.replace("Sincronizar agora", "Atualizar agora").replace("sincronização", "atualização")
+    t = t.replace("registro oficial", "quadro de atividades").replace("Registro oficial", "Quadro de atividades")
+    t = t.replace("já no registro", "já no quadro").replace("Fonte indisponível", "Documento indisponível")
+    return _fix_plurals(t)
+
+
+ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+DOC_STATUS = {"ativo": "em vigor", "parcial": "incompleto", "deprecated": "obsoleto", "obsoleto": "obsoleto",
+              "substituido": "substituído", "rascunho": "rascunho", "arquivado": "arquivado", "historico": "histórico"}
+
+
+def doc_status(value) -> str:
+    return DOC_STATUS.get(str(value).strip().lower(), str(value)) if value else ""
+
+
+def doc_meta_items(meta: dict | None) -> list[str]:
+    """Cabeçalho 'chave: valor' de um documento em frases curtas."""
+    out = []
+    for k, v in (meta or {}).items():
+        v = str(v)
+        day = fmt_date(v) if ISO_DAY.fullmatch(v) else v
+        label = {"data_da_reuniao": f"Reunião de {day}", "status": doc_status(v),
+                 "atualizado_em": f"atualizado em {day}", "criado_em": f"criado em {day}",
+                 "responsavel_por_confirmar": f"quem confirma: {v}", "substitui": f"substitui {v}",
+                 "substituido_por": "substituído por " + re.sub(r"\d{4}-\d{2}-\d{2}", lambda m: fmt_date(m.group()), v), "escopo": v}.get(k, f"{k.replace('_', ' ')}: {v}")
+        out.append(label)
+    return out
+
+
+def sheet_ref(value: str | None) -> str:
+    """'Atividades!linha 3' -> 'aba Atividades, linha 3'."""
+    if not value:
+        return ""
+    m = re.fullmatch(r"(.+)!linha (\d+)", value.strip())
+    return f"aba {m.group(1)}, linha {m.group(2)}" if m else value
+
+
+def group_runs(runs: list) -> list[dict]:
+    """Junta verificações seguidas sem mudança numa linha só ('12 verificações sem mudança')."""
+    out: list[dict] = []
+    for r in runs:
+        r = dict(r)
+        quiet = r["status"] == "ok" and not r["processed"] and not r["errors"]
+        if quiet and out and out[-1].get("quiet"):
+            g = out[-1]
+            g["count"] += 1
+            g["first"] = r["started_at"]
+            continue
+        r["quiet"] = quiet
+        r["count"] = 1
+        r["first"] = r["started_at"]
+        out.append(r)
+    return out
+
+
+def humano_linhas(text) -> str:
+    """Aplica `humano` a cada linha 'arquivo: mensagem' do resumo de uma verificação."""
+    out = []
+    for line in str(text or "").splitlines():
+        name, sep, rest = line.partition(": ")
+        out.append(f"{name}: {humano(rest)}" if sep else humano(line))
+    return "\n".join(out)

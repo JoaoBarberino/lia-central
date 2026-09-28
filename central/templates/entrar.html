@@ -2,13 +2,13 @@
 {% block title %}Entrar{% endblock %}
 {% block content %}
 <h1>Quem está usando?</h1>
-<p class="lead">As pessoas são fictícias e não há senha. A escolha define a sua visão pessoal e se você pode revisar sugestões. Primeira vez? Veja <a href="/comece-aqui">Comece aqui</a>.</p>
+<p class="lead">As pessoas são fictícias e não há senha. A escolha define a sua visão pessoal e se você pode aprovar sugestões. Primeira vez? Veja <a href="/comece-aqui">Comece aqui</a>.</p>
 <form method="post" action="/entrar" class="pick">
   {% for m in members %}
   <button type="submit" name="member_id" value="{{ m.member_id }}">
     <span class="name">{{ m.display_name }}</span>
     <span class="role">{{ m.front }}, {{ m.role }}</span>
-    {% if m.can_review %}<span class="rev">Revisa sugestões</span>{% endif %}
+    {% if m.can_review %}<span class="rev">Aprova sugestões</span>{% endif %}
   </button>
   {% endfor %}
 </form>

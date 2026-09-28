@@ -21,7 +21,7 @@ _STATUS_BY_NORM.update({"concluido": "Concluída", "feito": "Concluída", "bloqu
 EDITABLE_FIELDS = ["title", "description", "next_step", "front", "priority", "status", "due_date", "notes", "owners"]
 FIELD_LABELS = {
     "title": "Título", "description": "Descrição", "next_step": "Próximo passo", "front": "Frente",
-    "priority": "Prioridade", "status": "Estado", "due_date": "Prazo", "notes": "Notas e bloqueios",
+    "priority": "Prioridade", "status": "Situação", "due_date": "Prazo", "notes": "Notas e bloqueios",
     "owners": "Responsáveis",
 }
 ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")

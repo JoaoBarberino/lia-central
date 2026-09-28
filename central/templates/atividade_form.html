@@ -32,7 +32,7 @@
     <input type="text" autocomplete="off" id="next_step" name="next_step" value="{{ values.next_step or '' }}">
   </div>
   <div>
-    <label for="status">Estado</label>
+    <label for="status">Situação</label>
     <select id="status" name="status" {% if errors.status %}aria-invalid="true" aria-describedby="status-err"{% endif %}>
       {% for s in STATUSES %}<option {% if (values.status or 'A fazer') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
     </select>

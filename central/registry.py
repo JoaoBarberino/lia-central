@@ -214,31 +214,24 @@ def _diff_to_suggestions(conn, file_id, new_hash, old_sheet, new_sheet) -> str:
                    f"A versão nova da planilha oficial não tem: {', '.join(missing)}. "
                    "Nenhuma atividade foi apagada. Confira se a remoção foi intencional e conclua as atividades pela aplicação.",
                    dedupe_key=f"registro_linhas_ausentes:{file_id}:{new_hash}", file_id=file_id)
-    return f"{created} sugestões a partir da planilha; {removed} linhas ausentes viraram pendência"
+    msg = f"{created} {'sugestão criada' if created == 1 else 'sugestões criadas'} a partir da planilha"
+    if removed:
+        msg += f"; {removed} {'linha sumiu e virou pendência' if removed == 1 else 'linhas sumiram e viraram pendência'}"
+    return msg
 
 
 def process_register_candidate(conn: sqlite3.Connection, file_id: str) -> str:
     """Planilha com formato de registro que NÃO é a oficial: nunca altera atividades."""
     src = conn.execute("SELECT * FROM sources WHERE file_id = ?", (file_id,)).fetchone()
     version = _latest_version(conn, file_id)
-    data = json.loads(version["extracted_json"])
-    reg_sheets = [s for s in data["sheets"] if looks_like_register(s)]
-    rows = sum(len(s["rows"]) for s in reg_sheets)
     official_id = official_register_id(conn)
     official = conn.execute("SELECT name FROM sources WHERE file_id = ?", (official_id,)).fetchone() if official_id else None
-    n_acts = conn.execute("SELECT COUNT(*) FROM activities").fetchone()[0]
-    detail = (
-        f"'{src['name']}' tem as colunas de um registro de atividades "
-        f"(aba {', '.join(repr(s['name']) for s in reg_sheets)}, {rows} linha(s) preenchida(s)), "
-        f"mas não é a fonte apontada pelo INDEX.md"
-        + (f" (o registro oficial é '{official['name']}')" if official else "")
-        + f". Nada foi substituído: as {n_acts} atividades oficiais continuam como estavam. "
-        "Ser mais recente ou ter nome parecido não dá autoridade a um arquivo."
-    )
+    detail = ("Tem o formato do quadro de atividades, mas não é a planilha indicada no INDEX.md"
+              + (f" ({official['name']})" if official else "") + ". Nada foi alterado.")
     key = f"homonimo:{file_id}:{version['content_hash']}"
     # Pendência de versão anterior do mesmo arquivo é substituída pela atual
     conn.execute("UPDATE issues SET status='resolvida', resolution='Substituída pela análise da versão nova' "
                  "WHERE kind='registro_homonimo' AND file_id=? AND dedupe_key<>? AND status='aberta'", (file_id, key))
     open_issue(conn, "registro_homonimo", f"Planilha concorrente: {src['name']}", detail,
                dedupe_key=key, file_id=file_id)
-    return "pendência de conflito registrada"
+    return "Conflito registrado em Pendências"

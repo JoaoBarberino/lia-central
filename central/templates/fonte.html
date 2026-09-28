@@ -1,22 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ s.name }}{% endblock %}
 {% block content %}
-<a class="back" href="/fontes">Fontes</a>
+<a class="back" href="/fontes">Documentos</a>
 <h1>{{ s.name }}</h1>
-<p>{{ ROLE_LABELS.get(s.role, '—') }}
-  {% if s.sync_status == 'indisponivel' %}<span class="tag err">indisponível: o conteúdo abaixo pode estar desatualizado</span>
-  {% elif s.sync_status == 'erro' %}<span class="tag err">erro na última leitura: mostrando a última versão boa</span>
-  {% elif s.sync_status == 'nao_suportado' %}<span class="tag neutral">formato não processado</span>{% endif %}
-  {% if s.web_url %}. <a href="{{ s.web_url }}" target="_blank" rel="noopener">abrir original<span class="sr"> (abre em nova aba)</span></a>{% endif %}</p>
-{% if s.status_message %}<div class="notice">{{ s.status_message }}</div>{% endif %}
+<p class="meta-line">{{ ROLE_LABELS.get(s.role, 'Tipo não reconhecido') }}{% for m in doc_meta_items(meta) %}. {{ m | frase }}{% endfor %}.
+  {% if s.sync_status == 'indisponivel' %}<span class="tag err">Indisponível: o conteúdo abaixo pode estar desatualizado</span>
+  {% elif s.sync_status == 'erro' %}<span class="tag err">Erro na última leitura: mostrando a última versão boa</span>{% endif %}
+  {% if s.web_url %}<a href="{{ s.web_url }}" target="_blank" rel="noopener">Abrir no Drive<span class="sr"> (nova aba)</span></a>{% endif %}</p>
+{% if s.status_message %}<div class="notice">{{ s.status_message | humano }}</div>{% endif %}
 {% if s.role == 'ata' and s.sync_status == 'ok' %}
 <form method="post" action="/fontes/{{ s.file_id }}/reanalisar" class="actions">
   <button class="btn small secondary" type="submit">Pedir nova análise da IA</button>
-  <span class="small muted">Sugestões já revisadas não são recriadas; propostas iguais ao registro são descartadas.</span>
 </form>
 {% endif %}
-{% if meta %}<p class="small">Cabeçalho: {% for k, v in meta.items() %}<code>{{ k }}: {{ v }}</code>{{ ' ' if not loop.last }}{% endfor %}</p>{% endif %}
-<p class="small muted">ID <code>{{ s.file_id }}</code>. Visto pela primeira vez em {{ fmt_ts(s.first_seen_at) }}; última leitura processada em {{ fmt_ts(s.last_processed_at) }}.</p>
 
 {% if diff %}
 <h2>O que mudou na última versão</h2>
@@ -24,17 +20,17 @@
 {% endif %}
 
 {% if sug %}
-<h2>Sugestões geradas</h2>
-<ul>{% for x in sug %}<li><a href="/sugestoes/{{ x.suggestion_id }}">#{{ x.suggestion_id }}</a> {{ 'mudança em ' ~ x.target_activity_id if x.kind == 'update' else 'atividade nova' }}: <span class="tag neutral">{{ x.review_status.replace('_',' ') }}</span>{% if x.source_version != s.content_hash %} <span class="small muted">(versão anterior)</span>{% endif %}</li>{% endfor %}</ul>
+<h2>Sugestões criadas a partir deste documento</h2>
+<ul>{% for x in sug %}<li><a href="/sugestoes/{{ x.suggestion_id }}">Sugestão #{{ x.suggestion_id }}</a>, {{ 'mudança numa atividade (código ' ~ x.target_activity_id ~ ')' if x.kind == 'update' else 'atividade nova' }}: <span class="tag {{ 'pending' if x.review_status == 'pendente' else 'neutral' }}">{{ SUG_STATUS.get(x.review_status, x.review_status) }}</span>{% if x.source_version != s.content_hash %} <span class="small muted">(versão anterior)</span>{% endif %}</li>{% endfor %}</ul>
 {% endif %}
 
 {% if notes %}
-<h2>Leitura da IA sem sugestão</h2>
-<ul>{% for n in notes %}<li><span class="tag neutral">{{ {'hipotese':'ideia sem decisão','barrada_validacao':'barrada pela validação','sem_mudanca':'já está no registro'}.get(n.kind, n.kind) }}</span> {% if n.kind != 'barrada_validacao' %}<q>{{ n.text }}</q>{% endif %}: {{ n.reason }}</li>{% endfor %}</ul>
+<h2>O que a IA leu e não virou sugestão</h2>
+<ul>{% for n in notes %}<li><span class="tag {{ 'err' if n.kind == 'barrada_validacao' else 'neutral' }}">{{ {'hipotese':'Ideia sem decisão','barrada_validacao':'Descartada na checagem','sem_mudanca':'Já está no quadro'}.get(n.kind, n.kind) }}</span> {% if n.kind != 'barrada_validacao' %}<q>{{ n.text }}</q>{% endif %}{% if n.kind != 'sem_mudanca' %} {{ n.reason | humano | frase }}{% endif %}</li>{% endfor %}</ul>
 {% endif %}
 
 {% if current %}
-<h2>Conteúdo extraído (versão atual)</h2>
+<h2>Conteúdo lido (versão atual)</h2>
 {% if table %}
   {% for sh in table.sheets %}
   <h3>Aba “{{ sh.name }}”, {{ sh.rows|length }} {{ 'linha preenchida' if sh.rows|length == 1 else 'linhas preenchidas' }}</h3>
@@ -48,6 +44,11 @@
 {% endif %}
 {% endif %}
 
-<h2>Versões lidas ({{ versions|length }})</h2>
-<ul class="small">{% for v in versions %}<li>{{ fmt_ts(v.fetched_at) }}: nome na época “{{ v.name }}”, versão do Drive {{ v.drive_version or '—' }}, hash <code>{{ v.content_hash[:10] }}</code></li>{% endfor %}</ul>
+<details class="tech">
+  <summary>Detalhes técnicos</summary>
+  <p class="small">ID do arquivo <code>{{ s.file_id }}</code>. Visto pela primeira vez em {{ fmt_ts(s.first_seen_at) }}; última leitura processada em {{ fmt_ts(s.last_processed_at) }}.</p>
+  {% if meta %}<p class="small">Cabeçalho: {% for k, v in meta.items() %}<code>{{ k }}: {{ v }}</code>{{ ' ' if not loop.last }}{% endfor %}</p>{% endif %}
+  <p class="small" style="margin-bottom:.3rem">{{ versions|length }} {{ 'versão lida' if versions|length == 1 else 'versões lidas' }}:</p>
+  <ul class="small">{% for v in versions %}<li>{{ fmt_ts(v.fetched_at) }}: nome na época “{{ v.name }}”, versão do Drive {{ v.drive_version or '—' }}, hash <code>{{ v.content_hash[:10] }}</code></li>{% endfor %}</ul>
+</details>
 {% endblock %}

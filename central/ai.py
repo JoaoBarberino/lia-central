@@ -369,7 +369,7 @@ def analyze_minutes(conn: sqlite3.Connection, llm: LLM, file_id: str) -> str:
         if problem == "sem_mudanca":
             unchanged += 1
             _note(conn, file_id, version, "sem_mudanca", (item or {}).get("evidence"),
-                  "Proposta igual ao valor oficial atual; nada a sugerir.")
+                  "Já está assim no quadro de atividades; nada a sugerir.")
             continue
         if problem:
             rejected += 1
@@ -386,5 +386,5 @@ def analyze_minutes(conn: sqlite3.Connection, llm: LLM, file_id: str) -> str:
             doc_date=doc_date, uncertainties=clean["uncertainties"], model=llm.model)
         if sid:
             created += 1
-    return (f"{created} sugestão(ões), {unchanged} já no registro, {hypotheses} ideia(s) sem decisão, "
-            f"{rejected} proposta(s) barrada(s) pela validação")
+    from .views import analysis_summary
+    return analysis_summary(created, unchanged, hypotheses, rejected)

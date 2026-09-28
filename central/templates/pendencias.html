@@ -3,28 +3,26 @@
 {% block title %}Pendências{% endblock %}
 {% block content %}
 <h1>Pendências</h1>
-<p class="lead">Situações que o sistema não resolve sozinho com segurança, como planilhas concorrentes, arquivos ilegíveis ou removidos. Nenhuma delas alterou atividades: uma pessoa decide.</p>
 <div class="rows">
 {% for i in items %}
   <article class="row">
-    <div class="row-head"><h2 class="item-title">{{ i.title }}</h2><span class="tag soon">{{ ISSUE_LABELS.get(i.kind, i.kind) }}</span></div>
-    <p>{{ i.detail }}</p>
-    {% if i.source %}<p class="small">Arquivo: {{ source_ref(i.source) }}</p>{% endif %}
+    <h2 class="item-title">{% if i.source and i.source.file_id %}{{ (i.title.split(':')[0] if ':' in i.title else i.title) | humano }}: <a href="/fontes/{{ i.source.file_id }}">{{ i.source.name }}</a>{% else %}{{ i.title | humano }}{% endif %}</h2>
+    <p style="margin:.35rem 0 .2rem">{% if i.kind == 'registro_homonimo' %}Tem o formato do quadro de atividades, mas não é a planilha indicada no INDEX.md. Nada foi alterado.{% else %}{{ i.detail | humano }}{% endif %}</p>
     <p class="small muted">Aberta em {{ fmt_ts(i.created_at) }}</p>
     {% if me %}
     <form method="post" action="/pendencias/{{ i.issue_id }}/resolver" class="stack">
-      <div><label for="res-{{ i.issue_id }}">Decisão tomada</label>
-        <input type="text" id="res-{{ i.issue_id }}" name="resolution" placeholder="Ex.: planilha é cópia antiga; manter o registro oficial…" autocomplete="off" required></div>
-      <div><button class="btn small secondary" type="submit">Encerrar pendência</button></div>
+      <div><label for="res-{{ i.issue_id }}">O que foi decidido?</label>
+        <input type="text" id="res-{{ i.issue_id }}" name="resolution" placeholder="Ex.: é uma cópia antiga; manter a planilha oficial…" autocomplete="off" required></div>
+      <div><button class="btn small secondary" type="submit">Marcar como resolvida</button></div>
     </form>
     {% endif %}
   </article>
 {% else %}
-  <div class="empty" style="border:0"><strong>Nenhuma pendência aberta.</strong>Conflitos entre fontes e arquivos com problema aparecem aqui.</div>
+  <div class="empty" style="border:0"><strong>Nenhuma pendência aberta.</strong>Conflitos entre documentos e arquivos com problema aparecem aqui.</div>
 {% endfor %}
 </div>
 {% if closed %}
-<h2>Encerradas recentemente</h2>
-<ul class="small">{% for c in closed %}<li>{{ c.title }}: {{ c.resolution }} ({{ c.resolved_by }}, {{ fmt_ts(c.resolved_at) }})</li>{% endfor %}</ul>
+<h2>Resolvidas recentemente</h2>
+<ul class="small">{% for c in closed %}<li>{{ c.title | humano }}: {{ c.resolution }} ({{ NAMES.get(c.resolved_by, c.resolved_by) }}, {{ fmt_ts(c.resolved_at) }})</li>{% endfor %}</ul>
 {% endif %}
 {% endblock %}

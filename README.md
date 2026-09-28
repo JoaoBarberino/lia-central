@@ -22,7 +22,7 @@ Google Drive (pasta de teste)            Aplicação (um processo Python)       
 
 1. **Sincronização** (`central/sync.py`): lista a pasta e as subpastas, compara o `version` de cada arquivo com o que já foi visto e só baixa o que mudou.
 2. **Extratores** (`central/extractors.py`): transformam cada formato em texto ou tabela e leem o cabeçalho dos documentos (`status: ativo`, `substituido_por:`...).
-3. **Regra de autoridade** (`central/authority.py`, `central/registry.py`): decide o papel de cada arquivo (índice, registro oficial, ata, histórico, planilha concorrente...).
+3. **Regra de autoridade** (`central/authority.py`, `central/registry.py`): decide o papel de cada arquivo (índice, registro oficial, ata, histórico, planilha concorrente...). Na interface, o registro oficial aparece como "quadro de atividades".
 4. **IA** (`central/ai.py`): lê atas novas ou editadas e **propõe** criar ou alterar atividades. O código valida cada proposta antes de mostrá-la.
 5. **Registro oficial** (`central/activities.py`, `central/suggestions.py`): só muda por edição na interface ou por sugestão aprovada. Toda mudança gera um evento com antes/depois, autor, motivo e fonte.
 
@@ -82,7 +82,7 @@ uvicorn central.app:app --port 8000
 
 > **Sempre que abrir um terminal novo:** entre na pasta do projeto e ative o ambiente (`.venv\Scripts\activate` no Windows) antes de rodar o app.
 
-Abra http://localhost:8000, escolha uma pessoa de demonstração, vá em **Estado da sincronização → Conectar Google Drive** e autorize.
+Abra http://localhost:8000, escolha uma pessoa de demonstração, clique no horário de atualização no topo (ou abra `/sincronizacao`), depois em **Conectar Google Drive**, e autorize.
 
 **Sem Drive (avaliação rápida):** use `SOURCE_MODE=local` e `LOCAL_FOLDER=./amostra` com uma cópia de `tests/dados/01_CARGA_INICIAL`. A aplicação trata a pasta como se fosse o Drive. Arquivos `.gdoc` com texto simulam Google Docs nativos.
 
@@ -95,7 +95,7 @@ python -m pytest -q
 ## 5. Processo de sincronização
 
 - **Automática:** uma thread em segundo plano roda a cada `SYNC_INTERVAL_SECONDS` (padrão: 180 s, bem abaixo da meta de 15 min). Em falha, espera mais a cada tentativa (até 10 min) e volta ao normal no primeiro sucesso.
-- **Manual:** botão "Sincronizar agora", para demonstração e depuração.
+- **Manual:** botão "Atualizar agora", para demonstração e depuração.
 - **Listagem:** `files.list` com `'<pasta>' in parents and trashed = false`, percorrendo todas as páginas e subpastas (com conjunto de pastas visitadas).
 - **Detecção de mudanças:** compara o `version` do Drive. Quando muda, baixa e calcula o **hash do conteúdo extraído**. Mesmo hash significa nada a processar (idempotência: o mesmo evento duas vezes não gera sugestão nem tarefa duplicada).
 - **Renomeado:** mesmo `file_id`, novo nome. Atualiza o nome, não reprocessa e preserva a autoridade.
@@ -127,11 +127,11 @@ python -m pytest -q
   - campos iguais ao valor oficial são descartados, o que evita sugestão vazia e duplicata.
 - **Hipóteses** ("talvez", sem dono nem decisão) viram `no_action`. Ficam registradas como "ideia sem decisão" e não entram no quadro.
 - **Tudo que foi barrado** aparece na tela de sugestões, por transparência.
-- **Resumo pessoal** ("Novidades"): montado a partir dos registros, separando mudanças confirmadas de propostas pendentes, sempre com link para a fonte.
+- **Resumo pessoal** ("O que mudou"): montado a partir dos registros, separando mudanças confirmadas de propostas pendentes, sempre com link para a fonte.
 
 ## 8. Custo estimado por uso
 
-A IA só é chamada quando uma **ata nova ou editada** chega (e quando alguém pede nova análise). Planilhas, índice e demais documentos não passam pelo modelo. Cada chamada fica registrada na tabela `llm_calls` e os totais aparecem em **Estado da sincronização**.
+A IA só é chamada quando uma **ata nova ou editada** chega (e quando alguém pede nova análise). Planilhas, índice e demais documentos não passam pelo modelo. Cada chamada fica registrada na tabela `llm_calls` e os totais aparecem na página **Atualização com o Drive**.
 
 **Medição real (28/09/2026, 8 análises de atas com `gemini-3.6-flash`):** 10.544 tokens de entrada e 1.688 de saída, ou seja, **~1.300 de entrada e ~210 de saída por ata**. A entrada inclui as regras, a lista de membros, as atividades atuais e o texto da ata.
 

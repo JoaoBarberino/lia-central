@@ -7,14 +7,14 @@
   {{ date_block(a.due_date, a.status) }}
   <div>
     <h1>{{ a.title }}</h1>
-    <p class="meta-line">{{ a.front or 'Sem frente' }}, <span class="id">{{ a.activity_id }}</span>. {{ status_tag(a.status) }} {% if a.due_date %}{{ due_tag(a.due_date, a.status) }}{% endif %}</p>
-    <p class="small muted">Criada por {{ 'Sistema' if a.created_by == 'sistema' else names.get(a.created_by, a.created_by) }} ({{ {'importacao':'importação da planilha','manual':'criação manual','sugestao':'sugestão aprovada'}.get(a.creation_kind, a.creation_kind) }}) em {{ fmt_ts(a.created_at) }}.</p>
+    <p class="meta-line">{{ a.front or 'Sem frente' }}, <span class="id">código {{ a.activity_id }}</span>. {{ status_tag(a.status) }} {% if a.due_date %}{{ due_tag(a.due_date, a.status) }}{% endif %}</p>
+    <p class="small muted">{% if a.creation_kind == 'importacao' %}Veio da planilha oficial em {{ fmt_ts(a.created_at) }}.{% elif a.creation_kind == 'sugestao' %}Criada a partir de uma sugestão aprovada em {{ fmt_ts(a.created_at) }}.{% else %}Criada por {{ names.get(a.created_by, a.created_by) }} em {{ fmt_ts(a.created_at) }}.{% endif %}</p>
   </div>
 </div>
 
 {% if pend %}
 <section id="sugestoes" class="notice info">
-  <p class="proposal" style="margin:0"><strong>Mudança proposta, ainda não oficial.</strong> Os valores abaixo continuam valendo até alguém revisar.</p>
+  <p class="proposal" style="margin:0"><strong>Sugestão aguardando revisão.</strong> Até lá, valem os valores abaixo.</p>
   <ul class="change">
   {% for s in pend %}
     <li>{% for k, v in s.proposed.items() %}<span><span class="f">{{ FIELD_LABELS.get(k, k) }}:</span> <ins>{{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}</ins></span> {% endfor %}<a href="/sugestoes/{{ s.suggestion_id }}">Ver sugestão #{{ s.suggestion_id }}</a></li>
@@ -58,11 +58,11 @@
   <ol class="timeline">
   {% for h in history %}
     <li>
-      <div class="tl-head"><strong>{{ fmt_ts(h.ts) }}</strong>, {{ h.actor if h.actor != 'sistema' else 'Sistema' }}: {{ h.reason }}</div>
+      <div class="tl-head"><strong>{{ fmt_ts(h.ts) }}</strong>{% if h.actor != 'sistema' %}, {{ h.actor }}{% endif %}: {{ h.reason | humano }}</div>
       {% if h.changes %}
       <ul class="change">{% for label, old, new in h.changes %}<li><span class="f">{{ label }}</span><del>{{ old }}</del> <span class="sr">passa a ser</span><ins>{{ new }}</ins></li>{% endfor %}</ul>
       {% endif %}
-      {% if h.source or h.suggestion_id %}<div class="small muted">{% if h.source %}Fonte: {{ source_ref(h.source) }}{% endif %}{% if h.suggestion_id %}. <a href="/sugestoes/{{ h.suggestion_id }}">sugestão #{{ h.suggestion_id }}</a>{% endif %}</div>{% endif %}
+      {% if h.source or h.suggestion_id %}<div class="small muted">{% if h.source %}Documento: {{ source_ref(h.source) }}{% endif %}{% if h.suggestion_id %}{{ '. ' if h.source }}<a href="/sugestoes/{{ h.suggestion_id }}">Ver sugestão #{{ h.suggestion_id }}</a>{% endif %}</div>{% endif %}
     </li>
   {% endfor %}
   </ol>
@@ -72,12 +72,12 @@
   <h2>De onde veio</h2>
   <ul class="sources-list">
   {% for r in refs %}
-    <li><span class="kind">{{ {'importada_de':'Importada de','origem_declarada':'Origem declarada','alterada_por':'Alterada com base em','criada_por':'Criada com base em'}.get(r.relation_type, r.relation_type) }}</span>
+    <li><span class="kind">{{ {'importada_de':'Veio da planilha','origem_declarada':'Ata citada na planilha','alterada_por':'Alterada por sugestão da ata','criada_por':'Criada por sugestão da ata'}.get(r.relation_type, r.relation_type) }}</span>
       {{ source_ref(r.source) }}
-      {% if r.sheet_or_section %}<div class="small muted">{{ r.sheet_or_section }}</div>{% endif %}
+      {% if r.sheet_or_section %}<div class="small muted">{{ sheet_ref(r.sheet_or_section) }}</div>{% endif %}
       {% if r.quote_or_cell and r.relation_type != 'importada_de' %}<blockquote class="evidence small">{{ r.quote_or_cell }}</blockquote>{% endif %}
     </li>
-  {% else %}<li class="muted">Criada manualmente, sem documento de origem.</li>{% endfor %}
+  {% else %}<li class="muted">Criada aqui na Central, sem documento de origem.</li>{% endfor %}
   </ul>
 </aside>
 </div>
