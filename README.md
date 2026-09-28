@@ -129,9 +129,24 @@ python -m pytest -q
 - **Tudo que foi barrado** aparece na tela de sugestões, por transparência.
 - **Resumo pessoal** ("Novidades"): montado a partir dos registros, separando mudanças confirmadas de propostas pendentes, sempre com link para a fonte.
 
-## 8. Custo estimado por uso _(a completar com medição real)_
+## 8. Custo estimado por uso
 
-Cada chamada fica registrada na tabela `llm_calls`, com os tokens de entrada e de saída (visível em **Estado da sincronização**). A estimativa final usa essas medições × o preço do modelo na data da entrega.
+A IA só é chamada quando uma **ata nova ou editada** chega (e quando alguém pede nova análise). Planilhas, índice e demais documentos não passam pelo modelo. Cada chamada fica registrada na tabela `llm_calls` e os totais aparecem em **Estado da sincronização**.
+
+**Medição real (28/09/2026, 8 análises de atas com `gemini-3.6-flash`):** 10.544 tokens de entrada e 1.688 de saída, ou seja, **~1.300 de entrada e ~210 de saída por ata**. A entrada inclui as regras, a lista de membros, as atividades atuais e o texto da ata.
+
+| Cenário | Custo por ata | 20 atas/mês |
+|---|---|---|
+| Camada gratuita do Gemini (usada no protótipo) | US$ 0 | US$ 0 |
+| `gemini-3.6-flash` pago (US$ 0,75 / 1M entrada, US$ 3,75 / 1M saída, até 31/12/2026) | ~US$ 0,0018 | ~US$ 0,04 |
+| O mesmo modelo com o preço de 2027 (o dobro) | ~US$ 0,0036 | ~US$ 0,07 |
+| `gemini-3.1-flash-lite` pago (US$ 0,25 / US$ 1,50) | ~US$ 0,0006 | ~US$ 0,01 |
+
+Observações:
+- O custo cresce com o número de atividades, porque a lista atual vai no prompt: com 100 atividades, a entrada sobe para ~6.000 tokens, cerca de US$ 0,005 por ata no modelo principal. Para centenas de atividades, o próximo passo seria enviar só as atividades relacionadas à ata (por frente, IDs citados ou busca).
+- Falhas 503 e 429 não são cobradas; as novas tentativas usam espera crescente.
+- Na camada gratuita, o Google pode usar os dados enviados para melhorar produtos. Por isso o protótipo usa só os dados fictícios do case. Com dados reais, usar o plano pago (ver seção 10).
+- Preços consultados em https://ai.google.dev/gemini-api/docs/pricing em 28/09/2026.
 
 ## 9. Limitações conhecidas
 

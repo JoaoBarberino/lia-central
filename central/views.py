@@ -190,7 +190,9 @@ def onboarding(conn: sqlite3.Connection, member_id: str | None) -> dict:
             gaps.append(f"Responsável por confirmar este resumo: {meta['responsavel_por_confirmar']}.")
         for p in paras:
             for sentence in re.split(r"(?<=[.!?])\s+", p):
-                if any(g in normalize(sentence) for g in GAP_PATTERNS):
+                n = normalize(sentence)
+                # "Em caso de dúvida… mostrar 'responsável a confirmar'" é orientação ao app, não uma lacuna
+                if any(g in n for g in GAP_PATTERNS) and not any(x in n for x in ("mostrar", "nao completar")):
                     gaps.append(sentence)
     else:
         gaps.append("Não há ESTADO-ATUAL.md na pasta: propósito e frentes não confirmados.")
