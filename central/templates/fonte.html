@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ s.name }}{% endblock %}
+{% block content %}
+<p class="small"><a href="/fontes">← Fontes</a></p>
+<h1>{{ s.name }}</h1>
+<p>{{ ROLE_LABELS.get(s.role, '—') }}
+  {% if s.sync_status == 'indisponivel' %}<span class="tag err">indisponível: o conteúdo abaixo pode estar desatualizado</span>
+  {% elif s.sync_status == 'erro' %}<span class="tag err">erro na última leitura: mostrando a última versão boa</span>
+  {% elif s.sync_status == 'nao_suportado' %}<span class="tag neutral">formato não processado</span>{% endif %}
+  {% if s.web_url %} · <a href="{{ s.web_url }}" target="_blank" rel="noopener">abrir original</a>{% endif %}</p>
+{% if s.status_message %}<div class="notice">{{ s.status_message }}</div>{% endif %}
+{% if meta %}<p class="small">Cabeçalho: {% for k, v in meta.items() %}<code>{{ k }}: {{ v }}</code>{{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
+<p class="small muted">ID: <code>{{ s.file_id }}</code> · visto pela primeira vez {{ fmt_ts(s.first_seen_at) }} · última leitura processada {{ fmt_ts(s.last_processed_at) }}</p>
+
+{% if diff %}
+<h2>O que mudou na última versão</h2>
+<div class="diff">{% for tag, line in diff %}<span class="{{ 'add' if tag == '+' else 'del' }}">{{ line }}</span>{% endfor %}</div>
+{% endif %}
+
+{% if sug %}
+<h2>Sugestões geradas</h2>
+<ul>{% for x in sug %}<li><a href="/sugestoes/{{ x.suggestion_id }}">#{{ x.suggestion_id }}</a> {{ x.kind }} {{ x.target_activity_id or '' }} — <span class="tag neutral">{{ x.review_status.replace('_',' ') }}</span>{% if x.source_version != s.content_hash %} <span class="small muted">(versão anterior)</span>{% endif %}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if notes %}
+<h2>Leitura da IA sem sugestão</h2>
+<ul>{% for n in notes %}<li><span class="tag neutral">{{ {'hipotese':'ideia sem decisão','barrada_validacao':'barrada pela validação','sem_mudanca':'já está no registro'}.get(n.kind, n.kind) }}</span> {% if n.kind != 'barrada_validacao' %}<q>{{ n.text }}</q>{% endif %} — {{ n.reason }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if current %}
+<h2>Conteúdo extraído (versão atual)</h2>
+{% if table %}
+  {% for sh in table.sheets %}
+  <h3>Aba “{{ sh.name }}” — {{ sh.rows|length }} linha(s) preenchida(s)</h3>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Linha</th>{% for h in sh.headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in sh.rows %}<tr><td>{{ r.row }}</td>{% for h in sh.headers %}<td>{{ r.cells.get(h) if r.cells.get(h) is not none else '' }}</td>{% endfor %}</tr>{% else %}<tr><td colspan="{{ sh.headers|length + 1 }}">Sem linhas preenchidas.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endfor %}
+{% else %}
+<pre class="doc">{{ current.extracted_text }}</pre>
+{% endif %}
+{% endif %}
+
+<h2>Versões lidas ({{ versions|length }})</h2>
+<ul class="small">{% for v in versions %}<li>{{ fmt_ts(v.fetched_at) }} · nome na época: {{ v.name }} · versão Drive {{ v.drive_version or '—' }} · hash <code>{{ v.content_hash[:10] }}</code></li>{% endfor %}</ul>
+{% endblock %}

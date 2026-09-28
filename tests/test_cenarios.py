@@ -278,3 +278,22 @@ def test_rejeitar_exige_motivo(conn, sync, folder):
     sugg.reject(conn, s["suggestion_id"], "U-B", "Prazo será rediscutido")
     assert sugg.get(conn, s["suggestion_id"])["review_status"] == "rejeitada"
     assert acts.snapshot(conn, "ACT-101")["due_date"] == "2026-10-05"
+
+
+# --- Resumo pessoal ------------------------------------------------------------------
+def test_resumo_pessoal_diferencia_ana_e_davi(conn, sync, folder):
+    from central.views import changes_for_member
+    sync()
+    marco = conn.execute("SELECT MAX(ts) FROM activity_events").fetchone()[0]
+    add_file(folder, "02_ADICIONAR_DEPOIS_DA_CARGA", "Ata_2026-10-03.md", as_gdoc=True)
+    sync()
+    ana = changes_for_member(conn, "U-A", marco)
+    davi = changes_for_member(conn, "U-D", marco)
+    assert [s["target"] for s in ana["suggestions"]] == ["ACT-101"]
+    assert davi["suggestions"] == [] and davi["confirmed"] == []
+    s = pending(conn)[0]
+    sugg.accept(conn, s["suggestion_id"], "U-B")
+    ana = changes_for_member(conn, "U-A", marco)
+    assert ana["confirmed"][0]["activity_id"] == "ACT-101"
+    assert ana["confirmed"][0]["source"]["name"] == "Ata_2026-10-03"
+    assert changes_for_member(conn, "U-D", marco)["confirmed"] == []

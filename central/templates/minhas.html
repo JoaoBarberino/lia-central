@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import activity_card %}
+{% block title %}Minhas atividades{% endblock %}
+{% block content %}
+<h1>Minhas atividades — {{ me.display_name }}</h1>
+<p class="lead">Atividades não concluídas em que você é responsável, incluindo as compartilhadas. Prazos no horário de São Paulo.</p>
+
+{% if mine_pending %}
+<div class="notice" role="note">
+  <strong>{{ mine_pending | length }} mudança{{ 's' if mine_pending|length > 1 }} proposta{{ 's' if mine_pending|length > 1 }} afeta{{ 'm' if mine_pending|length > 1 }} você</strong> e aguarda{{ 'm' if mine_pending|length > 1 }} revisão.
+  Ainda não vale como oficial. <a href="/sugestoes">Ver sugestões</a>
+</div>
+{% endif %}
+
+<div class="actions">
+  <span>Ordenar por:</span>
+  <a class="btn small {{ '' if ordem == 'prazo' else 'secondary' }}" href="/?ordem=prazo" {% if ordem == 'prazo' %}aria-current="true"{% endif %}>Prazo</a>
+  <a class="btn small {{ '' if ordem == 'estado' else 'secondary' }}" href="/?ordem=estado" {% if ordem == 'estado' %}aria-current="true"{% endif %}>Bloqueadas primeiro</a>
+  <a class="btn small secondary" href="/atividades/nova">+ Nova atividade</a>
+</div>
+
+{% if items %}
+<p class="small muted">{{ items | length }} atividade{{ 's' if items|length != 1 }}.</p>
+<div class="cards">
+  {% for a in items %}{{ activity_card(a) }}{% endfor %}
+</div>
+{% else %}
+<div class="notice">Nenhuma atividade aberta atribuída a você. {% if not last_run %}A pasta ainda não foi sincronizada.{% endif %}</div>
+{% endif %}
+{% endblock %}

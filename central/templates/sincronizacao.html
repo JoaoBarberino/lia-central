@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Sincronização{% endblock %}
+{% block content %}
+<h1>Sincronização</h1>
+<div class="grid2">
+<section>
+  <p>A aplicação verifica a pasta automaticamente a cada <strong>{{ sync_minutes }} min</strong> (meta do case: até 15 min). Em falha, tenta de novo com espera crescente, até 10 min. O botão “Sincronizar agora” serve para depuração e demonstração.</p>
+  <form method="post" action="/sincronizar"><button class="btn" type="submit">Sincronizar agora</button></form>
+
+  <h2>Últimas rodadas</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Início</th><th>Origem</th><th>Resultado</th><th>Arquivos</th><th class="hide-sm">Detalhes</th></tr></thead>
+    <tbody>
+    {% for r in runs %}
+    <tr>
+      <td>{{ fmt_ts(r.started_at) }}</td>
+      <td>{{ r.trigger }}</td>
+      <td>{% if r.status == 'ok' %}<span class="tag done">ok</span>{% elif r.status == 'parcial' %}<span class="tag soon">parcial</span>{% elif r.status == 'rodando' %}<span class="tag neutral">rodando</span>{% else %}<span class="tag err">falhou</span>{% endif %}</td>
+      <td class="small">{{ r.files_seen }} vistos · {{ r.processed }} processados · {{ r.ignored }} ignorados · {{ r.errors }} com erro</td>
+      <td class="hide-sm small" style="white-space: pre-line">{{ r.message or '' }}</td>
+    </tr>
+    {% else %}<tr><td colspan="5">Nenhuma rodada ainda.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+<aside>
+  <h2>Conexão</h2>
+  {% if source_mode == 'drive' %}
+    {% if connected %}
+      <p><span class="tag done">Google Drive conectado</span></p>
+      <p class="small">Escopo: somente leitura. A aplicação só lista a pasta configurada e suas subpastas.</p>
+      <form method="post" action="/auth/desconectar"><button class="btn small danger" type="submit">Desconectar e revogar acesso</button></form>
+    {% else %}
+      <p><span class="tag err">Drive não conectado</span></p>
+      <p><a class="btn" href="/auth/login">Conectar Google Drive</a></p>
+      <p class="small muted">Apps em modo “Testing” perdem a autorização em 7 dias; reconecte se a sincronização falhar por credencial.</p>
+    {% endif %}
+  {% else %}
+    <p><span class="tag neutral">Modo pasta local</span></p>
+    <p class="small">Lendo <code>{{ settings.local_folder }}</code>. Use apenas para desenvolvimento e testes; a demonstração usa o Drive.</p>
+  {% endif %}
+  <h2>IA</h2>
+  {% if llm_enabled %}
+    <p><span class="tag done">ativa</span> modelo <code>{{ settings.gemini_model }}</code></p>
+  {% else %}
+    <p><span class="tag neutral">desativada</span> Atas são indexadas, mas sem sugestões. Configure <code>GEMINI_API_KEY</code>.</p>
+  {% endif %}
+  <p class="small">Chamadas bem-sucedidas: {{ calls.n or 0 }} · tokens de entrada: {{ calls.i or 0 }} · saída: {{ calls.o or 0 }}</p>
+</aside>
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Entrar{% endblock %}
+{% block content %}
+<h1>Quem está usando?</h1>
+<p class="lead">Protótipo com pessoas de demonstração fictícias. Não há senha: a escolha define a visão pessoal e quem pode revisar sugestões.</p>
+<form method="post" action="/entrar" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+  {% for m in members %}
+  <button class="card" type="submit" name="member_id" value="{{ m.member_id }}" style="text-align:left; cursor:pointer; font: inherit;">
+    <h3>{{ m.display_name }}</h3>
+    <div class="muted small">{{ m.front }} · {{ m.role }}</div>
+    {% if m.can_review %}<span class="tag neutral">Pode revisar sugestões</span>{% endif %}
+  </button>
+  {% endfor %}
+</form>
+<p class="small muted">Primeira vez? Veja <a href="/comece-aqui">Comece aqui</a>.</p>
+{% endblock %}

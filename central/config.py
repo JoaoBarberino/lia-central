@@ -67,7 +67,7 @@ def get_settings() -> Settings:
         drive_folder_id=env("DRIVE_TEST_FOLDER_ID", ""),
         llm_provider=env("LLM_PROVIDER", "off"),
         gemini_api_key=env("GEMINI_API_KEY", ""),
-        gemini_model=env("GEMINI_MODEL", "gemini-2.5-flash"),
+        gemini_model=env("GEMINI_MODEL", "gemini-3.8-flash"),
         session_secret=env("SESSION_SECRET", "dev-inseguro-troque-no-env"),
         sync_interval=int(env("SYNC_INTERVAL_SECONDS", "180")),
         database_path=path(env("DATABASE_PATH", "./data/central.db")),

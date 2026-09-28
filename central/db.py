@@ -210,13 +210,13 @@ DEMO_MEMBERS = [
 
 
 def now_iso() -> str:
-    return datetime.now(TZ).isoformat(timespec="seconds")
+    return datetime.now(TZ).isoformat(timespec="milliseconds")
 
 
 def connect(path: Path | str) -> sqlite3.Connection:
     if str(path) != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
+    conn = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL") if str(path) != ":memory:" else None
     conn.execute("PRAGMA foreign_keys = ON")

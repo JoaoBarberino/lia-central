@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_tag, due_tag %}
+{% block title %}Comece aqui{% endblock %}
+{% block content %}
+<h1>Comece aqui</h1>
+<p class="lead">Guia de entrada montado a partir dos documentos da pasta, sem completar lacunas por conta própria.</p>
+
+{% if o.first_action %}
+<section class="card pending">
+  <h2 style="margin-top:0">Sua primeira ação{% if me %}, {{ me.display_name }}{% endif %}</h2>
+  <p><strong>{{ o.first_action.next_step or 'Próximo passo não definido' }}</strong></p>
+  <p>Na atividade <a href="/atividades/{{ o.first_action.activity_id }}">{{ o.first_action.activity_id }} · {{ o.first_action.title }}</a> {{ status_tag(o.first_action.status) }} {{ due_tag(o.first_action.due_date, o.first_action.status) }}</p>
+</section>
+{% elif me %}
+<div class="notice">Você ainda não tem atividades atribuídas. Fale com a pessoa líder da sua frente.</div>
+{% else %}
+<div class="notice"><a href="/entrar">Escolha quem você é</a> para ver sua primeira ação.</div>
+{% endif %}
+
+<h2>Propósito</h2>
+{% if o.purpose %}
+  {% for p in o.purpose %}<p>{{ p }}</p>{% endfor %}
+  <p class="small muted">Trecho de {% if o.estado.web_url %}<a href="{{ o.estado.web_url }}" target="_blank" rel="noopener">{{ o.estado.name }}</a>{% else %}{{ o.estado.name }}{% endif %}, reproduzido sem alterações.</p>
+{% else %}<p>Propósito não documentado na pasta.</p>{% endif %}
+
+{% if o.gaps %}
+<div class="notice warn" role="note">
+  <strong>Ainda a confirmar</strong>
+  <ul>{% for g in o.gaps %}<li>{{ g }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<h2>Frentes e pessoas</h2>
+{% if o.fronts %}<ul>{% for f in o.fronts %}<li>{{ f }}</li>{% endfor %}</ul>
+<p class="small muted">Fonte: {{ o.guia.name if o.guia else o.estado.name }}</p>
+{% else %}<p>Frentes não documentadas.</p>{% endif %}
+
+<h2>Onde estão suas tarefas</h2>
+<p>Suas atividades estão em <a href="/">Minhas atividades</a>. Elas foram importadas do registro oficial apontado pelo índice e, depois disso, só mudam por decisão aprovada nesta aplicação. Mudanças vindas de atas novas aparecem como <a href="/sugestoes">sugestões</a> até alguém revisar.</p>
+{% if o.steps %}<ol>{% for s in o.steps %}<li>{{ s }}</li>{% endfor %}</ol>{% endif %}
+
+<h2>Documentos de referência</h2>
+<ul>
+{% for r in o.references %}
+  <li>{% if r.web_url %}<a href="{{ r.web_url }}" target="_blank" rel="noopener">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %} — {{ ROLE_LABELS.get(r.role) }}{% if r.doc_status %} <span class="tag neutral">{{ r.doc_status }}</span>{% endif %}{% if r.sync_status == 'indisponivel' %} <span class="tag err">indisponível</span>{% endif %}</li>
+{% else %}<li>Nenhum documento de referência sincronizado ainda.</li>{% endfor %}
+</ul>
+{% if o.historic %}
+<h3>Histórico — não use como regra atual</h3>
+<ul>{% for h in o.historic %}<li>{{ h.name }}{% if h.meta.substituido_por %} — substituído por {{ h.meta.substituido_por }}{% endif %}</li>{% endfor %}</ul>
+{% endif %}
+{% endblock %}

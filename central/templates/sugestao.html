@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "_macros.html" import source_ref %}
+{% block title %}Sugestão #{{ s.suggestion_id }}{% endblock %}
+{% block content %}
+<p class="small"><a href="/sugestoes">← Sugestões</a></p>
+<h1>Sugestão #{{ s.suggestion_id }}: {{ 'alterar ' ~ s.target_activity_id if s.kind == 'update' else 'criar atividade' }}</h1>
+<p><span class="tag {{ 'pending' if s.review_status == 'pendente' else 'neutral' }}">{{ s.review_status.replace('_',' ') }}</span>
+{% if s.reviewer_id %}<span class="small muted"> · revisada por {{ names.get(s.reviewer_id) }} em {{ fmt_ts(s.reviewed_at) }}{% if s.review_note %}: “{{ s.review_note }}”{% endif %}</span>{% endif %}</p>
+
+{% if outdated_source and s.review_status == 'pendente' %}
+<div class="notice warn">A fonte mudou depois desta sugestão. Confira o documento antes de aceitar.</div>
+{% endif %}
+
+<h2>Evidência</h2>
+<blockquote class="evidence">{{ s.evidence }}</blockquote>
+<p class="small">Fonte: {{ source_ref(s.source) }}{% if s.doc_date %} · reunião de {{ fmt_date(s.doc_date) }}{% endif %} · versão <code>{{ s.source_version[:10] }}</code> · gerada por {{ s.model or 'regra da planilha' }} em {{ fmt_ts(s.created_at) }}</p>
+{% if s.reason %}<p><strong>Motivo:</strong> {{ s.reason }}</p>{% endif %}
+{% if s.uncertainties_list %}
+<div class="notice warn"><strong>Incertezas a revisar:</strong><ul>{% for u in s.uncertainties_list %}<li>{{ u }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+<h2>Mudança proposta</h2>
+<div class="table-scroll"><table>
+  <thead><tr><th>Campo</th>{% if current %}<th>Valor oficial hoje</th>{% endif %}<th>Proposto</th></tr></thead>
+  <tbody>{% for r in rows %}<tr><td>{{ r.label }}</td>{% if current %}<td>{{ r.official }}</td>{% endif %}<td><strong>{{ r.proposed }}</strong></td></tr>{% endfor %}</tbody>
+</table></div>
+
+{% if s.review_status == 'pendente' %}
+  {% if me and me.can_review %}
+  <h2>Revisar</h2>
+  <form method="post" action="/sugestoes/{{ s.suggestion_id }}/aceitar" class="stack">
+    <div><label for="note">Comentário (opcional)</label><input type="text" id="note" name="note"></div>
+    <label class="checks"><input type="checkbox" name="confirmar" value="1"> Confirmo aplicar mesmo se o valor oficial tiver mudado desde a sugestão</label>
+    <div><button class="btn" type="submit">Aceitar como está</button></div>
+  </form>
+
+  <details style="margin-top:1rem">
+    <summary><strong>Ajustar antes de aceitar</strong></summary>
+    <form method="post" action="/sugestoes/{{ s.suggestion_id }}/aceitar" class="stack" style="margin-top:.8rem">
+      <input type="hidden" name="ajustar" value="1">
+      {% for r in rows %}
+        {% if r.field == 'owners' %}
+        <fieldset class="checks"><legend>{{ r.label }}</legend>
+          {% for m in members %}<label><input type="checkbox" name="owners" value="{{ m.member_id }}" {% if m.member_id in r.raw %}checked{% endif %}> {{ m.display_name }}</label>{% endfor %}
+        </fieldset>
+        {% elif r.field == 'due_date' %}
+        <div><label for="adj-{{ r.field }}">{{ r.label }}</label><input type="date" id="adj-{{ r.field }}" name="due_date" value="{{ r.raw }}"></div>
+        {% elif r.field == 'status' %}
+        <div><label for="adj-status">{{ r.label }}</label><select id="adj-status" name="status">{% for st in STATUSES %}<option {% if r.raw == st %}selected{% endif %}>{{ st }}</option>{% endfor %}</select></div>
+        {% else %}
+        <div><label for="adj-{{ r.field }}">{{ r.label }}</label><input type="text" id="adj-{{ r.field }}" name="{{ r.field }}" value="{{ r.raw }}"></div>
+        {% endif %}
+      {% endfor %}
+      <div><label for="note2">Por que ajustou?</label><input type="text" id="note2" name="note"></div>
+      <label class="checks"><input type="checkbox" name="confirmar" value="1"> Confirmo aplicar mesmo se o valor oficial tiver mudado</label>
+      <div><button class="btn" type="submit">Aceitar com ajuste</button></div>
+    </form>
+  </details>
+
+  <form method="post" action="/sugestoes/{{ s.suggestion_id }}/rejeitar" class="stack" style="margin-top:1.2rem">
+    <div><label for="reason">Motivo da rejeição (obrigatório)</label><input type="text" id="reason" name="reason" required></div>
+    <div><button class="btn danger" type="submit">Rejeitar</button></div>
+  </form>
+  {% else %}
+  <div class="notice">Somente pessoas revisoras (Bruno, Carla) podem aceitar ou rejeitar. Troque a pessoa de demonstração no topo.</div>
+  {% endif %}
+{% elif s.target_activity_id %}
+  <p><a class="btn secondary" href="/atividades/{{ s.target_activity_id }}">Ver {{ s.target_activity_id }}</a></p>
+{% endif %}
+{% endblock %}

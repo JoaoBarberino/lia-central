@@ -150,9 +150,10 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
     reclassify_all(conn)
     registry.ensure_register_bound(conn)
     reclassify_all(conn)
-    roles = {r["file_id"]: r["role"] for r in conn.execute("SELECT file_id, role FROM sources")}
-    for file_id in sorted(set(changed), key=lambda i: PROCESS_ORDER.get(roles.get(i), 3)):
-        role = roles.get(file_id)
+    roles = {r["file_id"]: (r["role"], r["name"]) for r in conn.execute("SELECT file_id, role, name FROM sources")}
+    # Ordem determinística: papel (índice e registro primeiro), depois nome
+    for file_id in sorted(set(changed), key=lambda i: (PROCESS_ORDER.get(roles[i][0], 3), roles[i][1])):
+        role = roles[file_id][0]
         name = conn.execute("SELECT name, content_hash FROM sources WHERE file_id=?", (file_id,)).fetchone()
         try:
             if role == "registro_oficial":

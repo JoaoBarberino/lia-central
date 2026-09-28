@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import source_ref %}
+{% block title %}Sugestões{% endblock %}
+{% block content %}
+<h1>Sugestões da IA</h1>
+<p class="lead">Propostas extraídas de documentos novos ou editados. Nenhuma altera o registro oficial sem revisão de Bruno ou Carla.</p>
+<div class="actions">
+  {% for key, label in [('pendente','Pendentes'),('aceita','Aceitas'),('aceita_com_ajuste','Aceitas com ajuste'),('rejeitada','Rejeitadas'),('desatualizada','Desatualizadas'),('todas','Todas')] %}
+  <a class="btn small {{ '' if estado == key else 'secondary' }}" href="/sugestoes?estado={{ key }}" {% if estado == key %}aria-current="true"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</div>
+<div class="cards">
+{% for s in items %}
+  <article class="card {{ 'pending' if s.review_status == 'pendente' }}">
+    <header>
+      <h3><a href="/sugestoes/{{ s.suggestion_id }}">#{{ s.suggestion_id }} · {{ 'Alterar ' ~ s.target_activity_id if s.kind == 'update' else 'Criar atividade' ~ (' (' ~ s.target_activity_id ~ ')' if s.target_activity_id else '') }}</a></h3>
+      <span class="tag {{ 'pending' if s.review_status == 'pendente' else ('done' if s.review_status.startswith('aceita') else 'neutral') }}">{{ s.review_status.replace('_', ' ') }}</span>
+    </header>
+    <ul class="change">
+      {% for k, v in s.proposed.items() %}
+      <li>{{ FIELD_LABELS.get(k, k) }}: <ins>{{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}</ins></li>
+      {% endfor %}
+    </ul>
+    <blockquote class="evidence">{{ s.evidence }}</blockquote>
+    <div class="small">Fonte: {{ source_ref(s.source) }}{% if s.doc_date %} · reunião de {{ fmt_date(s.doc_date) }}{% endif %}</div>
+    {% if s.uncertainties_list %}<div class="small"><strong>Incertezas:</strong> {{ s.uncertainties_list | join(' · ') }}</div>{% endif %}
+  </article>
+{% else %}
+  <div class="notice">Nenhuma sugestão neste filtro.</div>
+{% endfor %}
+</div>
+
+{% if notes %}
+<h2>O que a IA leu e não virou sugestão</h2>
+<p class="small muted">Transparência: ideias sem decisão ficam fora do registro; propostas que falharam na validação (evidência inexistente, ID desconhecido, data inferida) são barradas.</p>
+<ul>
+{% for n in notes %}
+  <li><span class="tag neutral">{{ 'ideia sem decisão' if n.kind == 'hipotese' else 'barrada pela validação' }}</span>
+    {% if n.kind == 'hipotese' %}<q>{{ n.text }}</q>{% endif %} — {{ n.reason }} <span class="small">({{ source_ref(n.source) }})</span></li>
+{% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar ' ~ a.activity_id if a else 'Nova atividade' }}{% endblock %}
+{% block content %}
+<h1>{{ 'Editar ' ~ a.activity_id if a else 'Nova atividade' }}</h1>
+{% if errors %}<div class="flash erro" role="alert">Corrija {{ errors|length }} campo{{ 's' if errors|length > 1 }} destacado{{ 's' if errors|length > 1 }} abaixo.</div>{% endif %}
+<form method="post" class="stack" action="{{ '/atividades/' ~ a.activity_id ~ '/editar' if a else '/atividades/nova' }}" novalidate>
+  <div>
+    <label for="title">Título (obrigatório)</label>
+    <input type="text" id="title" name="title" value="{{ values.title or '' }}" required {% if errors.title %}aria-invalid="true" aria-describedby="title-err"{% endif %}>
+    {% if errors.title %}<p class="error" id="title-err">{{ errors.title }}</p>{% endif %}
+  </div>
+  <div>
+    <label for="description">Descrição breve</label>
+    <textarea id="description" name="description">{{ values.description or '' }}</textarea>
+  </div>
+  <div>
+    <label for="front">Frente</label>
+    <select id="front" name="front">
+      <option value="">—</option>
+      {% for f in ['Growth', 'Formação', 'Operações'] %}<option {% if values.front == f %}selected{% endif %}>{{ f }}</option>{% endfor %}
+    </select>
+  </div>
+  <fieldset class="checks">
+    <legend>Responsáveis</legend>
+    {% for m in members %}
+    <label><input type="checkbox" name="owners" value="{{ m.member_id }}" {% if m.member_id in (values.owners or []) %}checked{% endif %}> {{ m.display_name }}</label>
+    {% endfor %}
+    <p class="hint">Deixe em branco se ainda não houver responsável: a atividade aparece como "responsável a confirmar".</p>
+  </fieldset>
+  <div>
+    <label for="next_step">Próximo passo</label>
+    <input type="text" id="next_step" name="next_step" value="{{ values.next_step or '' }}">
+  </div>
+  <div>
+    <label for="status">Estado</label>
+    <select id="status" name="status" {% if errors.status %}aria-invalid="true" aria-describedby="status-err"{% endif %}>
+      {% for s in STATUSES %}<option {% if (values.status or 'A fazer') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+    </select>
+    {% if errors.status %}<p class="error" id="status-err">{{ errors.status }}</p>{% endif %}
+  </div>
+  <div>
+    <label for="due_date">Prazo (opcional)</label>
+    <input type="date" id="due_date" name="due_date" value="{{ values.due_date or '' }}" aria-describedby="due-hint{% if errors.due_date %} due-err{% endif %}" {% if errors.due_date %}aria-invalid="true"{% endif %}>
+    <p class="hint" id="due-hint">Sem prazo, a atividade aparece como "a definir".</p>
+    {% if errors.due_date %}<p class="error" id="due-err">{{ errors.due_date }}</p>{% endif %}
+  </div>
+  <div>
+    <label for="notes">Notas e bloqueios</label>
+    <textarea id="notes" name="notes">{{ values.notes or '' }}</textarea>
+  </div>
+  {% if a %}
+  <div>
+    <label for="reason">Motivo da alteração</label>
+    <input type="text" id="reason" name="reason" placeholder="Fica registrado no histórico">
+  </div>
+  {% endif %}
+  <div class="actions">
+    <button class="btn" type="submit">{{ 'Salvar alterações' if a else 'Criar atividade' }}</button>
+    <a class="btn secondary" href="{{ '/atividades/' ~ a.activity_id if a else '/' }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

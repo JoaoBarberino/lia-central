@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import source_ref %}
+{% block title %}Pendências{% endblock %}
+{% block content %}
+<h1>Pendências humanas</h1>
+<p class="lead">Situações que o sistema não resolve sozinho com segurança: conflitos de fonte, arquivos ilegíveis ou removidos. Nenhuma delas alterou atividades.</p>
+<div class="cards">
+{% for i in items %}
+  <article class="card blocked">
+    <header><h3>{{ i.title }}</h3><span class="tag neutral">{{ ISSUE_LABELS.get(i.kind, i.kind) }}</span></header>
+    <p>{{ i.detail }}</p>
+    {% if i.source %}<p class="small">Arquivo: {{ source_ref(i.source) }}</p>{% endif %}
+    <p class="small muted">Aberta em {{ fmt_ts(i.created_at) }}</p>
+    {% if me %}
+    <form method="post" action="/pendencias/{{ i.issue_id }}/resolver" class="stack">
+      <div><label for="res-{{ i.issue_id }}">Decisão tomada</label>
+        <input type="text" id="res-{{ i.issue_id }}" name="resolution" placeholder="Ex.: planilha é cópia antiga; manter o registro oficial" required></div>
+      <div><button class="btn small secondary" type="submit">Encerrar pendência</button></div>
+    </form>
+    {% endif %}
+  </article>
+{% else %}
+  <div class="notice">Nenhuma pendência aberta.</div>
+{% endfor %}
+</div>
+{% if closed %}
+<h2>Encerradas recentemente</h2>
+<ul class="small">{% for c in closed %}<li>{{ c.title }} — {{ c.resolution }} ({{ c.resolved_by }}, {{ fmt_ts(c.resolved_at) }})</li>{% endfor %}</ul>
+{% endif %}
+{% endblock %}

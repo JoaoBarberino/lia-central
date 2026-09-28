@@ -1,0 +1,36 @@
+{% macro status_tag(status) -%}
+  {% if status == 'Bloqueada' %}<span class="tag blocked">Bloqueada</span>
+  {% elif status == 'Concluída' %}<span class="tag done">Concluída</span>
+  {% else %}<span class="tag neutral">{{ status }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro due_tag(due_date, status) -%}
+  {% set d = due_info(due_date, status) %}
+  <span class="tag {{ {'overdue':'overdue','soon':'soon','done':'done'}.get(d.kind, 'neutral') }}">{{ d.label }}</span>
+{%- endmacro %}
+
+{% macro activity_card(a) -%}
+<article class="card {% if a.status == 'Bloqueada' %}blocked{% elif a.pending_suggestions %}pending{% endif %}">
+  <header>
+    <h3><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a> <span class="id">{{ a.activity_id }}</span></h3>
+    <span>{{ status_tag(a.status) }} {{ due_tag(a.due_date, a.status) }}
+      {% if a.pending_suggestions %}<a class="tag pending" href="/atividades/{{ a.activity_id }}#sugestoes">{{ a.pending_suggestions }} mudança{{ 's' if a.pending_suggestions > 1 }} pendente{{ 's' if a.pending_suggestions > 1 }}</a>{% endif %}
+    </span>
+  </header>
+  <dl class="meta">
+    <div><dt>Prazo</dt><dd>{{ fmt_date(a.due_date) }}</dd></div>
+    <div><dt>Responsáveis</dt><dd>{{ a.owner_names | join(', ') if a.owner_names else 'Responsável a confirmar' }}</dd></div>
+    <div><dt>Frente</dt><dd>{{ a.front or '—' }}</dd></div>
+    <div><dt>Próximo passo</dt><dd>{{ a.next_step or '—' }}</dd></div>
+    {% if a.status == 'Bloqueada' and a.notes %}<div><dt>Bloqueio</dt><dd>{{ a.notes }}</dd></div>{% endif %}
+  </dl>
+</article>
+{%- endmacro %}
+
+{% macro source_ref(src) -%}
+  {% if src %}
+    {% if src.url %}<a href="{{ src.url }}" target="_blank" rel="noopener">{{ src.name }}<span class="sr"> (abre o original)</span></a>{% else %}{{ src.name }}{% endif %}
+    {% if src.status == 'indisponivel' %}<span class="tag err">fonte indisponível</span>{% elif src.status == 'erro' %}<span class="tag soon">erro na última leitura</span>{% endif %}
+    {% if src.file_id %}<a class="small" href="/fontes/{{ src.file_id }}">(detalhes)</a>{% endif %}
+  {% else %}—{% endif %}
+{%- endmacro %}
