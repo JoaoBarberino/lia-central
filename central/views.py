@@ -120,7 +120,7 @@ def changes_for_member(conn: sqlite3.Connection, member_id: str, since_iso: str)
             attention.append({**a, "due": info})
 
     new_sources = [dict(r) for r in conn.execute(
-        "SELECT file_id, name, web_url, role, first_seen_at FROM sources WHERE first_seen_at > ? ORDER BY first_seen_at DESC",
+        "SELECT file_id, name, web_url, role, first_seen_at, sync_status FROM sources WHERE first_seen_at > ? ORDER BY first_seen_at DESC",
         (since_iso,))]
     new_ids = {r["file_id"] for r in conn.execute("SELECT file_id FROM sources WHERE first_seen_at > ?", (since_iso,))}
     edited_sources = [dict(r) for r in conn.execute(

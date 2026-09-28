@@ -46,7 +46,7 @@
 <h2>Novidades dos documentos</h2>
 {% if d.new_sources or d.edited_sources %}
 <ul>
-{% for s in d.new_sources %}<li><span class="tag neutral">novo</span> <a href="/fontes/{{ s.file_id }}">{{ s.name }}</a> <span class="muted small">({{ ROLE_LABELS.get(s.role, 'não classificado') }}, visto em {{ fmt_ts(s.first_seen_at) }})</span></li>{% endfor %}
+{% for s in d.new_sources %}<li>{% if s.sync_status == 'indisponivel' %}<span class="tag err">removido</span>{% else %}<span class="tag neutral">novo</span>{% endif %} <a href="/fontes/{{ s.file_id }}">{{ s.name }}</a> <span class="muted small">({{ ROLE_LABELS.get(s.role, 'não classificado') }}, visto em {{ fmt_ts(s.first_seen_at) }})</span></li>{% endfor %}
 {% for s in d.edited_sources %}<li><span class="tag neutral">editado</span> <a href="/fontes/{{ s.file_id }}">{{ s.name }}</a> — <a href="/fontes/{{ s.file_id }}">ver o que mudou</a> <span class="muted small">(nova versão lida em {{ fmt_ts(s.edited_at) }})</span></li>{% endfor %}
 </ul>
 {% else %}<p>Nenhum documento novo ou editado no período.</p>{% endif %}
