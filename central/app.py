@@ -474,6 +474,9 @@ def sincronizar(request: Request):
     if r.get("status") in ("ok", "parcial"):
         flash(request, f"Sincronização concluída: {r['files_seen']} arquivo(s) vistos, {r['processed']} processado(s), "
                        f"{r['ignored']} ignorado(s), {r['errors']} com erro.", "ok" if r["status"] == "ok" else "aviso")
+    elif r.get("status") == "ocupado":
+        flash(request, "Uma sincronização já está em andamento (a automática ou outra manual). "
+                       "Aguarde cerca de 1 minuto e recarregue a página para ver o resultado.", "aviso")
     else:
         flash(request, f"Sincronização não concluída: {r.get('message')}", "erro")
     return to(request.headers.get("referer") or "/sincronizacao")
