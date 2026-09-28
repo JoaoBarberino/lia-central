@@ -297,3 +297,10 @@ def test_resumo_pessoal_diferencia_ana_e_davi(conn, sync, folder):
     assert ana["confirmed"][0]["activity_id"] == "ACT-101"
     assert ana["confirmed"][0]["source"]["name"] == "Ata_2026-10-03"
     assert changes_for_member(conn, "U-D", marco)["confirmed"] == []
+
+
+def test_resumo_nao_lista_importacao_inicial_como_novidade(conn, sync):
+    from central.views import changes_for_member
+    sync()
+    d = changes_for_member(conn, "U-A", "2000-01-01T00:00:00-03:00")
+    assert d["confirmed"] == []
