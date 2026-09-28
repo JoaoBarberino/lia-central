@@ -48,7 +48,7 @@
       <form method="post" action="/atividades/{{ a.activity_id }}/estado" class="stack" style="margin-top:.6rem">
         <input type="hidden" name="status" value="Bloqueada">
         <div><label for="motivo">Motivo do bloqueio</label>
-        <input type="text" id="motivo" name="reason" placeholder="Ex.: aguardando confirmação da sala"></div>
+        <input type="text" id="motivo" name="reason" placeholder="Ex.: aguardando confirmação da sala…" autocomplete="off"></div>
         <div><button class="btn danger small" type="submit">Bloquear</button></div>
       </form>
     </details>

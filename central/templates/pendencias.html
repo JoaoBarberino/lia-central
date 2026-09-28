@@ -14,7 +14,7 @@
     {% if me %}
     <form method="post" action="/pendencias/{{ i.issue_id }}/resolver" class="stack">
       <div><label for="res-{{ i.issue_id }}">Decisão tomada</label>
-        <input type="text" id="res-{{ i.issue_id }}" name="resolution" placeholder="Ex.: planilha é cópia antiga; manter o registro oficial" required></div>
+        <input type="text" id="res-{{ i.issue_id }}" name="resolution" placeholder="Ex.: planilha é cópia antiga; manter o registro oficial…" autocomplete="off" required></div>
       <div><button class="btn small secondary" type="submit">Encerrar pendência</button></div>
     </form>
     {% endif %}

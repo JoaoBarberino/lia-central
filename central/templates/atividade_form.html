@@ -6,12 +6,12 @@
 <form method="post" class="stack" action="{{ '/atividades/' ~ a.activity_id ~ '/editar' if a else '/atividades/nova' }}" novalidate>
   <div>
     <label for="title">Título (obrigatório)</label>
-    <input type="text" id="title" name="title" value="{{ values.title or '' }}" required {% if errors.title %}aria-invalid="true" aria-describedby="title-err"{% endif %}>
+    <input type="text" autocomplete="off" id="title" name="title" value="{{ values.title or '' }}" required {% if errors.title %}aria-invalid="true" aria-describedby="title-err"{% endif %}>
     {% if errors.title %}<p class="error" id="title-err">{{ errors.title }}</p>{% endif %}
   </div>
   <div>
     <label for="description">Descrição breve</label>
-    <textarea id="description" name="description">{{ values.description or '' }}</textarea>
+    <textarea autocomplete="off" id="description" name="description">{{ values.description or '' }}</textarea>
   </div>
   <div>
     <label for="front">Frente</label>
@@ -25,11 +25,11 @@
     {% for m in members %}
     <label><input type="checkbox" name="owners" value="{{ m.member_id }}" {% if m.member_id in (values.owners or []) %}checked{% endif %}> {{ m.display_name }}</label>
     {% endfor %}
-    <p class="hint">Deixe em branco se ainda não houver responsável: a atividade aparece como "responsável a confirmar".</p>
+    <p class="hint">Deixe em branco se ainda não houver responsável: a atividade aparece como “responsável a confirmar”.</p>
   </fieldset>
   <div>
     <label for="next_step">Próximo passo</label>
-    <input type="text" id="next_step" name="next_step" value="{{ values.next_step or '' }}">
+    <input type="text" autocomplete="off" id="next_step" name="next_step" value="{{ values.next_step or '' }}">
   </div>
   <div>
     <label for="status">Estado</label>
@@ -41,21 +41,21 @@
   <div>
     <label for="due_date">Prazo (opcional)</label>
     <input type="date" id="due_date" name="due_date" value="{{ values.due_date or '' }}" aria-describedby="due-hint{% if errors.due_date %} due-err{% endif %}" {% if errors.due_date %}aria-invalid="true"{% endif %}>
-    <p class="hint" id="due-hint">Sem prazo, a atividade aparece como "a definir".</p>
+    <p class="hint" id="due-hint">Sem prazo, a atividade aparece como “a definir”.</p>
     {% if errors.due_date %}<p class="error" id="due-err">{{ errors.due_date }}</p>{% endif %}
   </div>
   <div>
     <label for="notes">Notas e bloqueios</label>
-    <textarea id="notes" name="notes">{{ values.notes or '' }}</textarea>
+    <textarea autocomplete="off" id="notes" name="notes">{{ values.notes or '' }}</textarea>
   </div>
   {% if a %}
   <div>
     <label for="reason">Motivo da alteração</label>
-    <input type="text" id="reason" name="reason" placeholder="Fica registrado no histórico">
+    <input type="text" id="reason" name="reason" placeholder="Ex.: prazo combinado na reunião de 06/10…" autocomplete="off">
   </div>
   {% endif %}
   <div class="actions">
-    <button class="btn" type="submit">{{ 'Salvar alterações' if a else 'Criar atividade' }}</button>
+    <button class="btn" type="submit" data-busy="Salvando…">{{ 'Salvar alterações' if a else 'Criar atividade' }}</button>
     <a class="btn secondary" href="{{ '/atividades/' ~ a.activity_id if a else '/' }}">Cancelar</a>
   </div>
 </form>

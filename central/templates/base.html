@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1433BD">
   <title>{% block title %}Central da Liga{% endblock %} | Central da Liga</title>
   <link rel="preload" href="/static/fonts/sora-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
@@ -24,7 +25,7 @@
       {%- else -%}<a href="/sincronizacao">Ainda não sincronizado</a>{%- endif -%}
       {%- if not llm_enabled %}<span class="wide">. IA desativada.</span>{% endif -%}
       </span>
-      <form method="post" action="/sincronizar"><button class="linkish" type="submit">Sincronizar agora</button></form>
+      <form method="post" action="/sincronizar"><button class="linkish" type="submit" data-busy="Sincronizando…">Sincronizar agora</button></form>
     </div>
     <form class="who" method="post" action="/entrar">
       <label class="sr" for="member-switch">Pessoa de demonstração</label>
@@ -50,6 +51,13 @@
   </div>
 </header>
 <script>
+  /* Evita envio duplo: o botão mostra que o pedido foi feito ("Sincronizando…", "Salvando…") */
+  document.addEventListener('submit', function (ev) {
+    var b = ev.submitter || ev.target.querySelector('button[type=submit], button:not([type])');
+    if (!b || ev.defaultPrevented) return;
+    setTimeout(function () { b.disabled = true; b.setAttribute('aria-busy', 'true');
+      if (b.dataset.busy) b.textContent = b.dataset.busy; }, 0);
+  });
   /* No celular o menu rola para o lado: deixa o item da página atual à vista */
   (function () { var a = document.querySelector('nav.main a[aria-current="page"]');
     if (a && a.parentNode.scrollWidth > a.parentNode.clientWidth) a.parentNode.scrollLeft = a.offsetLeft - 16; })();

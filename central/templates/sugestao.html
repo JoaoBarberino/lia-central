@@ -61,9 +61,9 @@
     </div>
     {% endif %}
     <form method="post" action="/sugestoes/{{ s.suggestion_id }}/aceitar" class="stack">
-      <div><label for="note">Comentário (opcional)</label><input type="text" id="note" name="note"></div>
+      <div><label for="note">Comentário (opcional)</label><input type="text" autocomplete="off" id="note" name="note"></div>
       {% if changed_since %}<label class="checks small"><input type="checkbox" name="confirmar" value="1" required> Aplicar mesmo assim, por cima do valor atual</label>{% endif %}
-      <button class="btn" type="submit">Aceitar como está</button>
+      <button class="btn" type="submit" data-busy="Aceitando…">Aceitar como está</button>
     </form>
 
     <details class="panel-more">
@@ -80,12 +80,12 @@
           {% elif r.field == 'status' %}
           <div><label for="adj-status">{{ r.label }}</label><select id="adj-status" name="status">{% for st in STATUSES %}<option {% if r.raw == st %}selected{% endif %}>{{ st }}</option>{% endfor %}</select></div>
           {% else %}
-          <div><label for="adj-{{ r.field }}">{{ r.label }}</label><input type="text" id="adj-{{ r.field }}" name="{{ r.field }}" value="{{ r.raw }}"></div>
+          <div><label for="adj-{{ r.field }}">{{ r.label }}</label><input type="text" autocomplete="off" id="adj-{{ r.field }}" name="{{ r.field }}" value="{{ r.raw }}"></div>
           {% endif %}
         {% endfor %}
-        <div><label for="note2">Por que ajustou?</label><input type="text" id="note2" name="note"></div>
+        <div><label for="note2">Por que ajustou?</label><input type="text" autocomplete="off" id="note2" name="note"></div>
         {% if changed_since %}<label class="checks small"><input type="checkbox" name="confirmar" value="1" required> Aplicar mesmo assim, por cima do valor atual</label>{% endif %}
-        <button class="btn" type="submit">Aceitar com ajuste</button>
+        <button class="btn" type="submit" data-busy="Aceitando…">Aceitar com ajuste</button>
       </form>
     </details>
 
@@ -93,8 +93,8 @@
       <summary>Rejeitar</summary>
       <form method="post" action="/sugestoes/{{ s.suggestion_id }}/rejeitar" class="stack">
         <p class="small muted" style="margin:0">Nada muda no registro oficial. O motivo fica guardado no histórico da sugestão.</p>
-        <div><label for="reason">Motivo da rejeição</label><input type="text" id="reason" name="reason" required></div>
-        <button class="btn danger" type="submit">Rejeitar sugestão</button>
+        <div><label for="reason">Motivo da rejeição</label><input type="text" autocomplete="off" id="reason" name="reason" required></div>
+        <button class="btn danger" type="submit" data-busy="Rejeitando…">Rejeitar sugestão</button>
       </form>
     </details>
     {% else %}

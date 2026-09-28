@@ -34,6 +34,13 @@ html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; font-family: var(--text); color: var(--navy); background: #fff; line-height: 1.55;
   -webkit-font-smoothing: antialiased; accent-color: var(--blue); caret-color: var(--blue); }
 ::selection { background: var(--ice); color: var(--navy); }
+a, button, summary, select, label, input { touch-action: manipulation; -webkit-tap-highlight-color: rgba(25, 220, 227, .25); }
+[id] { scroll-margin-top: 1rem; }
+button:disabled, .btn[aria-busy="true"] { cursor: progress; opacity: .7; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
+  .btn:active { transform: none; }
+}
 a { color: var(--blue); text-underline-offset: 3px; text-decoration-thickness: 1px; }
 a:hover { color: var(--blue-deep); text-decoration-thickness: 2px; }
 :focus-visible { outline: 3px solid var(--navy); outline-offset: 2px; box-shadow: 0 0 0 6px var(--cyan); }
@@ -60,7 +67,7 @@ header.top :focus-visible { outline-color: #fff; }
 .sync a { color: var(--on-blue-2); text-decoration: none; }
 .sync a:hover { color: #fff; text-decoration: underline; }
 .who { display: flex; gap: .4rem; align-items: center; flex: none; min-width: 0; }
-.who select { font: inherit; font-size: .9rem; color: #fff; background: transparent; border: 1px solid rgba(255,255,255,.55);
+.who select { font: inherit; font-size: .9rem; color: #fff; background-color: var(--blue); border: 1px solid rgba(255,255,255,.55);
   border-radius: 8px; padding: .35rem .5rem; max-width: 15rem; }
 .who select option { color: var(--navy); background: #fff; }
 .who select:hover { border-color: #fff; }

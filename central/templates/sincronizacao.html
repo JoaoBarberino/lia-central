@@ -5,7 +5,7 @@
 <p class="lead">A pasta é verificada sozinha a cada <strong>{{ sync_minutes }} min</strong> (o case pede até 15). Se falhar, tenta de novo com espera crescente, até 10 min. O botão serve para demonstração.</p>
 <div class="grid2">
 <section>
-  <form method="post" action="/sincronizar"><button class="btn" type="submit">Sincronizar agora</button></form>
+  <form method="post" action="/sincronizar"><button class="btn" type="submit" data-busy="Sincronizando…">Sincronizar agora</button></form>
 
   <h2>Últimas rodadas</h2>
   <table class="stack">
@@ -29,7 +29,7 @@
     {% if connected %}
       <p><span class="tag done">Google Drive conectado</span></p>
       <p class="small">Escopo: somente leitura. A aplicação só lista a pasta configurada e suas subpastas.</p>
-      <form method="post" action="/auth/desconectar"><button class="btn small danger" type="submit">Desconectar e revogar acesso</button></form>
+      <form method="post" action="/auth/desconectar" onsubmit="return confirm('Desconectar o Google Drive e revogar o acesso? A sincronização para até você conectar de novo.')"><button class="btn small danger" type="submit">Desconectar e revogar acesso</button></form>
     {% else %}
       <p><span class="tag err">Drive não conectado</span></p>
       <p><a class="btn" href="/auth/login">Conectar Google Drive</a></p>
