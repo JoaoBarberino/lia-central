@@ -308,12 +308,13 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
         for d in dup:
             if normalize(d["title"]) == normalize(proposed["title"]):
                 return None, f"já existe atividade com o mesmo título ({d['activity_id']})"
-        if "owners" not in proposed:
+        mentioned = normalize(" ".join(uncertainties))
+        if "owners" not in proposed and "responsavel" not in mentioned:
             uncertainties.append("Responsável não definido no documento: responsável a confirmar.")
-        if "due_date" not in proposed:
+        if "due_date" not in proposed and "prazo" not in mentioned:
             uncertainties.append("Prazo não definido no documento: a definir.")
         clean["target_activity_id"] = None
-    clean["proposed"] = proposed
+    clean["proposed"] = {k: proposed[k] for k in PROPOSABLE_FIELDS if k in proposed}
     return clean, None
 
 
