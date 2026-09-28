@@ -73,3 +73,22 @@ def test_criar_atividade_valida_campos(client):
     r = client.post("/atividades/nova", data={"title": "Nova tarefa", "status": "A fazer", "owners": ["U-D"]},
                     follow_redirects=True)
     assert "Nova tarefa" in r.text and "ACT-105" in r.text
+
+
+def test_painel_de_decisao(client):
+    """Confirmação só aparece se o oficial mudou; depois de decidir, a página oferece a próxima sugestão."""
+    import re
+    login(client, "U-B")
+    lista = client.get("/sugestoes").text
+    sid = re.search(r'href="/sugestoes/(\d+)">Alterar ACT-101', lista).group(1)
+    pagina = client.get(f"/sugestoes/{sid}").text
+    assert 'name="confirmar"' not in pagina
+    assert "Ao aceitar, o registro oficial de <strong>ACT-101</strong>" in pagina
+    # alguém muda o prazo oficial à mão depois da sugestão
+    client.post("/atividades/ACT-101/editar", data={"title": "Preparar carrossel sobre ferramentas", "status": "Em andamento",
+                                                     "due_date": "2026-10-20", "owners": ["U-A"], "reason": "teste"})
+    pagina = client.get(f"/sugestoes/{sid}").text
+    assert 'name="confirmar"' in pagina and "O valor oficial mudou depois desta sugestão" in pagina
+    r = client.post(f"/sugestoes/{sid}/aceitar", data={"confirmar": "1"}, follow_redirects=True)
+    assert "Sugestão aceita" in r.text
+    assert "Próxima sugestão" in r.text or "Não há mais sugestões pendentes" in r.text

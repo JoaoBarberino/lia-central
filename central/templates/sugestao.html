@@ -22,7 +22,7 @@
   <h2>O que muda</h2>
   <table class="cmp">
     <caption class="sr">Valores oficiais hoje e valores propostos</caption>
-    <thead><tr><th scope="col">Campo</th><th scope="col">Oficial hoje</th><th scope="col">Proposto</th></tr></thead>
+    <thead><tr><th scope="col">Campo</th><th scope="col">{{ 'Oficial hoje' if s.review_status == 'pendente' else 'Antes' }}</th><th scope="col">Proposto</th></tr></thead>
     <tbody>
     {% for r in rows %}
     <tr>
@@ -45,18 +45,30 @@
 </section>
 
 <aside class="panel review-panel" id="decisao" tabindex="-1">
+  {% set who = s.target_activity_id if s.kind == 'update' else 'a atividade nova' %}
   {% if s.review_status == 'pendente' %}
     {% if me and me.can_review %}
     <h2>Sua decisão</h2>
+    <p class="consequence">
+      {% if s.kind == 'update' %}Ao aceitar, o registro oficial de <strong>{{ s.target_activity_id }}</strong> passa a ter
+        {% for r in rows %}{{ r.label|lower }} <strong>{{ r.proposed }}</strong>{{ ', ' if loop.revindex > 2 else (' e ' if loop.revindex == 2 else '.') }}{% endfor %}
+      {% else %}Ao aceitar, <strong>“{{ s.proposed.get('title') or 'a atividade nova' }}”</strong> entra no registro oficial com um ID novo.{% endif %}
+    </p>
+    {% if changed_since %}
+    <div class="notice warn changed" role="note">
+      <strong>O valor oficial mudou depois desta sugestão.</strong>
+      <ul>{% for c in changed_since %}<li>{{ c.label }}: era {{ c.then }}, agora é {{ c.now }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
     <form method="post" action="/sugestoes/{{ s.suggestion_id }}/aceitar" class="stack">
       <div><label for="note">Comentário (opcional)</label><input type="text" id="note" name="note"></div>
-      <label class="checks small"><input type="checkbox" name="confirmar" value="1"> Aplicar mesmo se o valor oficial mudou desde a sugestão</label>
+      {% if changed_since %}<label class="checks small"><input type="checkbox" name="confirmar" value="1" required> Aplicar mesmo assim, por cima do valor atual</label>{% endif %}
       <button class="btn" type="submit">Aceitar como está</button>
     </form>
 
-    <details style="margin-top:1rem">
+    <details class="panel-more">
       <summary>Ajustar antes de aceitar</summary>
-      <form method="post" action="/sugestoes/{{ s.suggestion_id }}/aceitar" class="stack" style="margin-top:.8rem">
+      <form method="post" action="/sugestoes/{{ s.suggestion_id }}/aceitar" class="stack">
         <input type="hidden" name="ajustar" value="1">
         {% for r in rows %}
           {% if r.field == 'owners' %}
@@ -72,24 +84,36 @@
           {% endif %}
         {% endfor %}
         <div><label for="note2">Por que ajustou?</label><input type="text" id="note2" name="note"></div>
-        <label class="checks small"><input type="checkbox" name="confirmar" value="1"> Aplicar mesmo se o valor oficial mudou</label>
+        {% if changed_since %}<label class="checks small"><input type="checkbox" name="confirmar" value="1" required> Aplicar mesmo assim, por cima do valor atual</label>{% endif %}
         <button class="btn" type="submit">Aceitar com ajuste</button>
       </form>
     </details>
 
-    <hr class="divider">
-    <form method="post" action="/sugestoes/{{ s.suggestion_id }}/rejeitar" class="stack">
-      <div><label for="reason">Motivo da rejeição (obrigatório)</label><input type="text" id="reason" name="reason" required></div>
-      <button class="btn danger" type="submit">Rejeitar</button>
-    </form>
+    <details class="panel-more">
+      <summary>Rejeitar</summary>
+      <form method="post" action="/sugestoes/{{ s.suggestion_id }}/rejeitar" class="stack">
+        <p class="small muted" style="margin:0">Nada muda no registro oficial. O motivo fica guardado no histórico da sugestão.</p>
+        <div><label for="reason">Motivo da rejeição</label><input type="text" id="reason" name="reason" required></div>
+        <button class="btn danger" type="submit">Rejeitar sugestão</button>
+      </form>
+    </details>
     {% else %}
     <h2>Revisão</h2>
     <p class="small">Só {{ members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') }} podem aceitar ou rejeitar. Para testar, troque a pessoa no topo da página.</p>
     {% endif %}
   {% else %}
-    <h2>Revisão concluída</h2>
-    <p class="small">Esta sugestão já foi revisada; reabrir a página não repete a decisão.</p>
-    {% if s.target_activity_id %}<a class="btn secondary" href="/atividades/{{ s.target_activity_id }}">Ver {{ s.target_activity_id }}</a>{% endif %}
+    <h2>{% if s.review_status.startswith('aceita') %}Sugestão aceita{% elif s.review_status == 'rejeitada' %}Sugestão rejeitada{% else %}Sugestão {{ s.review_status }}{% endif %}</h2>
+    <p class="small">
+      {% if s.reviewer_id %}Decisão de {{ names.get(s.reviewer_id) }} em {{ fmt_ts(s.reviewed_at) }}{% if s.review_note %}: “{{ s.review_note }}”{% endif %}.{% endif %}
+      {% if s.review_status.startswith('aceita') %}O registro oficial já mostra a mudança.{% elif s.review_status == 'rejeitada' %}O registro oficial não mudou.{% endif %}
+      Reabrir esta página não repete a decisão.
+    </p>
+    <div class="stack-actions">
+      {% if next_pending %}<a class="btn" href="/sugestoes/{{ next_pending }}">Próxima sugestão ({{ n_left }} {{ 'pendente' if n_left == 1 else 'pendentes' }})</a>
+      {% else %}<p class="small muted" style="margin:0">Não há mais sugestões pendentes.</p>{% endif %}
+      {% if s.target_activity_id %}<a class="btn secondary" href="/atividades/{{ s.target_activity_id }}">Ver {{ s.target_activity_id }} no registro</a>{% endif %}
+      <a class="btn secondary" href="/sugestoes">Voltar para a lista</a>
+    </div>
   {% endif %}
 </aside>
 </div>

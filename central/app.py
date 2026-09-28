@@ -355,12 +355,32 @@ def sugestao(request: Request, sid: int, conn=Depends(db)):
     rows = []
     for k, v in s["proposed"].items():
         rows.append({"field": k, "label": acts.FIELD_LABELS.get(k, k),
-                     "official": views.describe_value(k, current.get(k), names) if current else "—",
+                     # depois da decisão, a comparação mostra o valor de antes da sugestão (o oficial já é o novo)
+                     "official": views.describe_value(k, (s["current"] or {}).get(k) if s["review_status"] != "pendente"
+                                                     else current.get(k), names) if current else "—",
                      "proposed": views.describe_value(k, v, names), "raw": v})
     ver = conn.execute("SELECT content_hash FROM sources WHERE file_id=?", (s["source_file_id"],)).fetchone()
     outdated_source = bool(ver and ver["content_hash"] != s["source_version"])
+    # Campos cujo valor oficial mudou depois que a sugestão foi criada: só então o revisor precisa confirmar.
+    changed_since = []
+    if s["kind"] == "update" and current and s["review_status"] == "pendente":
+        for k, then in (s["current"] or {}).items():
+            if current.get(k) != then:
+                changed_since.append({"label": acts.FIELD_LABELS.get(k, k),
+                                      "then": views.describe_value(k, then, names),
+                                      "now": views.describe_value(k, current.get(k), names)})
+    next_pending = _next_pending(conn, sid)
     return render(request, conn, "sugestao.html", s=s, rows=rows, current=current, names=names,
-                  outdated_source=outdated_source)
+                  outdated_source=outdated_source, changed_since=changed_since, next_pending=next_pending,
+                  n_left=len([x for x in sugg.list_suggestions(conn) if x["suggestion_id"] != sid]))
+
+
+def _next_pending(conn, sid: int) -> int | None:
+    """Próxima sugestão pendente na mesma ordem da lista, sem contar a atual."""
+    for x in sugg.list_suggestions(conn):
+        if x["suggestion_id"] != sid:
+            return x["suggestion_id"]
+    return None
 
 
 @app.post("/sugestoes/{sid}/aceitar")
@@ -384,8 +404,8 @@ async def aceitar(request: Request, sid: int, conn=Depends(db)):
     except sugg.ReviewError as e:
         flash(request, str(e), "erro")
         return to(f"/sugestoes/{sid}")
-    flash(request, f"Sugestão aceita. {target} atualizada no registro oficial.")
-    return to(f"/atividades/{target}")
+    flash(request, f"Sugestão aceita. {target} foi atualizada no registro oficial.")
+    return to(f"/sugestoes/{sid}#decisao")
 
 
 @app.post("/sugestoes/{sid}/rejeitar")
@@ -396,7 +416,7 @@ def rejeitar(request: Request, sid: int, reason: str = Form(""), conn=Depends(db
         flash(request, str(e), "erro")
         return to(f"/sugestoes/{sid}")
     flash(request, "Sugestão rejeitada. O registro oficial não mudou.")
-    return to("/sugestoes")
+    return to(f"/sugestoes/{sid}#decisao")
 
 
 # ---------------------------------------------------------------------------
