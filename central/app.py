@@ -89,6 +89,15 @@ def make_llm():
     return None
 
 
+def make_qa_llm():
+    """IA das perguntas: modelos rápidos primeiro e sem espera entre tentativas (quem pergunta está esperando)."""
+    if settings.llm_enabled:
+        from .ai import GeminiLLM
+        models = [m.strip() for m in settings.gemini_qa_models.split(",") if m.strip()] or [settings.gemini_model]
+        return GeminiLLM(settings.gemini_api_key, models[0], ",".join(models[1:]), timeout=20.0, attempts=1)
+    return None
+
+
 def do_sync(trigger: str) -> dict:
     if not _sync_lock.acquire(blocking=False):
         return {"status": "ocupado", "message": "Já existe uma sincronização em andamento."}
@@ -458,7 +467,7 @@ def novidades(request: Request, desde: str = "visita", conn=Depends(db)):
 # ---------------------------------------------------------------------------
 @app.get("/comece-aqui", response_class=HTMLResponse)
 def comece(request: Request, pergunta: str = "", conn=Depends(db)):
-    resposta = ask.ask(conn, make_llm(), pergunta) if pergunta.strip() else None
+    resposta = ask.ask(conn, make_qa_llm(), pergunta) if pergunta.strip() else None
     return render(request, conn, "comece.html", o=views.onboarding(conn, require_member(request)),
                   pergunta=pergunta.strip()[:ask.MAX_QUESTION], resposta=resposta)
 

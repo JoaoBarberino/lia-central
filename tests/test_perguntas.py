@@ -1,8 +1,17 @@
 """Pergunte à Central: resposta só com trecho conferido; plano B sem IA."""
 import re
 
+import pytest
+
 from central import ask
 from central.ai import FakeLLM, LLMError
+
+
+@pytest.fixture(autouse=True)
+def _memoria_limpa():
+    ask._cache.clear()
+    yield
+    ask._cache.clear()
 
 
 def _doc_id(user, name):
@@ -63,3 +72,30 @@ def test_plano_b_sem_ia(conn, sync):
 
 def test_pergunta_vazia(conn):
     assert ask.ask(conn, None, "  ")["status"] == "empty"
+
+
+def test_mesma_pergunta_responde_da_memoria_ate_os_dados_mudarem(conn, sync):
+    sync()
+    ask._cache.clear()
+
+    def responde(system, user):
+        return {"found": True, "answer": "Bruno.",
+                "citations": [{"doc": _doc_id(user, "GUIA_INICIAL.md"),
+                               "quote": "Bruno é líder da frente e aprova posts antes de publicação."}]}
+
+    llm = FakeLLM(responde)
+    assert ask.ask(conn, llm, "Quem aprova os posts de Growth?")["status"] == "ok"
+    again = ask.ask(conn, llm, "quem aprova os posts de growth")      # mesma pergunta, outra escrita
+    assert again.get("cached") and len(llm.calls) == 1
+    conn.execute("UPDATE activities SET next_step='Outro passo' WHERE activity_id='ACT-101'")  # dado mudou
+    ask.ask(conn, llm, "Quem aprova os posts de Growth?")
+    assert len(llm.calls) == 2
+
+
+def test_perguntas_usam_modelos_rapidos_sem_espera(monkeypatch):
+    import central.app as appmod
+    monkeypatch.setattr(appmod.settings, "llm_provider", "gemini")
+    monkeypatch.setattr(appmod.settings, "gemini_api_key", "teste")
+    llm = appmod.make_qa_llm()
+    assert llm.models[0] == "gemini-3.1-flash-lite" and llm.attempts == 1
+    assert appmod.make_llm().attempts == 3  # leitura das atas continua com novas tentativas

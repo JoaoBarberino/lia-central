@@ -9,10 +9,14 @@ Se a IA estiver desligada ou fora do ar, cai numa busca simples por palavras (se
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import secrets
 import sqlite3
+import threading
+import time
+from collections import OrderedDict
 
 from . import activities as acts
 from .ai import LLMError, _flat, evidence_in_text
@@ -22,6 +26,35 @@ from .extractors import normalize
 
 DOC_ROLES = ("estado_atual", "guia", "indice", "ata", "historico")
 MAX_QUESTION = 300
+CACHE_TTL = 3600       # segundos; a chave inclui o conteúdo dos documentos, então dado novo nunca usa resposta velha
+CACHE_SIZE = 200
+_cache: OrderedDict[str, tuple[float, dict]] = OrderedDict()
+_cache_lock = threading.Lock()
+
+
+def _cache_key(question: str, docs: list[dict]) -> str:
+    h = hashlib.sha256(" ".join(re.findall(r"\w+", normalize(question))).encode())
+    for d in docs:
+        h.update(b"\x00" + (d["name"] + "\x00" + d["text"]).encode())
+    return h.hexdigest()
+
+
+def _cache_get(key: str) -> dict | None:
+    with _cache_lock:
+        hit = _cache.get(key)
+        if not hit or time.time() - hit[0] > CACHE_TTL:
+            _cache.pop(key, None)
+            return None
+        _cache.move_to_end(key)
+        return hit[1]
+
+
+def _cache_put(key: str, value: dict) -> None:
+    with _cache_lock:
+        _cache[key] = (time.time(), value)
+        _cache.move_to_end(key)
+        while len(_cache) > CACHE_SIZE:
+            _cache.popitem(last=False)
 
 SYSTEM_PROMPT = """Você responde perguntas de membros de uma organização estudantil usando SOMENTE os \
 documentos fornecidos. Responda em português, em no máximo 3 frases curtas.
@@ -158,6 +191,17 @@ def ask(conn: sqlite3.Connection, llm, question: str) -> dict:
     if llm is None:
         return {"status": "fallback", "question": question, "reason": "A IA está desligada nesta instalação.",
                 "hits": keyword_search(question, docs)}
+    key = _cache_key(question, docs)
+    cached = _cache_get(key)
+    if cached:
+        return dict(cached, cached=True)
+    result = _ask_model(conn, llm, question, docs, by_id)
+    if result["status"] in ("ok", "not_found"):  # plano B não fica guardado: na próxima vez tenta a IA de novo
+        _cache_put(key, result)
+    return result
+
+
+def _ask_model(conn, llm, question: str, docs: list[dict], by_id: dict) -> dict:
     try:
         result, usage = llm.complete_json(SYSTEM_PROMPT, build_prompt(question, docs))
         _log(conn, llm, usage, True)

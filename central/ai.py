@@ -55,13 +55,16 @@ class GeminiLLM:
     URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     TEMPORARY = (429, 500, 502, 503, 504)
 
-    def __init__(self, api_key: str, model: str, fallback_model: str | None = None, timeout: float = 45.0):
+    def __init__(self, api_key: str, model: str, fallback_model: str | None = None, timeout: float = 45.0,
+                 attempts: int = 3):
         self.api_key = api_key
         # GEMINI_FALLBACK_MODEL aceita uma lista separada por vírgulas, tentada em ordem
         fallbacks = [m.strip() for m in (fallback_model or "").split(",") if m.strip()]
         self.models = [model] + [m for m in fallbacks if m != model]
         self.model = model
         self.timeout = timeout
+        # tentativas por modelo; 1 = "falhar rápido" (sem espera, passa direto ao próximo modelo)
+        self.attempts = max(1, attempts)
 
     def complete_json(self, system: str, user: str) -> tuple[dict, dict]:
         errors = []
@@ -88,7 +91,7 @@ class GeminiLLM:
         }
         delay = 2.0
         last_err, temporary = None, True
-        for attempt in range(3):
+        for attempt in range(self.attempts):
             try:
                 r = httpx.post(self.URL.format(model=model), json=body, timeout=self.timeout,
                                headers={"x-goog-api-key": self.api_key})
@@ -112,7 +115,7 @@ class GeminiLLM:
                 if r.status_code not in self.TEMPORARY:
                     temporary = False
                     break
-            if attempt < 2:
+            if attempt < self.attempts - 1:
                 time.sleep(delay)
                 delay *= 2
         err = LLMError(last_err or "erro desconhecido")

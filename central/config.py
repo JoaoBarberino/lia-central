@@ -43,6 +43,7 @@ class Settings:
     gemini_api_key: str
     gemini_model: str
     gemini_fallback_model: str
+    gemini_qa_models: str
     session_secret: str
     sync_interval: int
     database_path: Path
@@ -76,6 +77,8 @@ def get_settings() -> Settings:
         gemini_api_key=env("GEMINI_API_KEY", ""),
         gemini_model=env("GEMINI_MODEL", "gemini-3.6-flash"),
         gemini_fallback_model=env("GEMINI_FALLBACK_MODEL", "gemini-3.1-flash-lite,gemini-3.5-flash-lite,gemini-flash-latest"),
+        # Perguntas do "Comece aqui": modelos rápidos primeiro (sem raciocínio interno), tentados em ordem
+        gemini_qa_models=env("GEMINI_QA_MODELS", "gemini-3.1-flash-lite,gemini-3.5-flash-lite,gemini-3.6-flash"),
         session_secret=env("SESSION_SECRET", "dev-inseguro-troque-no-env"),
         sync_interval=int(env("SYNC_INTERVAL_SECONDS", "180")),
         database_path=path(env("DATABASE_PATH", "./data/central.db")),
