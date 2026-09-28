@@ -449,6 +449,8 @@ def reanalisar(request: Request, file_id: str, conn=Depends(db)):
         return to("/entrar")
     conn.execute("UPDATE sources SET last_processed_hash=NULL, status_message=? WHERE file_id=? AND role='ata'",
                  (f"Nova análise solicitada por {me}; será feita na próxima sincronização.", file_id))
+    from .db import set_setting
+    set_setting(conn, f"ia_backoff:{file_id}", None)
     # Relê o cabeçalho do texto já guardado (o leitor de cabeçalho pode ter melhorado)
     from .extractors import parse_text_document
     from .db import dumps

@@ -230,6 +230,16 @@ def date_in_text(iso: str, text: str) -> bool:
     return any(v in text for v in variants)
 
 
+INJECTION_MARKERS = ["ignore as regras", "ignore todas as regras", "ignore as instrucoes", "instrucao para a ia",
+                     "instrucao para o sistema", "aprove automaticamente", "aprovar automaticamente",
+                     "sem revisao humana", "ignore previous", "system prompt"]
+
+
+def looks_like_injection(evidence: str) -> bool:
+    ev = normalize(evidence)
+    return any(m in ev for m in INJECTION_MARKERS)
+
+
 def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict | None, str | None]:
     """Devolve (item_limpo, None) ou (None, motivo_da_rejeição)."""
     if not isinstance(item, dict):
@@ -240,6 +250,8 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
     evidence = (item.get("evidence") or "").strip()
     if not evidence_in_text(evidence, text):
         return None, f"evidência não encontrada literalmente no documento: {evidence[:120]!r}"
+    if kind != "no_action" and looks_like_injection(evidence):
+        return None, "a evidência é uma instrução dirigida ao sistema (possível injeção de prompt), não uma decisão"
     uncertainties = [str(u) for u in (item.get("uncertainties") or []) if u]
     clean = {"kind": kind, "evidence": evidence, "reason": (item.get("reason") or "").strip(),
              "uncertainties": uncertainties}

@@ -21,7 +21,7 @@ import sqlite3
 from . import registry
 from . import suggestions as sugg
 from .authority import classify
-from .db import dumps, now_iso
+from .db import dumps, get_setting, now_iso, set_setting
 from .extractors import Extracted, ExtractionError, Unsupported, extract
 from .issues import open_issue, resolve_issue
 from .sources import Source, SourceError, sha256
@@ -39,6 +39,23 @@ def _extracted_from_row(v) -> Extracted | None:
         return Extracted(kind="table", sheets=json.loads(v["extracted_json"])["sheets"])
     from .extractors import parse_text_document
     return parse_text_document(v["extracted_text"] or "")
+
+
+def _ai_backoff_until(conn, file_id: str) -> str | None:
+    raw = get_setting(conn, f"ia_backoff:{file_id}")
+    return json.loads(raw)["until"] if raw else None
+
+
+def _register_ai_failure(conn, file_id: str) -> None:
+    """Espera crescente entre tentativas automáticas: 3, 6, 12, 24, até 30 min."""
+    from datetime import datetime, timedelta
+
+    from .config import TZ
+    raw = get_setting(conn, f"ia_backoff:{file_id}")
+    fails = (json.loads(raw)["fails"] if raw else 0) + 1
+    minutes = min(3 * 2 ** (fails - 1), 30)
+    until = (datetime.now(TZ) + timedelta(minutes=minutes)).isoformat(timespec="milliseconds")
+    set_setting(conn, f"ia_backoff:{file_id}", json.dumps({"fails": fails, "until": until}))
 
 
 def reclassify_all(conn: sqlite3.Connection) -> None:
@@ -173,14 +190,24 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
                                  ("Indexada. IA desativada: sem sugestões por enquanto.", file_id))
                     continue  # não marca como processada: será analisada quando a IA estiver ativa
                 from .ai import analyze_minutes
+                wait_until = _ai_backoff_until(conn, file_id)
+                if wait_until and trigger == "auto" and now_iso() < wait_until:
+                    # A IA falhou há pouco para este arquivo: espaça as tentativas automáticas
+                    # (o botão "Sincronizar agora" ignora essa espera).
+                    conn.execute("UPDATE sources SET status_message=? WHERE file_id=?",
+                                 (f"IA indisponível na última tentativa. Nova tentativa automática após "
+                                  f"{wait_until[11:16]}, ou use 'Sincronizar agora'.", file_id))
+                    continue
                 conn.execute("UPDATE sync_runs SET message=? WHERE run_id=?",
                              (f"Analisando {name['name']} com a IA…", run_id))
                 msg = analyze_minutes(conn, llm, file_id)
+                set_setting(conn, f"ia_backoff:{file_id}", None)
             else:
                 msg = "indexado"
         except Exception as e:  # falha isolada não derruba a rodada
             from .ai import LLMError
             if isinstance(e, LLMError):
+                _register_ai_failure(conn, file_id)
                 log.warning("IA indisponível para %s: %s", name["name"], e)
                 msg = (f"Documento lido, mas a IA não respondeu ({e}). "
                        "Nenhuma sugestão foi criada; nova tentativa na próxima sincronização.")
