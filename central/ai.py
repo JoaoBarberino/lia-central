@@ -342,11 +342,12 @@ def analyze_minutes(conn: sqlite3.Connection, llm: LLM, file_id: str) -> str:
     items = result.get("items") if isinstance(result, dict) else None
     if not isinstance(items, list):
         raise LLMError("Resposta do modelo fora do contrato (sem lista 'items').")
-    created = hypotheses = rejected = 0
+    created = hypotheses = rejected = unchanged = 0
     doc_date = meta.get("data_da_reuniao")
     for item in items:
         clean, problem = validate_item(conn, item, text)
         if problem == "sem_mudanca":
+            unchanged += 1
             _note(conn, file_id, version, "sem_mudanca", (item or {}).get("evidence"),
                   "Proposta igual ao valor oficial atual; nada a sugerir.")
             continue
@@ -365,4 +366,5 @@ def analyze_minutes(conn: sqlite3.Connection, llm: LLM, file_id: str) -> str:
             doc_date=doc_date, uncertainties=clean["uncertainties"], model=llm.model)
         if sid:
             created += 1
-    return f"{created} sugestão(ões), {hypotheses} ideia(s) sem decisão, {rejected} proposta(s) barrada(s) pela validação"
+    return (f"{created} sugestão(ões), {unchanged} já no registro, {hypotheses} ideia(s) sem decisão, "
+            f"{rejected} proposta(s) barrada(s) pela validação")

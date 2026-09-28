@@ -53,18 +53,17 @@ def normalize(s: str) -> str:
 # Texto (Markdown e Google Docs exportado como text/plain)
 # ---------------------------------------------------------------------------
 def parse_text_document(text: str) -> Extracted:
-    text = text.replace("﻿", "").replace("\r\n", "\n")
+    # Google Docs exportado pode trazer quebras "moles" (\x0b, \u2028) e espaço não separável
+    text = (text.replace("\ufeff", "").replace("\r\n", "\n").replace("\r", "\n")
+            .replace("\x0b", "\n").replace("\u2028", "\n").replace("\u2029", "\n").replace("\xa0", " "))
     lines = text.split("\n")
     title = None
     meta: dict[str, str] = {}
     # Cabeçalho: título na primeira linha não vazia; depois linhas "chave: valor"
-    # até o primeiro parágrafo comum.
-    started_meta = False
-    for line in lines[:15]:
+    # (linhas em branco entre elas são toleradas) até o primeiro parágrafo comum.
+    for line in lines[:20]:
         stripped = line.strip()
         if not stripped:
-            if started_meta:
-                break
             continue
         if title is None:
             title = stripped.lstrip("#").strip()
@@ -72,7 +71,6 @@ def parse_text_document(text: str) -> Extracted:
         m = META_LINE.match(stripped)
         if m:
             meta[m.group(1)] = m.group(2).strip().strip("`")
-            started_meta = True
         else:
             break
     return Extracted(kind="text", title=title, text=text, meta=meta)
