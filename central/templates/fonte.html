@@ -7,7 +7,7 @@
   {% if s.sync_status == 'indisponivel' %}<span class="tag err">indisponível: o conteúdo abaixo pode estar desatualizado</span>
   {% elif s.sync_status == 'erro' %}<span class="tag err">erro na última leitura: mostrando a última versão boa</span>
   {% elif s.sync_status == 'nao_suportado' %}<span class="tag neutral">formato não processado</span>{% endif %}
-  {% if s.web_url %}. <a href="{{ s.web_url }}" target="_blank" rel="noopener">abrir original</a>{% endif %}</p>
+  {% if s.web_url %}. <a href="{{ s.web_url }}" target="_blank" rel="noopener">abrir original<span class="sr"> (abre em nova aba)</span></a>{% endif %}</p>
 {% if s.status_message %}<div class="notice">{{ s.status_message }}</div>{% endif %}
 {% if s.role == 'ata' and s.sync_status == 'ok' %}
 <form method="post" action="/fontes/{{ s.file_id }}/reanalisar" class="actions">
@@ -38,9 +38,9 @@
 {% if table %}
   {% for sh in table.sheets %}
   <h3>Aba “{{ sh.name }}”, {{ sh.rows|length }} {{ 'linha preenchida' if sh.rows|length == 1 else 'linhas preenchidas' }}</h3>
-  <div class="table-scroll"><table>
+  <div class="table-scroll sheet" tabindex="0" role="region" aria-label="Aba {{ sh.name }}"><table>
     <thead><tr><th>Linha</th>{% for h in sh.headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
-    <tbody>{% for r in sh.rows %}<tr><td>{{ r.row }}</td>{% for h in sh.headers %}<td>{{ r.cells.get(h) if r.cells.get(h) is not none else '' }}</td>{% endfor %}</tr>{% else %}<tr><td colspan="{{ sh.headers|length + 1 }}">Sem linhas preenchidas.</td></tr>{% endfor %}</tbody>
+    <tbody>{% for r in sh.rows %}<tr><td class="nw">{{ r.row }}</td>{% for h in sh.headers %}{% set v = r.cells.get(h) %}{% set v = v if v is not none else '' %}<td{% if ' ' not in (v|string) and (v|string)|length <= 30 %} class="nw"{% endif %}>{{ v }}</td>{% endfor %}</tr>{% else %}<tr><td colspan="{{ sh.headers|length + 1 }}">Sem linhas preenchidas.</td></tr>{% endfor %}</tbody>
   </table></div>
   {% endfor %}
 {% else %}

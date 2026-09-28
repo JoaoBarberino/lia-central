@@ -29,7 +29,7 @@
 <article class="act">
   {{ date_block(a.due_date, a.status) }}
   <div>
-    <h3><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a></h3>
+    <h2 class="item-title"><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a></h2>
     <p class="meta">{{ a.front or 'Sem frente' }}, <span class="id">{{ a.activity_id }}</span>.{% if a.due_date and d.kind == 'ok' %} {{ d.label }}.{% endif %}</p>
     {% if a.status == 'Bloqueada' and a.notes %}<p class="next blocker">Bloqueio: {{ a.notes }}</p>{% endif %}
     <p class="next">Próximo passo: {{ (a.next_step or 'não definido').rstrip('.') }}.</p>

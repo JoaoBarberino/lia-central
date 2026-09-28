@@ -16,7 +16,7 @@
 {% for s in items %}
   <article class="row">
     <div class="row-head">
-      <h3><a href="/sugestoes/{{ s.suggestion_id }}">{{ 'Alterar ' ~ s.target_activity_id if s.kind == 'update' else 'Nova atividade' ~ (' ' ~ s.target_activity_id if s.target_activity_id else '') }}</a> <span class="id">#{{ s.suggestion_id }}</span></h3>
+      <h2 class="item-title"><a href="/sugestoes/{{ s.suggestion_id }}">{{ 'Alterar ' ~ s.target_activity_id if s.kind == 'update' else 'Nova atividade' ~ (' ' ~ s.target_activity_id if s.target_activity_id else '') }}</a> <span class="id">#{{ s.suggestion_id }}</span></h2>
       {% if s.review_status == 'pendente' %}<span class="tag pending">Pendente, ainda não oficial</span>
       {% elif s.review_status.startswith('aceita') %}<span class="tag done">{{ s.review_status.replace('_', ' ')|capitalize }}</span>
       {% else %}<span class="tag neutral">{{ s.review_status|capitalize }}</span>{% endif %}
@@ -41,13 +41,13 @@
 <h2>O que a IA leu e não virou sugestão</h2>
 <p class="lead">Ideias sem decisão ficam fora do registro. Propostas que falham na validação (trecho que não existe no documento, atividade desconhecida, data deduzida, instrução escondida no texto) são barradas.</p>
 <table class="stack">
-  <thead><tr><th>Tipo</th><th>Trecho ou motivo</th><th class="hide-sm">Fonte</th></tr></thead>
+  <thead><tr><th>Tipo</th><th>Trecho ou motivo</th><th>Fonte</th></tr></thead>
   <tbody>
   {% for n in notes %}
   <tr>
     <td><span class="tag {{ 'neutral' if n.kind == 'hipotese' else 'err' }}">{{ 'Ideia sem decisão' if n.kind == 'hipotese' else 'Barrada' }}</span></td>
     <td>{% if n.kind == 'hipotese' %}<q>{{ n.text }}</q><div class="small muted">{{ n.reason }}</div>{% else %}{{ n.reason }}{% endif %}</td>
-    <td class="hide-sm small">{{ source_ref(n.source) }}</td>
+    <td class="secondary small" data-label="Fonte">{{ source_ref(n.source) }}</td>
   </tr>
   {% endfor %}
   </tbody>

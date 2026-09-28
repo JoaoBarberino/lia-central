@@ -13,7 +13,7 @@
 </div>
 <table class="stack">
   <caption class="sr">Atividades</caption>
-  <thead><tr><th>Atividade</th><th>Responsáveis</th><th>Prazo</th><th>Estado</th><th class="hide-sm">Próximo passo</th></tr></thead>
+  <thead><tr><th>Atividade</th><th>Responsáveis</th><th>Prazo</th><th>Estado</th><th>Próximo passo</th></tr></thead>
   <tbody>
   {% for a in items %}
   {% set d = due_info(a.due_date, a.status) %}
@@ -24,7 +24,7 @@
     <td data-label="Responsáveis">{{ people(a.owners, NAMES) }}</td>
     <td class="num" data-label="Prazo">{% if a.due_date %}{{ fmt_date(a.due_date) }}{% if d.kind in ('soon', 'overdue') %} <span class="tag {{ d.kind }}">({{ d.label|lower }})</span>{% endif %}{% else %}<span class="muted">a definir</span>{% endif %}</td>
     <td data-label="Estado">{{ status_tag(a.status) }}</td>
-    <td class="hide-sm">{{ a.next_step or '—' }}</td>
+    <td class="secondary" data-label="Próximo passo">{{ a.next_step or '—' }}</td>
   </tr>
   {% else %}
   <tr><td colspan="5">Nenhuma atividade no registro.</td></tr>

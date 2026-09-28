@@ -9,15 +9,15 @@
 
   <h2>Últimas rodadas</h2>
   <table class="stack">
-    <thead><tr><th>Início</th><th>Origem</th><th>Resultado</th><th>Arquivos</th><th class="hide-sm">Detalhes</th></tr></thead>
+    <thead><tr><th>Início</th><th>Origem</th><th>Resultado</th><th>Arquivos</th><th>Detalhes</th></tr></thead>
     <tbody>
     {% for r in runs %}
     <tr>
-      <td>{{ fmt_ts(r.started_at) }}</td>
+      <td class="nw">{{ fmt_ts(r.started_at) }}</td>
       <td data-label="Origem">{{ {'auto':'automática','manual':'manual','inicio':'ao iniciar'}.get(r.trigger, r.trigger) }}</td>
       <td data-label="Resultado">{% if r.status == 'ok' %}<span class="tag done">ok</span>{% elif r.status == 'parcial' %}<span class="tag soon">parcial</span>{% elif r.status == 'rodando' %}<span class="tag neutral">rodando</span>{% else %}<span class="tag err">falhou</span>{% endif %}</td>
       <td class="small" data-label="Arquivos">{{ r.files_seen }} vistos, {{ r.processed }} processados{% if r.ignored %}, {{ r.ignored }} ignorados{% endif %}{% if r.errors %}, <span class="tag err">{{ r.errors }} com erro</span>{% endif %}</td>
-      <td class="hide-sm small" style="white-space: pre-line">{{ r.message or '' }}</td>
+      <td class="secondary small" data-label="Detalhes" style="white-space: pre-line">{{ r.message or '—' }}</td>
     </tr>
     {% else %}<tr><td colspan="5">Nenhuma rodada ainda.</td></tr>{% endfor %}
     </tbody>

@@ -13,16 +13,16 @@
 <header class="top">
   <div class="wrap bar">
     <a class="brand" href="/" aria-label="Central da Liga, página inicial">Central da Liga</a>
-    <div class="sync" role="status">
+    <div class="sync">
       <span>
       {%- if last_run -%}
         {%- set when = fmt_when(last_run.finished_at or last_run.started_at) -%}
-        {%- if last_run.status == 'ok' -%}<a href="/sincronizacao">Drive sincronizado às <b class="num">{{ when }}</b></a>
+        {%- if last_run.status == 'ok' -%}<a href="/sincronizacao"><span class="wide">Drive s</span><span class="narrow">S</span>incronizado às <b class="num">{{ when }}</b></a>
         {%- elif last_run.status == 'parcial' -%}<a href="/sincronizacao">Sincronizado às <b class="num">{{ when }}</b>, com erro em arquivos</a>
         {%- elif last_run.status == 'rodando' -%}<a href="/sincronizacao"><b>Sincronizando agora</b></a>
         {%- else -%}<a href="/sincronizacao"><b>Sincronização falhou</b> às {{ when }}</a>{% if last_ok %}; dados de {{ fmt_when(last_ok.finished_at) }}{% endif %}{%- endif -%}
       {%- else -%}<a href="/sincronizacao">Ainda não sincronizado</a>{%- endif -%}
-      {%- if not llm_enabled %}. IA desativada.{% endif -%}
+      {%- if not llm_enabled %}<span class="wide">. IA desativada.</span>{% endif -%}
       </span>
       <form method="post" action="/sincronizar"><button class="linkish" type="submit">Sincronizar agora</button></form>
     </div>
@@ -31,7 +31,7 @@
       <select id="member-switch" name="member_id" onchange="this.form.submit()">
         {% if not me %}<option value="">Quem é você?</option>{% endif %}
         {% for m in members %}
-        <option value="{{ m.member_id }}" {% if me and me.member_id == m.member_id %}selected{% endif %}>{{ m.display_name }}, {{ m.front }}{% if m.can_review %} (revisa){% endif %}</option>
+        <option value="{{ m.member_id }}" {% if me and me.member_id == m.member_id %}selected{% endif %}>{{ m.display_name }}{% if m.can_review %} (revisa){% endif %}, {{ m.front }}</option>
         {% endfor %}
       </select>
       <noscript><button type="submit">Trocar</button></noscript>
@@ -49,6 +49,11 @@
     </nav>
   </div>
 </header>
+<script>
+  /* No celular o menu rola para o lado: deixa o item da página atual à vista */
+  (function () { var a = document.querySelector('nav.main a[aria-current="page"]');
+    if (a && a.parentNode.scrollWidth > a.parentNode.clientWidth) a.parentNode.scrollLeft = a.offsetLeft - 16; })();
+</script>
 <main id="conteudo" class="wrap">
   {% for f in flashes %}<div class="flash {{ f.kind }}" role="alert">{{ f.message }}</div>{% endfor %}
   {% block content %}{% endblock %}

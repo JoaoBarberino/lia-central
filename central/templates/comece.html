@@ -21,7 +21,7 @@
 {% if o.purpose %}
   <div class="prose">
   {% for p in o.purpose %}<p>{{ p }}</p>{% endfor %}
-  <p class="small muted">Trecho de {% if o.estado.web_url %}<a href="{{ o.estado.web_url }}" target="_blank" rel="noopener">{{ o.estado.name }}</a>{% else %}{{ o.estado.name }}{% endif %}, reproduzido sem alterações.</p>
+  <p class="small muted">Trecho de {% if o.estado.web_url %}<a href="{{ o.estado.web_url }}" target="_blank" rel="noopener">{{ o.estado.name }}<span class="sr"> (abre em nova aba)</span></a>{% else %}{{ o.estado.name }}{% endif %}, reproduzido sem alterações.</p>
   </div>
 {% else %}<p>Propósito não documentado na pasta.</p>{% endif %}
 
@@ -50,20 +50,20 @@
 
 <h2>Documentos de referência</h2>
 <table class="stack">
-  <thead><tr><th>Documento</th><th>Papel</th><th class="hide-sm">Situação</th></tr></thead>
+  <thead><tr><th>Documento</th><th>Papel</th><th>Situação</th></tr></thead>
   <tbody>
   {% for r in o.references %}
   <tr>
-    <td>{% if r.web_url %}<a href="{{ r.web_url }}" target="_blank" rel="noopener">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
+    <td>{% if r.web_url %}<a href="{{ r.web_url }}" target="_blank" rel="noopener">{{ r.name }}<span class="sr"> (abre em nova aba)</span></a>{% else %}{{ r.name }}{% endif %}</td>
     <td data-label="Papel">{{ ROLE_LABELS.get(r.role) }}</td>
-    <td class="hide-sm">{% if r.sync_status == 'indisponivel' %}<span class="tag err">indisponível</span>{% elif r.doc_status %}<span class="tag neutral">{{ r.doc_status }}</span>{% else %}—{% endif %}</td>
+    <td class="secondary" data-label="Situação">{% if r.sync_status == 'indisponivel' %}<span class="tag err">indisponível</span>{% elif r.doc_status %}<span class="tag neutral">{{ r.doc_status }}</span>{% else %}—{% endif %}</td>
   </tr>
   {% else %}<tr><td colspan="3">Nenhum documento de referência sincronizado ainda.</td></tr>{% endfor %}
   {% for h in o.historic %}
   <tr>
     <td>{{ h.name }}</td>
     <td data-label="Papel">Histórico, não use como regra atual</td>
-    <td class="hide-sm">{% if h.meta.substituido_por %}substituído por {{ h.meta.substituido_por }}{% else %}<span class="tag neutral">histórico</span>{% endif %}</td>
+    <td class="secondary" data-label="Situação">{% if h.meta.substituido_por %}substituído por {{ h.meta.substituido_por }}{% else %}<span class="tag neutral">histórico</span>{% endif %}</td>
   </tr>
   {% endfor %}
   </tbody>

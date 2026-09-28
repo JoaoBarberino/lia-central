@@ -7,7 +7,7 @@
 <div class="rows">
 {% for i in items %}
   <article class="row">
-    <div class="row-head"><h3>{{ i.title }}</h3><span class="tag soon">{{ ISSUE_LABELS.get(i.kind, i.kind) }}</span></div>
+    <div class="row-head"><h2 class="item-title">{{ i.title }}</h2><span class="tag soon">{{ ISSUE_LABELS.get(i.kind, i.kind) }}</span></div>
     <p>{{ i.detail }}</p>
     {% if i.source %}<p class="small">Arquivo: {{ source_ref(i.source) }}</p>{% endif %}
     <p class="small muted">Aberta em {{ fmt_ts(i.created_at) }}</p>

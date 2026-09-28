@@ -5,20 +5,20 @@
 <p class="lead">Os arquivos da pasta monitorada. Cada um é reconhecido pelo ID do Drive: renomear não cria outra fonte, e um arquivo removido fica marcado como indisponível.</p>
 {% if official %}<p class="small">Registro oficial: <strong>{{ (rows | selectattr('file_id', 'equalto', official) | first).name if rows | selectattr('file_id', 'equalto', official) | list else official }}</strong> — {{ bound_reason }} (vínculo pelo ID do arquivo).</p>{% endif %}
 <table class="stack">
-  <thead><tr><th>Arquivo</th><th>Papel</th><th>Leitura</th><th class="hide-sm">Modificado</th><th class="hide-sm">Processamento</th></tr></thead>
+  <thead><tr><th>Arquivo</th><th>Papel</th><th>Leitura</th><th>Modificado</th><th>Processamento</th></tr></thead>
   <tbody>
   {% for r in rows %}
   <tr>
     <td><a href="/fontes/{{ r.file_id }}">{{ r.name }}</a>{% if r.path and r.path != '/' %}<div class="small muted">{{ r.path }}</div>{% endif %}
-      {% if r.web_url %}<div class="small"><a href="{{ r.web_url }}" target="_blank" rel="noopener">abrir original</a></div>{% endif %}</td>
+      {% if r.web_url %}<div class="small"><a href="{{ r.web_url }}" target="_blank" rel="noopener">abrir original<span class="sr"> (abre em nova aba)</span></a></div>{% endif %}</td>
     <td data-label="Papel">{{ ROLE_LABELS.get(r.role, '—') }}{% if r.doc_status %} <span class="tag {{ 'soon' if r.doc_status in ('deprecated', 'obsoleto', 'substituido') else 'neutral' }}">({{ {'deprecated':'obsoleto','ativo':'ativo','rascunho':'rascunho'}.get(r.doc_status, r.doc_status) }})</span>{% endif %}</td>
     <td data-label="Leitura">{% if r.sync_status == 'ok' %}<span class="tag done">lido</span>
         {% elif r.sync_status == 'nao_suportado' %}<span class="tag neutral">não processado</span>
         {% elif r.sync_status == 'indisponivel' %}<span class="tag err">indisponível</span>
         {% elif r.sync_status == 'erro' %}<span class="tag err">erro</span>
         {% else %}<span class="tag neutral">{{ r.sync_status }}</span>{% endif %}</td>
-    <td class="hide-sm">{{ fmt_ts(r.modified_at) }}</td>
-    <td class="hide-sm small">{{ r.status_message or '—' }}</td>
+    <td class="secondary nw" data-label="Modificado">{{ fmt_ts(r.modified_at) }}</td>
+    <td class="secondary small" data-label="Processamento">{{ r.status_message or '—' }}</td>
   </tr>
   {% else %}<tr><td colspan="5">Nenhum arquivo sincronizado ainda.</td></tr>{% endfor %}
   </tbody>

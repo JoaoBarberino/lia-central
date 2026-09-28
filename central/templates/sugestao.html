@@ -16,12 +16,13 @@
 <div class="notice warn">A fonte mudou depois desta sugestão. Confira o documento antes de aceitar.</div>
 {% endif %}
 
+{% if s.review_status == 'pendente' and me and me.can_review %}<a class="btn secondary jump" href="#decisao">Ir para a decisão</a>{% endif %}
 <div class="grid2">
 <section>
   <h2>O que muda</h2>
   <table class="cmp">
     <caption class="sr">Valores oficiais hoje e valores propostos</caption>
-    <thead><tr><th scope="col">Campo</th><th scope="col">{{ 'Oficial hoje' if current else '' }}</th><th scope="col">Proposto</th></tr></thead>
+    <thead><tr><th scope="col">Campo</th><th scope="col">Oficial hoje</th><th scope="col">Proposto</th></tr></thead>
     <tbody>
     {% for r in rows %}
     <tr>
@@ -43,7 +44,7 @@
   {% endif %}
 </section>
 
-<aside class="panel review-panel">
+<aside class="panel review-panel" id="decisao" tabindex="-1">
   {% if s.review_status == 'pendente' %}
     {% if me and me.can_review %}
     <h2>Sua decisão</h2>
