@@ -9,7 +9,7 @@
 <section class="first-action" aria-labelledby="primeira">
   <h2 id="primeira" style="margin:0">Sua primeira ação{% if me %}, {{ me.display_name }}{% endif %}</h2>
   <p class="big">{{ o.first_action.next_step or 'Próximo passo não definido' }}</p>
-  <p style="margin:0">Faz parte de <a href="/atividades/{{ o.first_action.activity_id }}">{{ o.first_action.title }}</a> (<span class="id">{{ o.first_action.activity_id }}</span>). {{ status_tag(o.first_action.status) }}, {{ due_tag(o.first_action.due_date, o.first_action.status)|lower }}.</p>
+  <p style="margin:0">Faz parte de <a href="/atividades/{{ o.first_action.activity_id }}">{{ o.first_action.title }}</a> (<span class="id">{{ o.first_action.activity_id }}</span>). {{ status_tag(o.first_action.status) }} {{ due_tag(o.first_action.due_date, o.first_action.status) }}</p>
 </section>
 {% elif me %}
 <div class="empty"><strong>Você ainda não tem atividades atribuídas.</strong>Fale com a pessoa líder da sua frente.</div>
