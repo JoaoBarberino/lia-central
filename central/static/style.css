@@ -50,7 +50,6 @@ header.top :focus-visible { outline-color: #fff; }
 .brand { display: flex; align-items: center; gap: .65rem; color: #fff; text-decoration: none; font-family: var(--display);
   font-weight: 700; font-size: 1.08rem; letter-spacing: -.01em; white-space: nowrap; }
 .brand:hover { color: #fff; }
-.brand img { width: 32px; height: 32px; border-radius: 50%; display: block; }
 .sync { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .9rem; font-size: .86rem; color: var(--on-blue-2); }
 .sync b { color: #fff; font-weight: 600; }
 .sync .bad b { color: #fff; }

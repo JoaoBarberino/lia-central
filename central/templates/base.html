@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Central da Liga{% endblock %} | Central da Liga</title>
-  <link rel="icon" href="/static/logo_liga.png">
   <link rel="preload" href="/static/fonts/sora-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -13,7 +12,7 @@
 {% set path = request.url.path %}
 <header class="top">
   <div class="wrap bar">
-    <a class="brand" href="/" aria-label="Central da Liga, página inicial"><img src="/static/logo_liga.png" alt="" width="32" height="32">Central da Liga</a>
+    <a class="brand" href="/" aria-label="Central da Liga, página inicial">Central da Liga</a>
     <div class="sync" role="status">
       <span>
       {%- if last_run -%}
