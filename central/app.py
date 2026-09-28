@@ -69,7 +69,7 @@ def make_source(conn):
 def make_llm():
     if settings.llm_enabled:
         from .ai import GeminiLLM
-        return GeminiLLM(settings.gemini_api_key, settings.gemini_model)
+        return GeminiLLM(settings.gemini_api_key, settings.gemini_model, settings.gemini_fallback_model)
     return None
 
 

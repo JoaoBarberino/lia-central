@@ -174,8 +174,16 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
             else:
                 msg = "indexado"
         except Exception as e:  # falha isolada não derruba a rodada
-            log.exception("Falha ao processar %s", file_id)
-            conn.execute("UPDATE sources SET status_message=? WHERE file_id=?", (f"Falha ao processar: {e}", file_id))
+            from .ai import LLMError
+            if isinstance(e, LLMError):
+                log.warning("IA indisponível para %s: %s", name["name"], e)
+                msg = (f"Documento lido, mas a IA não respondeu ({e}). "
+                       "Nenhuma sugestão foi criada; nova tentativa na próxima sincronização.")
+            else:
+                log.exception("Falha ao processar %s", file_id)
+                msg = f"Falha ao processar: {e}"
+            conn.execute("UPDATE sources SET status_message=? WHERE file_id=?", (msg, file_id))
+            messages.append(f"{name['name']}: {msg}")
             stats["errors"] += 1
             continue
         conn.execute("UPDATE sources SET last_processed_hash=content_hash, last_processed_at=?, status_message=? "

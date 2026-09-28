@@ -35,6 +35,7 @@
 **Problemas encontrados**
 - Um teste falhou de forma intermitente: duas atas processadas na mesma rodada saíam em ordem diferente a cada execução. Corrigi ordenando por papel e depois por nome, para o processamento ser determinístico.
 - Ao rodar no Windows, o app nem iniciou: `ZoneInfoNotFoundError: America/Sao_Paulo`. O Windows não traz a base de fusos horários que o Python usa (no Linux ela vem do sistema, por isso os testes passavam no ambiente de desenvolvimento). Resolvi adicionando o pacote `tzdata` ao `requirements.txt`. Lição: testar a instalação do zero em outro sistema operacional, como a banca vai fazer.
+- Primeiro teste real com o Drive: conexão OK, 4 atividades importadas e visão da Ana correta. Mas a ata de 01/10 não foi analisada: o Gemini (`gemini-3.8-flash`) respondeu **HTTP 503, "high demand"** nas 3 tentativas. O sistema se comportou como planejado (o documento foi lido, nenhuma sugestão foi inventada e a análise fica pendente para a próxima rodada), mas a mensagem na tela era o JSON cru do erro. Mudanças: (1) um **modelo reserva** (`gemini-3.5-flash-lite`) usado só quando o principal está sobrecarregado ou sem cota; erro de configuração, como chave inválida, não troca de modelo; (2) uma mensagem legível: "Documento lido, mas a IA não respondeu... nova tentativa na próxima sincronização".
 - Os timestamps em segundos faziam um evento "empatar" com o marco do resumo pessoal. Passei a usar milissegundos.
 
 ## Ter 29/09 — _(a preencher)_

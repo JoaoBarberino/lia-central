@@ -45,14 +45,38 @@ class LLM(Protocol):
 # Provedores
 # ---------------------------------------------------------------------------
 class GeminiLLM:
-    URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    """Cliente REST da API do Gemini.
 
-    def __init__(self, api_key: str, model: str, timeout: float = 60.0):
+    Tenta o modelo principal com atraso progressivo em erros temporários (429/5xx).
+    Se ele continuar indisponível, tenta o modelo reserva (GEMINI_FALLBACK_MODEL).
+    O atributo `model` registra qual modelo realmente respondeu.
+    """
+
+    URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    TEMPORARY = (429, 500, 502, 503, 504)
+
+    def __init__(self, api_key: str, model: str, fallback_model: str | None = None, timeout: float = 60.0):
         self.api_key = api_key
+        self.models = [m for m in (model, fallback_model) if m]
         self.model = model
         self.timeout = timeout
 
     def complete_json(self, system: str, user: str) -> tuple[dict, dict]:
+        errors = []
+        for model in self.models:
+            try:
+                result = self._call(model, system, user)
+                self.model = model
+                return result
+            except LLMError as e:
+                errors.append(f"{model}: {e}")
+                if not getattr(e, "temporary", False):
+                    break  # erro de configuração/conteúdo: trocar de modelo não resolve
+        raise LLMError(" | ".join(errors))
+
+    def _call(self, model: str, system: str, user: str) -> tuple[dict, dict]:
+        import time
+
         import httpx
 
         body = {
@@ -61,34 +85,47 @@ class GeminiLLM:
             "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
         }
         delay = 2.0
-        last_err = None
+        last_err, temporary = None, True
         for attempt in range(3):
             try:
-                r = httpx.post(self.URL.format(model=self.model), json=body, timeout=self.timeout,
+                r = httpx.post(self.URL.format(model=model), json=body, timeout=self.timeout,
                                headers={"x-goog-api-key": self.api_key})
             except httpx.HTTPError as e:
-                last_err = f"falha de rede: {e}"
+                last_err = f"falha de rede ({type(e).__name__})"
             else:
                 if r.status_code == 200:
                     data = r.json()
                     try:
                         text = data["candidates"][0]["content"]["parts"][0]["text"]
                     except (KeyError, IndexError) as e:
-                        raise LLMError(f"Resposta sem conteúdo do modelo: {str(data)[:300]}") from e
+                        raise LLMError(f"resposta sem conteúdo ({str(data)[:200]})") from e
                     usage = data.get("usageMetadata", {})
                     try:
                         parsed = json.loads(text)
                     except json.JSONDecodeError as e:
-                        raise LLMError(f"O modelo não devolveu JSON válido: {text[:300]}") from e
+                        raise LLMError(f"o modelo não devolveu JSON válido: {text[:200]}") from e
                     return parsed, {"input_tokens": usage.get("promptTokenCount"),
                                     "output_tokens": usage.get("candidatesTokenCount"), "raw": text}
-                last_err = f"HTTP {r.status_code}: {r.text[:300]}"
-                if r.status_code not in (429, 500, 502, 503, 504):
+                last_err = _friendly_http_error(r)
+                if r.status_code not in self.TEMPORARY:
+                    temporary = False
                     break
-            import time
-            time.sleep(delay)
-            delay *= 2
-        raise LLMError(last_err or "erro desconhecido")
+            if attempt < 2:
+                time.sleep(delay)
+                delay *= 2
+        err = LLMError(last_err or "erro desconhecido")
+        err.temporary = temporary
+        raise err
+
+
+def _friendly_http_error(r) -> str:
+    try:
+        msg = r.json().get("error", {}).get("message", "")
+    except ValueError:
+        msg = r.text[:200]
+    labels = {429: "limite de uso atingido", 503: "serviço sobrecarregado", 500: "erro interno do provedor",
+              400: "requisição recusada", 401: "chave inválida", 403: "chave sem permissão", 404: "modelo não encontrado"}
+    return f"HTTP {r.status_code} ({labels.get(r.status_code, 'erro')}): {msg[:160]}"
 
 
 class FakeLLM:

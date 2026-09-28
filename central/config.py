@@ -42,6 +42,7 @@ class Settings:
     llm_provider: str
     gemini_api_key: str
     gemini_model: str
+    gemini_fallback_model: str
     session_secret: str
     sync_interval: int
     database_path: Path
@@ -74,6 +75,7 @@ def get_settings() -> Settings:
         llm_provider=env("LLM_PROVIDER", "off"),
         gemini_api_key=env("GEMINI_API_KEY", ""),
         gemini_model=env("GEMINI_MODEL", "gemini-3.8-flash"),
+        gemini_fallback_model=env("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite"),
         session_secret=env("SESSION_SECRET", "dev-inseguro-troque-no-env"),
         sync_interval=int(env("SYNC_INTERVAL_SECONDS", "180")),
         database_path=path(env("DATABASE_PATH", "./data/central.db")),
