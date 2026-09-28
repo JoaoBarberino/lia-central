@@ -34,7 +34,7 @@
 {% endfor %}
 </div>
 {% else %}
-  <div class="empty"><strong>{{ 'Nada para revisar agora.' if estado == 'pendente' else 'Nenhuma sugestão neste filtro.' }}</strong>{% if estado == 'pendente' %}Quando uma ata nova ou editada chegar ao Drive, as propostas aparecem aqui.{% endif %}</div>
+  <div class="empty"><strong>{{ 'Nada para revisar agora.' if estado == 'pendente' else 'Nenhuma sugestão neste filtro.' }}</strong>{% if estado == 'pendente' %}Quando uma ata nova ou editada chegar ao Drive, as sugestões aparecem aqui.{% endif %}</div>
 {% endif %}
 
 {% if notes %}
@@ -46,7 +46,7 @@
   <tr>
     <td><span class="tag {{ 'neutral' if n.kind == 'hipotese' else 'err' }}">{{ 'Ideia sem decisão' if n.kind == 'hipotese' else 'Descartada na checagem' }}</span></td>
     <td>{% if n.kind == 'hipotese' %}<q>{{ n.text }}</q><div class="small muted">{{ n.reason }}</div>{% else %}{{ n.reason | frase }}{% endif %}</td>
-    <td class="secondary small" data-label="Fonte">{{ source_ref(n.source) }}</td>
+    <td class="secondary small" data-label="Documento">{{ source_ref(n.source) }}</td>
   </tr>
   {% endfor %}
   </tbody>
