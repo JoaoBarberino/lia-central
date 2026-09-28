@@ -9,6 +9,12 @@
   {% elif s.sync_status == 'nao_suportado' %}<span class="tag neutral">formato não processado</span>{% endif %}
   {% if s.web_url %} · <a href="{{ s.web_url }}" target="_blank" rel="noopener">abrir original</a>{% endif %}</p>
 {% if s.status_message %}<div class="notice">{{ s.status_message }}</div>{% endif %}
+{% if s.role == 'ata' and s.sync_status == 'ok' %}
+<form method="post" action="/fontes/{{ s.file_id }}/reanalisar" class="actions">
+  <button class="btn small secondary" type="submit">Pedir nova análise da IA</button>
+  <span class="small muted">Sugestões já revisadas não são recriadas; propostas iguais ao registro são descartadas.</span>
+</form>
+{% endif %}
 {% if meta %}<p class="small">Cabeçalho: {% for k, v in meta.items() %}<code>{{ k }}: {{ v }}</code>{{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
 <p class="small muted">ID: <code>{{ s.file_id }}</code> · visto pela primeira vez {{ fmt_ts(s.first_seen_at) }} · última leitura processada {{ fmt_ts(s.last_processed_at) }}</p>
 

@@ -45,4 +45,15 @@
 ## Ter 29/09 — _(a preencher)_
 
 ## Uma decisão que mudei depois de ver o modelo errar
-_(a preencher com um caso real observado nos testes com o Gemini)_
+
+**Teste:** criei no Drive uma ata com "Ficou decidido que alguém vai organizar o mural de avisos da sede até sexta. Ainda não definimos quem será o responsável."
+
+**Esperado:** uma sugestão de tarefa nova, com responsável "a confirmar" e prazo "a definir" (a especificação diz: uma ação clara deve ser reconhecida; sem dono ou prazo, não criar valores artificiais).
+
+**O que o modelo fez:** classificou como "ideia sem decisão" (`no_action`), com o motivo "a tarefa não possui um responsável definido, portanto não pode ser criada". Ou seja, confundiu *falta de dono* com *falta de decisão*, e uma decisão real teria sumido do quadro.
+
+**Causa:** meu próprio prompt. A regra dizia para usar `no_action` em "itens sem ninguém responsável e sem acordo", e o modelo leu "sem responsável" como critério suficiente.
+
+**O que mudei:** reescrevi a regra para deixar o critério explícito ("o critério é HAVER DECISÃO, não haver dono"), com dois exemplos contrastantes (decisão sem dono → `create` com campos nulos e incertezas; "talvez" → `no_action`). Também criei o botão "Pedir nova análise da IA" na página da fonte, para reprocessar uma ata depois de uma correção como essa sem precisar editar o documento.
+
+**Lição:** a validação em código protege contra dados inventados (evidência, datas, IDs), mas não contra o modelo *deixar de fora* algo importante. Para isso, o que resolve é critério claro no prompt + a tela "O que a IA leu e não virou sugestão", que torna a omissão visível para quem revisa.

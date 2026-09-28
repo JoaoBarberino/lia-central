@@ -441,6 +441,27 @@ def fonte(request: Request, file_id: str, conn=Depends(db)):
                   notes=notes, sug=sug, meta=json.loads(s["doc_meta"] or "{}"))
 
 
+@app.post("/fontes/{file_id}/reanalisar")
+def reanalisar(request: Request, file_id: str, conn=Depends(db)):
+    """Pede nova análise da versão atual (ex.: após melhorar o prompt ou quando a IA falhou)."""
+    me = require_member(request)
+    if not me:
+        return to("/entrar")
+    conn.execute("UPDATE sources SET last_processed_hash=NULL, status_message=? WHERE file_id=? AND role='ata'",
+                 (f"Nova análise solicitada por {me}; será feita na próxima sincronização.", file_id))
+    # Relê o cabeçalho do texto já guardado (o leitor de cabeçalho pode ter melhorado)
+    from .extractors import parse_text_document
+    from .db import dumps
+    v = conn.execute("SELECT sv.extracted_text FROM sources s JOIN source_versions sv ON sv.file_id=s.file_id "
+                     "AND sv.content_hash=s.content_hash WHERE s.file_id=?", (file_id,)).fetchone()
+    if v and v["extracted_text"]:
+        meta = parse_text_document(v["extracted_text"]).meta
+        conn.execute("UPDATE sources SET doc_meta=?, doc_status=? WHERE file_id=?",
+                     (dumps(meta), meta.get("status"), file_id))
+    flash(request, "Nova análise solicitada. Ela acontece na próxima sincronização (automática ou 'Sincronizar agora').")
+    return to(f"/fontes/{file_id}")
+
+
 @app.get("/pendencias", response_class=HTMLResponse)
 def pendencias(request: Request, conn=Depends(db)):
     items = open_issues(conn)
