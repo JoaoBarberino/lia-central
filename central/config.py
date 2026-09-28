@@ -7,10 +7,16 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from zoneinfo import ZoneInfo
+from datetime import timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 ROOT = Path(__file__).resolve().parent.parent
-TZ = ZoneInfo("America/Sao_Paulo")
+try:
+    TZ = ZoneInfo("America/Sao_Paulo")
+except ZoneInfoNotFoundError:
+    # Sem base de fusos (Windows sem o pacote tzdata). O Brasil não tem horário de verão
+    # desde 2019, então UTC-3 fixo é equivalente para as datas do protótipo.
+    TZ = timezone(timedelta(hours=-3), "America/Sao_Paulo")
 
 
 def _load_dotenv(path: Path) -> None:
