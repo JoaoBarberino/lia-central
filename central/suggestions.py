@@ -68,7 +68,9 @@ def get(conn: sqlite3.Connection, suggestion_id: int) -> dict | None:
     if not r:
         return None
     d = dict(r)
-    d["proposed"] = json.loads(r["proposed_fields"])
+    raw = json.loads(r["proposed_fields"])
+    order = ["title", "owners", "due_date", "status", "next_step", "front", "priority", "notes", "description"]
+    d["proposed"] = {k: raw[k] for k in order if k in raw} | {k: v for k, v in raw.items() if k not in order}
     d["current"] = json.loads(r["current_fields"]) if r["current_fields"] else None
     d["uncertainties_list"] = json.loads(r["uncertainties"] or "[]")
     return d

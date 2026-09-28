@@ -55,7 +55,7 @@ def test_paginas_abrem(client):
 
 def test_revisao_pela_interface(client):
     import re
-    sid = re.search(r'href="/sugestoes/(\d+)">#\d+ · Alterar ACT-101', client.get("/sugestoes").text).group(1)
+    sid = re.search(r'href="/sugestoes/(\d+)">Alterar ACT-101', client.get("/sugestoes").text).group(1)
     login(client, "U-A")
     client.post(f"/sugestoes/{sid}/aceitar", data={})
     assert "05/10/2026" in client.get("/atividades/ACT-101").text  # Ana não pode aprovar

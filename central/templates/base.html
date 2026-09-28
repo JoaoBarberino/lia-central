@@ -4,14 +4,30 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Central LIA{% endblock %} · Central LIA</title>
+  <link rel="preload" href="/static/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <a class="skip" href="#conteudo">Pular para o conteúdo</a>
 <header class="top">
+  <div class="wrap top-row">
+    <a class="brand" href="/" aria-label="Central LIA, página inicial">
+      <span class="brand-mark" aria-hidden="true">LIA</span>
+      <span class="brand-text"><strong>Central de atividades</strong><span>Liga IA UFSCar · protótipo com dados fictícios</span></span>
+    </a>
+    <form class="who" method="post" action="/entrar">
+      <label for="member-switch">Pessoa de demonstração</label>
+      <select id="member-switch" name="member_id">
+        {% if not me %}<option value="">Escolha…</option>{% endif %}
+        {% for m in members %}
+        <option value="{{ m.member_id }}" {% if me and me.member_id == m.member_id %}selected{% endif %}>{{ m.display_name }} · {{ m.front }}{% if m.can_review %} · revisa{% endif %}</option>
+        {% endfor %}
+      </select>
+      <button class="btn small" type="submit">Trocar</button>
+    </form>
+  </div>
+  {% set path = request.url.path %}
   <div class="wrap">
-    <a class="brand" href="/"><span>LIA</span>Central de atividades</a>
-    {% set path = request.url.path %}
     <nav class="main" aria-label="Principal">
       <a href="/comece-aqui" {% if path.startswith('/comece') %}aria-current="page"{% endif %}>Comece aqui</a>
       <a href="/" {% if path == '/' %}aria-current="page"{% endif %}>Minhas atividades</a>
@@ -20,36 +36,26 @@
       <a href="/novidades" {% if path.startswith('/novidades') %}aria-current="page"{% endif %}>Novidades dos documentos</a>
       <a href="/pendencias" {% if path.startswith('/pendencias') %}aria-current="page"{% endif %}>Pendências{% if n_issues %}<span class="count"><span class="sr">: </span>{{ n_issues }}<span class="sr"> abertas</span></span>{% endif %}</a>
       <a href="/fontes" {% if path.startswith('/fontes') %}aria-current="page"{% endif %}>Fontes</a>
-      <a href="/sincronizacao" {% if path.startswith('/sincronizacao') %}aria-current="page"{% endif %}>Estado da sincronização</a>
     </nav>
-    <form class="who" method="post" action="/entrar">
-      <label for="member-switch">Pessoa de demonstração</label>
-      <select id="member-switch" name="member_id">
-        {% if not me %}<option value="">Escolha…</option>{% endif %}
-        {% for m in members %}
-        <option value="{{ m.member_id }}" {% if me and me.member_id == m.member_id %}selected{% endif %}>{{ m.display_name }} ({{ m.front }}{% if m.can_review %}, revisa{% endif %})</option>
-        {% endfor %}
-      </select>
-      <button class="btn small secondary" type="submit">Trocar</button>
-    </form>
   </div>
 </header>
 <div class="syncbar" role="status">
   <div class="wrap">
     <span>
       {% if last_run %}
-        Última sincronização: <strong>{{ fmt_ts(last_run.finished_at or last_run.started_at) }}</strong>
-        {% if last_run.status == 'ok' %}<span class="tag done">ok</span>
-        {% elif last_run.status == 'parcial' %}<span class="tag soon">com erros em arquivos</span>
-        {% elif last_run.status == 'rodando' %}<span class="tag neutral">rodando</span>
-        {% else %}<span class="tag err">falhou</span>
-          {% if last_ok %}<span class="muted">· último sucesso {{ fmt_ts(last_ok.finished_at) }}; dados podem estar desatualizados</span>{% endif %}
-        {% endif %}
-      {% else %}Ainda não sincronizado.{% endif %}
-      <span class="muted">· automática a cada {{ sync_minutes }} min · fonte: {{ 'Google Drive' if source_mode == 'drive' else 'pasta local (desenvolvimento)' }}{% if not llm_enabled %} · IA desativada{% endif %}</span>
+        {% if last_run.status == 'ok' %}<span class="dot ok" aria-hidden="true"></span>Sincronizado
+        {% elif last_run.status == 'parcial' %}<span class="dot warn" aria-hidden="true"></span>Sincronizado com erros em arquivos
+        {% elif last_run.status == 'rodando' %}<span class="dot run" aria-hidden="true"></span>Sincronizando agora
+        {% else %}<span class="dot err" aria-hidden="true"></span>Sincronização falhou{% endif %}
+        às <strong class="num">{{ fmt_ts(last_run.finished_at or last_run.started_at) }}</strong>
+        {% if last_run.status == 'falhou' and last_ok %} · último sucesso {{ fmt_ts(last_ok.finished_at) }}; os dados podem estar desatualizados{% endif %}
+      {% else %}<span class="dot run" aria-hidden="true"></span>Ainda não sincronizado{% endif %}
+      · automática a cada {{ sync_minutes }} min · {{ 'Google Drive' if source_mode == 'drive' else 'pasta local (desenvolvimento)' }}{% if not llm_enabled %} · IA desativada{% endif %}
     </span>
-    <form method="post" action="/sincronizar"><button class="btn small secondary" type="submit">Sincronizar agora</button></form>
-    <a href="/sincronizacao" class="small">Detalhes</a>
+    <span class="spacer">
+      <form method="post" action="/sincronizar"><button class="btn small secondary" type="submit">Sincronizar agora</button></form>
+      <a href="/sincronizacao" class="small" {% if path.startswith('/sincronizacao') %}aria-current="page"{% endif %}>Estado da sincronização</a>
+    </span>
   </div>
 </div>
 <main id="conteudo" class="wrap">

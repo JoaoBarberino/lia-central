@@ -38,6 +38,7 @@ from .db import DEMO_MEMBERS  # noqa: E402
 _NAMES = {m[0]: m[1] for m in DEMO_MEMBERS}
 templates.env.filters["nomes"] = lambda ids: ", ".join(_NAMES.get(i, i) for i in (ids or []))
 templates.env.globals.update(
+    NAMES=_NAMES, date_parts=views.date_parts,
     fmt_date=views.fmt_date, fmt_ts=views.fmt_ts, due_info=views.due_info, ROLE_LABELS=ROLE_LABELS,
     FIELD_LABELS=acts.FIELD_LABELS, ISSUE_LABELS=ISSUE_LABELS, STATUSES=acts.STATUSES,
 )
@@ -200,7 +201,14 @@ def home(request: Request, ordem: str = "prazo", conn=Depends(db)):
         items.sort(key=lambda a: (a["status"] != "Bloqueada", a["due_date"] or "9999"))
     mine_pending = [s for s in sugg.list_suggestions(conn) if (s["target_activity_id"] in {a["activity_id"] for a in items})
                     or me in (s["proposed"].get("owners") or [])]
-    return render(request, conn, "minhas.html", items=items, ordem=ordem, mine_pending=mine_pending)
+    stats = {
+        "open": len(items),
+        "soon": sum(1 for a in items if views.due_info(a["due_date"], a["status"])["kind"] in ("soon", "overdue")),
+        "blocked": sum(1 for a in items if a["status"] == "Bloqueada"),
+        "pending_me": len(mine_pending),
+        "to_review": conn.execute("SELECT COUNT(*) FROM suggestions WHERE review_status='pendente'").fetchone()[0],
+    }
+    return render(request, conn, "minhas.html", items=items, ordem=ordem, mine_pending=mine_pending, stats=stats)
 
 
 @app.get("/atividades", response_class=HTMLResponse)

@@ -1,30 +1,33 @@
 {% extends "base.html" %}
-{% from "_macros.html" import status_tag, due_tag %}
+{% from "_macros.html" import status_tag, due_tag, people %}
 {% block title %}Todas as atividades{% endblock %}
 {% block content %}
-<h1>Registro oficial de atividades</h1>
-<p class="lead">Estado oficial atual, depois da importação e das decisões aprovadas na aplicação.</p>
-<div class="actions">
-  {% if concluidas %}<a class="btn small secondary" href="/atividades">Ocultar concluídas</a>{% else %}<a class="btn small secondary" href="/atividades?concluidas=1">Mostrar concluídas</a>{% endif %}
+<p class="eyebrow">Registro oficial</p>
+<h1>Todas as atividades</h1>
+<p class="lead">Estado oficial atual: a importação da planilha mais as decisões aprovadas nesta aplicação.</p>
+<div class="toolbar">
+  <div class="segmented" role="group" aria-label="Filtro">
+    <a href="/atividades" {% if not concluidas %}aria-current="true"{% endif %}>Abertas</a>
+    <a href="/atividades?concluidas=1" {% if concluidas %}aria-current="true"{% endif %}>Incluir concluídas</a>
+  </div>
   <a class="btn small" href="/atividades/nova">+ Nova atividade</a>
 </div>
-<div class="table-scroll">
+<div class="table-card">
 <table>
   <caption class="sr">Atividades</caption>
-  <thead><tr><th>ID</th><th>Atividade</th><th>Responsáveis</th><th>Prazo</th><th>Estado</th><th class="hide-sm">Frente</th><th class="hide-sm">Próximo passo</th></tr></thead>
+  <thead><tr><th>Atividade</th><th>Responsáveis</th><th>Prazo</th><th>Estado</th><th class="hide-sm">Próximo passo</th></tr></thead>
   <tbody>
   {% for a in items %}
   <tr>
-    <td class="id">{{ a.activity_id }}</td>
-    <td><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a>{% if a.pending_suggestions %} <span class="tag pending">mudança pendente</span>{% endif %}</td>
-    <td>{{ a.owner_names | join(', ') if a.owner_names else 'Responsável a confirmar' }}</td>
-    <td>{{ fmt_date(a.due_date) }}<br>{{ due_tag(a.due_date, a.status) }}</td>
+    <td><a href="/atividades/{{ a.activity_id }}"><strong>{{ a.title }}</strong></a><div class="small muted"><span class="id">{{ a.activity_id }}</span> · {{ a.front or 'Sem frente' }}</div>
+      {% if a.pending_suggestions %}<a class="tag pending" style="margin-top:.3rem" href="/atividades/{{ a.activity_id }}#sugestoes">mudança pendente</a>{% endif %}</td>
+    <td>{{ people(a.owners, NAMES) }}</td>
+    <td class="num" style="white-space:nowrap">{{ fmt_date(a.due_date) }}<div style="margin-top:.2rem">{{ due_tag(a.due_date, a.status) }}</div></td>
     <td>{{ status_tag(a.status) }}</td>
-    <td class="hide-sm">{{ a.front or '—' }}</td>
     <td class="hide-sm">{{ a.next_step or '—' }}</td>
   </tr>
   {% else %}
-  <tr><td colspan="7">Nenhuma atividade no registro.</td></tr>
+  <tr><td colspan="5">Nenhuma atividade no registro.</td></tr>
   {% endfor %}
   </tbody>
 </table>

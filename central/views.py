@@ -51,6 +51,15 @@ def due_info(iso: str | None, status: str | None = None) -> dict:
     return {"label": f"Vence em {days} dias", "kind": "ok"}
 
 
+def date_parts(iso: str | None, status: str | None = None) -> dict | None:
+    """Partes para o bloco de data estilo calendário: {'d': '05', 'm': 'out', 'kind': ...}."""
+    if not iso:
+        return None
+    d = date.fromisoformat(iso[:10])
+    kind = due_info(iso, status)["kind"]
+    return {"d": f"{d.day:02d}", "m": MONTHS[d.month - 1], "kind": kind if kind in ("overdue", "soon") else ""}
+
+
 def member_names(conn) -> dict[str, str]:
     return {r["member_id"]: r["display_name"] for r in conn.execute("SELECT * FROM members")}
 

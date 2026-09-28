@@ -2,42 +2,56 @@
 {% from "_macros.html" import source_ref %}
 {% block title %}Sugestões{% endblock %}
 {% block content %}
-<h1>Sugestões da IA</h1>
-<p class="lead">Propostas extraídas de documentos novos ou editados. Nenhuma altera o registro oficial sem revisão de Bruno ou Carla.</p>
-<div class="actions">
-  {% for key, label in [('pendente','Pendentes'),('aceita','Aceitas'),('aceita_com_ajuste','Aceitas com ajuste'),('rejeitada','Rejeitadas'),('desatualizada','Desatualizadas'),('todas','Todas')] %}
-  <a class="btn small {{ '' if estado == key else 'secondary' }}" href="/sugestoes?estado={{ key }}" {% if estado == key %}aria-current="true"{% endif %}>{{ label }}</a>
-  {% endfor %}
+<p class="eyebrow">Revisão humana</p>
+<h1>Sugestões para revisar</h1>
+<p class="lead">Propostas extraídas de documentos novos ou editados. Nenhuma altera o registro oficial sem a revisão de Bruno ou Carla.</p>
+<div class="toolbar">
+  <div class="segmented" role="group" aria-label="Filtrar por estado">
+    {% for key, label in [('pendente','Pendentes'),('aceita','Aceitas'),('aceita_com_ajuste','Com ajuste'),('rejeitada','Rejeitadas'),('desatualizada','Desatualizadas'),('todas','Todas')] %}
+    <a href="/sugestoes?estado={{ key }}" {% if estado == key %}aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </div>
 </div>
 <div class="cards">
 {% for s in items %}
-  <article class="card {{ 'pending' if s.review_status == 'pendente' }}">
-    <header>
-      <h3><a href="/sugestoes/{{ s.suggestion_id }}">#{{ s.suggestion_id }} · {{ 'Alterar ' ~ s.target_activity_id if s.kind == 'update' else 'Criar atividade' ~ (' (' ~ s.target_activity_id ~ ')' if s.target_activity_id else '') }}</a></h3>
-      <span class="tag {{ 'pending' if s.review_status == 'pendente' else ('done' if s.review_status.startswith('aceita') else 'neutral') }}">{{ s.review_status.replace('_', ' ') }}</span>
-    </header>
+  <article class="card" style="{{ 'border-left:4px solid var(--cyan)' if s.review_status == 'pendente' }}">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:.5rem;align-items:baseline">
+      <h3><a href="/sugestoes/{{ s.suggestion_id }}">{{ 'Alterar ' ~ s.target_activity_id if s.kind == 'update' else 'Nova atividade' ~ (' → ' ~ s.target_activity_id if s.target_activity_id else '') }}</a> <span class="id">#{{ s.suggestion_id }}</span></h3>
+      {% if s.review_status == 'pendente' %}<span class="tag pending">Pendente</span>
+      {% elif s.review_status.startswith('aceita') %}<span class="tag done">{{ s.review_status.replace('_', ' ')|capitalize }}</span>
+      {% else %}<span class="tag neutral">{{ s.review_status|capitalize }}</span>{% endif %}
+    </div>
     <ul class="change">
       {% for k, v in s.proposed.items() %}
-      <li>{{ FIELD_LABELS.get(k, k) }}: <ins>{{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}</ins></li>
+      <li><span class="f">{{ FIELD_LABELS.get(k, k) }}</span><ins>{{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}</ins></li>
       {% endfor %}
     </ul>
     <blockquote class="evidence">{{ s.evidence }}</blockquote>
-    <div class="small">Fonte: {{ source_ref(s.source) }}{% if s.doc_date %} · reunião de {{ fmt_date(s.doc_date) }}{% endif %}</div>
-    {% if s.uncertainties_list %}<div class="small"><strong>Incertezas:</strong> {{ s.uncertainties_list | join(' · ') }}</div>{% endif %}
+    <p class="srcline"><span>Fonte: {{ source_ref(s.source) }}</span>{% if s.doc_date %}<span>Reunião de {{ fmt_date(s.doc_date) }}</span>{% endif %}</p>
+    {% if s.uncertainties_list %}<div class="uncert"><strong>Incertezas:</strong> {{ s.uncertainties_list | join(' · ') }}</div>{% endif %}
+    {% if s.review_status == 'pendente' %}<p style="margin:.75rem 0 0"><a class="btn small" href="/sugestoes/{{ s.suggestion_id }}">Revisar →</a></p>{% endif %}
   </article>
 {% else %}
-  <div class="notice">Nenhuma sugestão neste filtro.</div>
+  <div class="empty"><strong>{{ 'Nada para revisar agora.' if estado == 'pendente' else 'Nenhuma sugestão neste filtro.' }}</strong>{% if estado == 'pendente' %}Quando uma ata nova ou editada chegar ao Drive, as propostas aparecem aqui.{% endif %}</div>
 {% endfor %}
 </div>
 
 {% if notes %}
 <h2>O que a IA leu e não virou sugestão</h2>
-<p class="small muted">Transparência: ideias sem decisão ficam fora do registro; propostas que falharam na validação (evidência inexistente, ID desconhecido, data inferida) são barradas.</p>
-<ul>
-{% for n in notes %}
-  <li><span class="tag neutral">{{ 'ideia sem decisão' if n.kind == 'hipotese' else 'barrada pela validação' }}</span>
-    {% if n.kind == 'hipotese' %}<q>{{ n.text }}</q>{% endif %} — {{ n.reason }} <span class="small">({{ source_ref(n.source) }})</span></li>
-{% endfor %}
-</ul>
+<p class="small muted">Transparência: ideias sem decisão ficam fora do registro; propostas que falharam na validação (evidência inexistente, ID desconhecido, data inferida, instrução embutida no documento) são barradas.</p>
+<div class="table-card">
+<table>
+  <thead><tr><th>Tipo</th><th>Trecho ou motivo</th><th class="hide-sm">Fonte</th></tr></thead>
+  <tbody>
+  {% for n in notes %}
+  <tr>
+    <td><span class="tag neutral">{{ 'Ideia sem decisão' if n.kind == 'hipotese' else 'Barrada' }}</span></td>
+    <td>{% if n.kind == 'hipotese' %}<q>{{ n.text }}</q><div class="small muted">{{ n.reason }}</div>{% else %}{{ n.reason }}{% endif %}</td>
+    <td class="hide-sm small">{{ source_ref(n.source) }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
 {% endif %}
 {% endblock %}

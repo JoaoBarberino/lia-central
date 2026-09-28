@@ -1,81 +1,88 @@
 {% extends "base.html" %}
-{% from "_macros.html" import status_tag, due_tag, source_ref %}
+{% from "_macros.html" import status_tag, due_tag, source_ref, date_block, people %}
 {% block title %}{{ a.activity_id }}{% endblock %}
 {% block content %}
-<p class="small"><a href="/">← Minhas atividades</a></p>
-<h1>{{ a.title }} <span class="id">{{ a.activity_id }}</span></h1>
-<p>{{ status_tag(a.status) }} {{ due_tag(a.due_date, a.status) }}
-  <span class="muted small">· criada por {{ 'Sistema' if a.created_by == 'sistema' else names.get(a.created_by, a.created_by) }} ({{ {'importacao':'importação da planilha','manual':'criação manual','sugestao':'sugestão aprovada'}.get(a.creation_kind, a.creation_kind) }}) em {{ fmt_ts(a.created_at) }}</span></p>
+<a class="back" href="/">← Minhas atividades</a>
+<div class="detail-head">
+  {{ date_block(a.due_date, a.status) }}
+  <div>
+    <p class="eyebrow">{{ a.front or 'Sem frente' }} · {{ a.activity_id }}</p>
+    <h1>{{ a.title }}</h1>
+    <div class="tags" style="justify-content:flex-start">{{ status_tag(a.status) }}{{ due_tag(a.due_date, a.status) }}</div>
+    <p class="small muted" style="margin:.5rem 0 0">Criada por {{ 'Sistema' if a.created_by == 'sistema' else names.get(a.created_by, a.created_by) }} ({{ {'importacao':'importação da planilha','manual':'criação manual','sugestao':'sugestão aprovada'}.get(a.creation_kind, a.creation_kind) }}) em {{ fmt_ts(a.created_at) }}</p>
+  </div>
+</div>
 
 {% if pend %}
-<section id="sugestoes" class="notice warn">
-  <h2 style="margin-top:0">Mudança pendente de revisão</h2>
-  <p>Os valores abaixo ainda são os oficiais. Há proposta{{ 's' if pend|length > 1 }} aguardando revisão:</p>
-  <ul>
+<section id="sugestoes" class="notice info">
+  <strong>Mudança pendente de revisão.</strong> Os valores abaixo ainda são os oficiais.
+  <ul class="change">
   {% for s in pend %}
-    <li><a href="/sugestoes/{{ s.suggestion_id }}">Sugestão #{{ s.suggestion_id }}</a>:
-      {% for k, v in s.proposed.items() %}{{ FIELD_LABELS.get(k, k) }} → <strong>{{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}</strong>{{ '; ' if not loop.last }}{% endfor %}</li>
+    <li><a href="/sugestoes/{{ s.suggestion_id }}">Sugestão #{{ s.suggestion_id }}</a>
+      {% for k, v in s.proposed.items() %}<span class="f">{{ FIELD_LABELS.get(k, k) }}</span><ins>{{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}</ins>{% endfor %}</li>
   {% endfor %}
   </ul>
 </section>
 {% endif %}
 
-<div class="grid2">
+<div class="grid2" style="margin-top:1.25rem">
 <section>
-  <dl class="meta">
-    <div><dt>Responsáveis</dt><dd>{{ a.owner_names | join(', ') if a.owner_names else 'Responsável a confirmar' }}</dd></div>
-    <div><dt>Prazo</dt><dd>{{ fmt_date(a.due_date) }}</dd></div>
-    <div><dt>Frente</dt><dd>{{ a.front or '—' }}</dd></div>
-    <div><dt>Prioridade</dt><dd>{{ a.priority or '—' }}</dd></div>
-    <div><dt>Próximo passo</dt><dd>{{ a.next_step or '—' }}</dd></div>
-    <div><dt>Notas e bloqueios</dt><dd>{{ a.notes or '—' }}</dd></div>
-    {% if a.description %}<div><dt>Descrição</dt><dd>{{ a.description }}</dd></div>{% endif %}
-  </dl>
-
-  <div class="actions">
-    <a class="btn secondary" href="/atividades/{{ a.activity_id }}/editar">Editar</a>
-    {% if a.status != 'Concluída' %}
-    <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="Concluída"><button class="btn secondary" type="submit">Concluir</button></form>
+  <div class="card">
+    <dl class="facts">
+      <div><dt>Responsáveis</dt><dd>{{ people(a.owners, names) }}</dd></div>
+      <div><dt>Prazo</dt><dd>{{ fmt_date(a.due_date) }}</dd></div>
+      <div><dt>Prioridade</dt><dd>{{ a.priority or '—' }}</dd></div>
+      <div><dt>Próximo passo</dt><dd>{{ a.next_step or '—' }}</dd></div>
+      <div><dt>Notas e bloqueios</dt><dd>{{ a.notes or '—' }}</dd></div>
+      {% if a.description %}<div><dt>Descrição</dt><dd>{{ a.description }}</dd></div>{% endif %}
+    </dl>
+    <hr class="divider">
+    <div class="actions" style="margin:0">
+      <a class="btn secondary small" href="/atividades/{{ a.activity_id }}/editar">Editar</a>
+      {% if a.status != 'Concluída' %}
+      <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="Concluída"><button class="btn secondary small" type="submit">✓ Concluir</button></form>
+      {% endif %}
+      {% if a.status == 'Bloqueada' %}
+      <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="Em andamento"><button class="btn secondary small" type="submit">Desbloquear</button></form>
+      {% endif %}
+    </div>
+    {% if a.status != 'Bloqueada' %}
+    <details style="margin-top:.9rem">
+      <summary>Marcar como bloqueada</summary>
+      <form method="post" action="/atividades/{{ a.activity_id }}/estado" class="stack" style="margin-top:.6rem">
+        <input type="hidden" name="status" value="Bloqueada">
+        <div><label for="motivo">Motivo do bloqueio</label>
+        <input type="text" id="motivo" name="reason" placeholder="Ex.: aguardando confirmação da sala"></div>
+        <div><button class="btn danger small" type="submit">Bloquear</button></div>
+      </form>
+    </details>
     {% endif %}
   </div>
-  {% if a.status != 'Bloqueada' %}
-  <form method="post" action="/atividades/{{ a.activity_id }}/estado" class="stack" style="max-width:480px">
-    <input type="hidden" name="status" value="Bloqueada">
-    <div><label for="motivo">Bloquear: motivo</label>
-    <input type="text" id="motivo" name="reason" placeholder="Ex.: aguardando confirmação da sala"></div>
-    <div><button class="btn danger small" type="submit">Marcar como bloqueada</button></div>
-  </form>
-  {% else %}
-  <form method="post" action="/atividades/{{ a.activity_id }}/estado" class="actions">
-    <input type="hidden" name="status" value="Em andamento"><button class="btn small secondary" type="submit">Desbloquear (em andamento)</button>
-  </form>
-  {% endif %}
 
   <h2>Histórico</h2>
   <ol class="timeline">
   {% for h in history %}
     <li>
-      <strong>{{ fmt_ts(h.ts) }}</strong> · {{ h.actor if h.actor != 'sistema' else 'Sistema' }} — {{ h.reason }}
+      <div class="tl-head"><strong>{{ fmt_ts(h.ts) }}</strong> · {{ h.actor if h.actor != 'sistema' else 'Sistema' }} — {{ h.reason }}</div>
       {% if h.changes %}
-      <ul class="change">{% for label, old, new in h.changes %}<li>{{ label }}: <del>{{ old }}</del> → <ins>{{ new }}</ins></li>{% endfor %}</ul>
+      <ul class="change">{% for label, old, new in h.changes %}<li><span class="f">{{ label }}</span><del>{{ old }}</del> → <ins>{{ new }}</ins></li>{% endfor %}</ul>
       {% endif %}
-      {% if h.source %}<div class="small">Fonte: {{ source_ref(h.source) }}</div>{% endif %}
-      {% if h.suggestion_id %}<div class="small"><a href="/sugestoes/{{ h.suggestion_id }}">Ver sugestão #{{ h.suggestion_id }}</a></div>{% endif %}
+      {% if h.source or h.suggestion_id %}<div class="small muted">{% if h.source %}Fonte: {{ source_ref(h.source) }}{% endif %}{% if h.suggestion_id %} · <a href="/sugestoes/{{ h.suggestion_id }}">sugestão #{{ h.suggestion_id }}</a>{% endif %}</div>{% endif %}
     </li>
   {% endfor %}
   </ol>
 </section>
 
-<aside>
-  <h2>Fontes</h2>
-  <ul>
+<aside class="card">
+  <h2 style="margin-top:0">Fontes</h2>
+  <ul class="sources-list">
   {% for r in refs %}
-    <li>{{ {'importada_de':'Importada de','origem_declarada':'Origem declarada','alterada_por':'Alterada com base em','criada_por':'Criada com base em'}.get(r.relation_type, r.relation_type) }}:
+    <li><span class="kind">{{ {'importada_de':'Importada de','origem_declarada':'Origem declarada','alterada_por':'Alterada com base em','criada_por':'Criada com base em'}.get(r.relation_type, r.relation_type) }}</span>
       {{ source_ref(r.source) }}
       {% if r.sheet_or_section %}<div class="small muted">{{ r.sheet_or_section }}</div>{% endif %}
       {% if r.quote_or_cell and r.relation_type != 'importada_de' %}<blockquote class="evidence small">{{ r.quote_or_cell }}</blockquote>{% endif %}
     </li>
-  {% else %}<li>Criada manualmente, sem documento de origem.</li>{% endfor %}
+  {% else %}<li class="muted">Criada manualmente, sem documento de origem.</li>{% endfor %}
   </ul>
 </aside>
 </div>
