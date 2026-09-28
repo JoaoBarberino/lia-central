@@ -4,6 +4,54 @@
 {% block content %}
 <h1>Comece aqui</h1>
 
+<section class="ask" aria-labelledby="ask-title" id="pergunte">
+  <h2 id="ask-title" class="ask-title">Pergunte à Central</h2>
+  <form method="get" action="/comece-aqui#pergunte" class="ask-form" role="search">
+    <label class="sr" for="pergunta">Sua pergunta sobre a Liga</label>
+    <input type="text" id="pergunta" name="pergunta" value="{{ pergunta }}" maxlength="300" autocomplete="off"
+      placeholder="Ex.: quem aprova os posts de Growth?…">
+    <button class="btn" type="submit" data-busy="Procurando…">Perguntar</button>
+  </form>
+  {% if not resposta %}
+  <p class="ask-examples small">Experimente:
+    {% for q in ['Quem aprova os posts de Growth?', 'Qual o prazo do checklist de onboarding?', 'Qual é a missão da Liga?', 'O que está bloqueado?'] %}
+    <a href="/comece-aqui?pergunta={{ q | urlencode }}#pergunte">{{ q }}</a>{{ ' ' if not loop.last }}
+    {% endfor %}
+  </p>
+  {% endif %}
+
+  {% if resposta %}
+  <div class="ask-answer" role="status">
+    {% if resposta.status == 'ok' %}
+      <p class="ask-text">{{ resposta.answer }}</p>
+      {% if resposta.warning %}<p class="ask-warn">{{ resposta.warning }}</p>{% endif %}
+      <ul class="ask-cites">
+      {% for c in resposta.citations %}
+        <li><blockquote class="evidence small">{{ c.quote }}</blockquote>
+          <span class="small muted">{% if c.doc.file_id %}<a href="/fontes/{{ c.doc.file_id }}">{{ c.doc.name }}</a>{% elif c.doc.kind == 'quadro' %}<a href="/atividades">{{ c.doc.name }}</a>{% else %}<a href="/sugestoes">{{ c.doc.name }}</a>{% endif %}</span></li>
+      {% endfor %}
+      </ul>
+      <p class="small muted">Resposta da IA montada só com os documentos acima; cada trecho foi conferido no original.</p>
+    {% elif resposta.status == 'not_found' %}
+      <p class="ask-text">Não encontrei isso nos documentos da pasta.</p>
+      <p class="small muted">{% if resposta.unverified %}A IA sugeriu uma resposta, mas os trechos citados não existem nos documentos; por isso ela não aparece.{% else %}Se a informação existir, ela ainda não foi registrada em nenhum documento do Drive.{% endif %}</p>
+    {% elif resposta.status == 'fallback' %}
+      <p class="ask-text">{{ resposta.reason }} {% if resposta.hits %}Estes trechos dos documentos têm as palavras da sua pergunta:{% else %}Nenhum trecho dos documentos tem as palavras da sua pergunta.{% endif %}</p>
+      {% if resposta.hits %}
+      <ul class="ask-cites">
+      {% for c in resposta.hits %}
+        <li><blockquote class="evidence small">{{ c.quote }}</blockquote>
+          <span class="small muted">{% if c.doc.file_id %}<a href="/fontes/{{ c.doc.file_id }}">{{ c.doc.name }}</a>{% else %}{{ c.doc.name }}{% endif %}</span></li>
+      {% endfor %}
+      </ul>
+      {% endif %}
+    {% else %}
+      <p class="ask-text">Escreva uma pergunta com pelo menos algumas palavras.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+
 {% if o.first_action %}
 <section class="first-action" aria-labelledby="primeira">
   <h2 id="primeira" style="margin:0">Sua primeira ação{% if me %}, {{ me.display_name }}{% endif %}</h2>

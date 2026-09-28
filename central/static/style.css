@@ -231,6 +231,19 @@ blockquote.evidence.small { font-size: .93rem; margin-top: .4rem; }
 .panel-more { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .panel-more > form { margin-top: .9rem; }
 .stack-actions { display: grid; gap: .6rem; margin-top: 1rem; }
+/* Pergunte à Central */
+.ask { margin: 1.25rem 0 2rem; max-width: 46rem; }
+.ask-title { margin: 0 0 .6rem; font-size: 1.1rem; }
+.ask-form { display: flex; gap: .6rem; }
+.ask-form input { flex: 1; min-width: 0; }
+.ask-examples { margin: .6rem 0 0; color: var(--muted); display: flex; flex-wrap: wrap; gap: .2rem .9rem; }
+.ask-answer { margin-top: 1.1rem; padding: 1.1rem 1.25rem; border: 1px solid var(--line-strong); border-top: 4px solid var(--blue);
+  border-radius: 12px; }
+.ask-text { font-size: 1.1rem; margin: 0 0 .6rem; }
+.ask-warn { margin: 0 0 .6rem; padding: .5rem .75rem; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: .93rem; }
+.ask-cites { list-style: none; padding: 0; margin: .4rem 0 .6rem; display: grid; gap: .75rem; }
+.ask-cites .evidence { margin-bottom: .2rem; }
+.ask-answer > p:last-child { margin-bottom: 0; }
 details.tech { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 details.tech > summary { color: var(--muted); font-size: .92rem; }
 details.tech > p:first-of-type { margin-top: .8rem; }

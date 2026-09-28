@@ -17,6 +17,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import activities as acts
+from . import ask
 from . import drive_auth
 from . import suggestions as sugg
 from . import views
@@ -456,8 +457,10 @@ def novidades(request: Request, desde: str = "visita", conn=Depends(db)):
 # F. Comece aqui
 # ---------------------------------------------------------------------------
 @app.get("/comece-aqui", response_class=HTMLResponse)
-def comece(request: Request, conn=Depends(db)):
-    return render(request, conn, "comece.html", o=views.onboarding(conn, require_member(request)))
+def comece(request: Request, pergunta: str = "", conn=Depends(db)):
+    resposta = ask.ask(conn, make_llm(), pergunta) if pergunta.strip() else None
+    return render(request, conn, "comece.html", o=views.onboarding(conn, require_member(request)),
+                  pergunta=pergunta.strip()[:ask.MAX_QUESTION], resposta=resposta)
 
 
 # ---------------------------------------------------------------------------

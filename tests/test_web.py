@@ -92,3 +92,9 @@ def test_painel_de_decisao(client):
     r = client.post(f"/sugestoes/{sid}/aceitar", data={"confirmar": "1"}, follow_redirects=True)
     assert "Sugestão aceita" in r.text
     assert "Próxima sugestão" in r.text or "Não há mais sugestões pendentes" in r.text
+
+
+def test_pergunta_pela_interface(client):
+    r = client.get("/comece-aqui?pergunta=Quem aprova os posts de Growth?")
+    assert r.status_code == 200 and "Pergunte à Central" in r.text
+    assert "IA está desligada" in r.text  # nos testes a IA fica desligada: cai na busca simples
