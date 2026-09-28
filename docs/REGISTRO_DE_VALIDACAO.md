@@ -1,0 +1,20 @@
+# Registro de validação
+
+Testes feitos com o **Google Drive real** (pasta `LIA case teste`) e o **Gemini real**, além dos testes automatizados (`python -m pytest -q`, 24 casos com pasta local e modelo simulado).
+
+Data dos testes manuais: 28/09/2026. Fuso: America/Sao_Paulo.
+
+| # | Caso | Entrada | Resultado esperado | Resultado observado | Correções importantes |
+|---|---|---|---|---|---|
+| 1 | **Carga inicial** | 6 arquivos de `01_CARGA_INICIAL` na pasta; conectar o Drive | 4 atividades importadas; Ana vê ACT-101 e ACT-104; Davi vê ACT-102 e ACT-104; Carla vê ACT-103 (bloqueada) | ✅ Como esperado. ACT-104 com dois responsáveis e contada uma vez; ACT-103 "Bloqueada" com o motivo | — |
+| 2 | **IA indisponível** | Primeira análise da `Ata_2026-10-01.md` | Documento lido, nenhuma sugestão inventada, nova tentativa depois | ✅ Gemini respondeu HTTP 503 (alta demanda) nas 3 tentativas; rodada "parcial", ata pendente, restante processado | Mensagem de erro era JSON cru → texto legível. Adicionados modelos reserva e `scripts/testar_gemini.py` para escolher modelos pela disponibilidade medida |
+| 3 | **Ata que só repete o registro** | `Ata_2026-10-01.md` analisada | 0 sugestões (nada de tarefa duplicada) | ✅ "0 sugestão(ões)" | — |
+| 4 | **Arquivo adicionado ao Drive (Google Docs)** | `Ata_2026-10-03.docx` enviado e salvo como Google Docs nativo; `.docx` apagado | Detectado sem upload pela aplicação, em até 15 min; sugestão de alterar ACT-101 com evidência | ✅ Detectado na sincronização automática (intervalo de 3 min). Sugestão "Alterar ACT-101": prazo 07/10/2026, próximo passo; evidência literal da ata. `.docx` aparece como "não processado: converta para Google Docs" | A instrução "Abrir com → Documentos Google" não converte mais o arquivo; o caminho correto é **Arquivo → Salvar como Documentos Google** |
+| 5 | **Revisão com ajuste** | Bruno abre a sugestão, corrige a maiúscula do próximo passo e aceita | ACT-101 muda para 07/10; histórico com autor, motivo, antes/depois e fonte | ✅ Histórico: "Bruno — Sugestão #1 aceita… Corrige maiúscula", prazo 05/10 riscado → 07/10 | — |
+| 6 | **Tarefa nova + ideia vaga** | `Ata_2026-10-04.md` enviada ao Drive | Sugestão de criar tarefa para Carla (prazo 10/10); "Talvez… série diária" não vira tarefa | ✅ Sugestão de criação; ideia registrada como "sem decisão". Após aceite da Carla: ACT-105, visível em Minhas atividades dela | — |
+| 7 | **Conflito: planilha homônima vazia** | `Ata - copia vazia.xlsx` enviada ao Drive | Atividades oficiais intactas; conflito visível | ✅ 5 atividades mantidas; pendência "Planilha concorrente" explicando que ela não é a fonte apontada pelo INDEX.md | — |
+| 8 | **Fonte removida** | `Ata_2026-10-03.docx` apagado do Drive | Fonte marcada como indisponível, sem apagar dados | ✅ Pendência "Fonte indisponível" | — |
+| 9 | **Dado ausente** | _(a testar)_ ata com "até sexta" e sem responsável | Prazo e responsável ficam "a definir" / "a confirmar", com incerteza visível | _(a preencher)_ | |
+| 10 | **Edição de documento conhecido** | _(a testar)_ editar a ata de 03/10 no Drive | Nova versão detectada; sugestão antiga marcada como desatualizada; sem fonte duplicada | _(a preencher)_ | |
+| 11 | **Atividade manual + reinício** | _(a testar)_ criar tarefa na interface e reiniciar o app | Tarefa persiste, com autor e histórico | _(a preencher)_ | |
+| 12 | **Resumo pessoal** | _(a testar)_ Novidades de Ana vs. Davi | Ana vê a mudança da ACT-101; Davi não | _(a preencher)_ | |

@@ -58,6 +58,7 @@ Detalhes que sustentam a regra:
    - Origem JavaScript: `http://localhost:8000`
    - URI de redirecionamento: `http://localhost:8000/auth/callback`
 6. Crie a pasta de teste no seu Drive, coloque os arquivos de `01_CARGA_INICIAL` e copie o ID da pasta (a parte da URL depois de `/folders/`).
+   - Para os testes com Google Docs: envie o `.docx`, abra-o no Drive e use **Arquivo → Salvar como Documentos Google** (o "Abrir com" apenas edita o `.docx`, sem converter). Depois apague o `.docx`.
 7. Copie `.env.example` para `.env` e preencha `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DRIVE_TEST_FOLDER_ID` e `SESSION_SECRET`.
 8. Para a IA, crie uma chave em https://aistudio.google.com e coloque em `GEMINI_API_KEY`. Sem chave, o app funciona, mas as atas ficam só indexadas, sem sugestões.
 
@@ -70,7 +71,7 @@ Apps em modo *Testing* perdem a autorização após 7 dias. Se a sincronização
 Requisitos: Python 3.11+.
 
 ```bash
-git clone <este repositório>
+git clone https://github.com/JoaoBarberino/lia-central.git
 cd lia-central
 python -m venv .venv
 # Windows: .venv\Scripts\activate    |   macOS/Linux: source .venv/bin/activate
@@ -78,6 +79,8 @@ pip install -r requirements.txt
 cp .env.example .env        # Windows: copy .env.example .env  → depois edite o .env
 uvicorn central.app:app --port 8000
 ```
+
+> **Sempre que abrir um terminal novo:** entre na pasta do projeto e ative o ambiente (`.venv\Scripts\activate` no Windows) antes de rodar o app.
 
 Abra http://localhost:8000, escolha uma pessoa de demonstração, vá em **Estado da sincronização → Conectar Google Drive** e autorize.
 
