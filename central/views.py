@@ -15,6 +15,8 @@ from .config import TZ
 from .extractors import normalize
 
 MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+MONTHS_FULL = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro",
+               "outubro", "novembro", "dezembro"]
 
 
 def today() -> date:
@@ -35,6 +37,14 @@ def fmt_ts(iso: str | None) -> str:
     return f"{dt.day:02d}/{dt.month:02d} {dt.hour:02d}:{dt.minute:02d}"
 
 
+def fmt_when(iso: str | None) -> str:
+    """Só a hora quando é hoje; data e hora nos outros dias."""
+    if not iso:
+        return "—"
+    dt = datetime.fromisoformat(iso).astimezone(TZ)
+    return f"{dt.hour:02d}:{dt.minute:02d}" if dt.date() == today() else fmt_ts(iso)
+
+
 def due_info(iso: str | None, status: str | None = None) -> dict:
     """Situação do prazo em São Paulo. Datas passadas são sinalizadas, nunca alteradas."""
     if not iso:
@@ -52,12 +62,12 @@ def due_info(iso: str | None, status: str | None = None) -> dict:
 
 
 def date_parts(iso: str | None, status: str | None = None) -> dict | None:
-    """Partes para o bloco de data estilo calendário: {'d': '05', 'm': 'out', 'kind': ...}."""
+    """Partes para a coluna de data: {'d': '5', 'm': 'outubro', 'kind': ...}."""
     if not iso:
         return None
     d = date.fromisoformat(iso[:10])
     kind = due_info(iso, status)["kind"]
-    return {"d": f"{d.day:02d}", "m": MONTHS[d.month - 1], "kind": kind if kind in ("overdue", "soon") else ""}
+    return {"d": str(d.day), "m": MONTHS_FULL[d.month - 1], "kind": kind if kind in ("overdue", "soon") else ""}
 
 
 def member_names(conn) -> dict[str, str]:

@@ -2,16 +2,14 @@
 {% from "_macros.html" import status_tag, due_tag %}
 {% block title %}Comece aqui{% endblock %}
 {% block content %}
-<p class="eyebrow">Primeiro acesso</p>
 <h1>Comece aqui</h1>
-<p class="lead">Um guia de entrada montado a partir dos documentos da pasta. Onde a informação ainda não foi confirmada, a página diz isso em vez de completar por conta própria.</p>
+<p class="lead">Um guia de entrada montado com os documentos da pasta da Liga. Onde algo ainda não foi confirmado, a página avisa em vez de inventar.</p>
 
 {% if o.first_action %}
-<section class="hero">
-  <p class="eyebrow">Sua primeira ação{% if me %}, {{ me.display_name }}{% endif %}</p>
+<section class="first-action" aria-labelledby="primeira">
+  <h2 id="primeira" style="margin:0">Sua primeira ação{% if me %}, {{ me.display_name }}{% endif %}</h2>
   <p class="big">{{ o.first_action.next_step or 'Próximo passo não definido' }}</p>
-  <p style="margin:0">Na atividade <a href="/atividades/{{ o.first_action.activity_id }}">{{ o.first_action.title }}</a> <span class="id">{{ o.first_action.activity_id }}</span></p>
-  <div class="tags" style="justify-content:flex-start;margin-top:.5rem">{{ status_tag(o.first_action.status) }}{{ due_tag(o.first_action.due_date, o.first_action.status) }}</div>
+  <p style="margin:0">Faz parte de <a href="/atividades/{{ o.first_action.activity_id }}">{{ o.first_action.title }}</a> (<span class="id">{{ o.first_action.activity_id }}</span>). {{ status_tag(o.first_action.status) }}, {{ due_tag(o.first_action.due_date, o.first_action.status)|lower }}.</p>
 </section>
 {% elif me %}
 <div class="empty"><strong>Você ainda não tem atividades atribuídas.</strong>Fale com a pessoa líder da sua frente.</div>
@@ -21,14 +19,14 @@
 
 <h2>Propósito</h2>
 {% if o.purpose %}
-  <div class="card">
-  {% for p in o.purpose %}<p style="margin-top:0">{{ p }}</p>{% endfor %}
-  <p class="small muted" style="margin:0">Trecho de {% if o.estado.web_url %}<a href="{{ o.estado.web_url }}" target="_blank" rel="noopener">{{ o.estado.name }}</a>{% else %}{{ o.estado.name }}{% endif %}, reproduzido sem alterações.</p>
+  <div class="prose">
+  {% for p in o.purpose %}<p>{{ p }}</p>{% endfor %}
+  <p class="small muted">Trecho de {% if o.estado.web_url %}<a href="{{ o.estado.web_url }}" target="_blank" rel="noopener">{{ o.estado.name }}</a>{% else %}{{ o.estado.name }}{% endif %}, reproduzido sem alterações.</p>
   </div>
 {% else %}<p>Propósito não documentado na pasta.</p>{% endif %}
 
 {% if o.gaps %}
-<div class="notice warn" role="note" style="margin-top:.75rem">
+<div class="notice warn gaps" role="note">
   <strong>Ainda a confirmar</strong>
   <ul style="margin:.35rem 0 0">{% for g in o.gaps %}<li>{{ g }}</li>{% endfor %}</ul>
 </div>
@@ -45,31 +43,29 @@
 {% else %}<p>Frentes não documentadas.</p>{% endif %}
 
 <h2>Onde estão suas tarefas</h2>
-<p>Suas atividades estão em <a href="/">Minhas atividades</a>. Elas foram importadas do registro oficial apontado pelo índice e, depois disso, só mudam por decisão aprovada nesta aplicação. Mudanças vindas de atas novas aparecem como <a href="/sugestoes">sugestões</a> até alguém revisar.</p>
+<p class="prose">Suas atividades estão em <a href="/">Minhas atividades</a>. Elas foram importadas do registro oficial apontado pelo índice e, depois disso, só mudam por decisão aprovada nesta aplicação. Mudanças vindas de atas novas aparecem como <a href="/sugestoes">sugestões</a> até alguém revisar.</p>
 {% if o.steps %}
 <ol class="steps">{% for s in o.steps %}<li><span>{{ s }}</span></li>{% endfor %}</ol>
 {% endif %}
 
 <h2>Documentos de referência</h2>
-<div class="table-card">
-<table>
+<table class="stack">
   <thead><tr><th>Documento</th><th>Papel</th><th class="hide-sm">Situação</th></tr></thead>
   <tbody>
   {% for r in o.references %}
   <tr>
     <td>{% if r.web_url %}<a href="{{ r.web_url }}" target="_blank" rel="noopener">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
-    <td>{{ ROLE_LABELS.get(r.role) }}</td>
+    <td data-label="Papel">{{ ROLE_LABELS.get(r.role) }}</td>
     <td class="hide-sm">{% if r.sync_status == 'indisponivel' %}<span class="tag err">indisponível</span>{% elif r.doc_status %}<span class="tag neutral">{{ r.doc_status }}</span>{% else %}—{% endif %}</td>
   </tr>
   {% else %}<tr><td colspan="3">Nenhum documento de referência sincronizado ainda.</td></tr>{% endfor %}
   {% for h in o.historic %}
   <tr>
     <td>{{ h.name }}</td>
-    <td>Histórico: não use como regra atual</td>
+    <td data-label="Papel">Histórico, não use como regra atual</td>
     <td class="hide-sm">{% if h.meta.substituido_por %}substituído por {{ h.meta.substituido_por }}{% else %}<span class="tag neutral">histórico</span>{% endif %}</td>
   </tr>
   {% endfor %}
   </tbody>
 </table>
-</div>
 {% endblock %}

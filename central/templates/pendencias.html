@@ -2,12 +2,12 @@
 {% from "_macros.html" import source_ref %}
 {% block title %}Pendências{% endblock %}
 {% block content %}
-<h1>Pendências humanas</h1>
-<p class="lead">Situações que o sistema não resolve sozinho com segurança: conflitos de fonte, arquivos ilegíveis ou removidos. Nenhuma delas alterou atividades.</p>
-<div class="cards">
+<h1>Pendências</h1>
+<p class="lead">Situações que o sistema não resolve sozinho com segurança, como planilhas concorrentes, arquivos ilegíveis ou removidos. Nenhuma delas alterou atividades: uma pessoa decide.</p>
+<div class="rows">
 {% for i in items %}
-  <article class="card blocked">
-    <header><h3>{{ i.title }}</h3><span class="tag neutral">{{ ISSUE_LABELS.get(i.kind, i.kind) }}</span></header>
+  <article class="row">
+    <div class="row-head"><h3>{{ i.title }}</h3><span class="tag soon">{{ ISSUE_LABELS.get(i.kind, i.kind) }}</span></div>
     <p>{{ i.detail }}</p>
     {% if i.source %}<p class="small">Arquivo: {{ source_ref(i.source) }}</p>{% endif %}
     <p class="small muted">Aberta em {{ fmt_ts(i.created_at) }}</p>
@@ -20,11 +20,11 @@
     {% endif %}
   </article>
 {% else %}
-  <div class="notice">Nenhuma pendência aberta.</div>
+  <div class="empty" style="border:0"><strong>Nenhuma pendência aberta.</strong>Conflitos entre fontes e arquivos com problema aparecem aqui.</div>
 {% endfor %}
 </div>
 {% if closed %}
 <h2>Encerradas recentemente</h2>
-<ul class="small">{% for c in closed %}<li>{{ c.title }} — {{ c.resolution }} ({{ c.resolved_by }}, {{ fmt_ts(c.resolved_at) }})</li>{% endfor %}</ul>
+<ul class="small">{% for c in closed %}<li>{{ c.title }}: {{ c.resolution }} ({{ c.resolved_by }}, {{ fmt_ts(c.resolved_at) }})</li>{% endfor %}</ul>
 {% endif %}
 {% endblock %}

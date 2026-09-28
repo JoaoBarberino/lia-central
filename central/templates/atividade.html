@@ -2,45 +2,41 @@
 {% from "_macros.html" import status_tag, due_tag, source_ref, date_block, people %}
 {% block title %}{{ a.activity_id }}{% endblock %}
 {% block content %}
-<a class="back" href="/">← Minhas atividades</a>
+<a class="back" href="{{ back_href or '/' }}">{{ back_label or 'Minhas atividades' }}</a>
 <div class="detail-head">
   {{ date_block(a.due_date, a.status) }}
   <div>
-    <p class="eyebrow">{{ a.front or 'Sem frente' }} · {{ a.activity_id }}</p>
     <h1>{{ a.title }}</h1>
-    <div class="tags" style="justify-content:flex-start">{{ status_tag(a.status) }}{{ due_tag(a.due_date, a.status) }}</div>
-    <p class="small muted" style="margin:.5rem 0 0">Criada por {{ 'Sistema' if a.created_by == 'sistema' else names.get(a.created_by, a.created_by) }} ({{ {'importacao':'importação da planilha','manual':'criação manual','sugestao':'sugestão aprovada'}.get(a.creation_kind, a.creation_kind) }}) em {{ fmt_ts(a.created_at) }}</p>
+    <p class="meta-line">{{ a.front or 'Sem frente' }}, <span class="id">{{ a.activity_id }}</span>. {{ status_tag(a.status) }}{% if a.due_date %}, {{ due_tag(a.due_date, a.status)|lower }}{% endif %}.</p>
+    <p class="small muted">Criada por {{ 'Sistema' if a.created_by == 'sistema' else names.get(a.created_by, a.created_by) }} ({{ {'importacao':'importação da planilha','manual':'criação manual','sugestao':'sugestão aprovada'}.get(a.creation_kind, a.creation_kind) }}) em {{ fmt_ts(a.created_at) }}.</p>
   </div>
 </div>
 
 {% if pend %}
 <section id="sugestoes" class="notice info">
-  <strong>Mudança pendente de revisão.</strong> Os valores abaixo ainda são os oficiais.
+  <p class="proposal" style="margin:0"><strong>Mudança proposta, ainda não oficial.</strong> Os valores abaixo continuam valendo até alguém revisar.</p>
   <ul class="change">
   {% for s in pend %}
-    <li><a href="/sugestoes/{{ s.suggestion_id }}">Sugestão #{{ s.suggestion_id }}</a>
-      {% for k, v in s.proposed.items() %}<span class="f">{{ FIELD_LABELS.get(k, k) }}</span><ins>{{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}</ins>{% endfor %}</li>
+    <li>{% for k, v in s.proposed.items() %}<span><span class="f">{{ FIELD_LABELS.get(k, k) }}:</span> <ins>{{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}</ins></span> {% endfor %}<a href="/sugestoes/{{ s.suggestion_id }}">Ver sugestão #{{ s.suggestion_id }}</a></li>
   {% endfor %}
   </ul>
 </section>
 {% endif %}
 
-<div class="grid2" style="margin-top:1.25rem">
+<div class="grid2" style="margin-top:2rem">
 <section>
-  <div class="card">
-    <dl class="facts">
+  <dl class="facts">
       <div><dt>Responsáveis</dt><dd>{{ people(a.owners, names) }}</dd></div>
       <div><dt>Prazo</dt><dd>{{ fmt_date(a.due_date) }}</dd></div>
       <div><dt>Prioridade</dt><dd>{{ a.priority or '—' }}</dd></div>
-      <div><dt>Próximo passo</dt><dd>{{ a.next_step or '—' }}</dd></div>
-      <div><dt>Notas e bloqueios</dt><dd>{{ a.notes or '—' }}</dd></div>
-      {% if a.description %}<div><dt>Descrição</dt><dd>{{ a.description }}</dd></div>{% endif %}
-    </dl>
-    <hr class="divider">
-    <div class="actions" style="margin:0">
+      <div class="wide"><dt>Próximo passo</dt><dd>{{ a.next_step or '—' }}</dd></div>
+      <div class="wide"><dt>Notas e bloqueios</dt><dd>{{ a.notes or '—' }}</dd></div>
+      {% if a.description %}<div class="wide"><dt>Descrição</dt><dd>{{ a.description }}</dd></div>{% endif %}
+  </dl>
+    <div class="actions" style="margin-top:1.5rem">
       <a class="btn secondary small" href="/atividades/{{ a.activity_id }}/editar">Editar</a>
       {% if a.status != 'Concluída' %}
-      <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="Concluída"><button class="btn secondary small" type="submit">✓ Concluir</button></form>
+      <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="Concluída"><button class="btn secondary small" type="submit">Marcar como concluída</button></form>
       {% endif %}
       {% if a.status == 'Bloqueada' %}
       <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="Em andamento"><button class="btn secondary small" type="submit">Desbloquear</button></form>
@@ -57,24 +53,23 @@
       </form>
     </details>
     {% endif %}
-  </div>
 
   <h2>Histórico</h2>
   <ol class="timeline">
   {% for h in history %}
     <li>
-      <div class="tl-head"><strong>{{ fmt_ts(h.ts) }}</strong> · {{ h.actor if h.actor != 'sistema' else 'Sistema' }} — {{ h.reason }}</div>
+      <div class="tl-head"><strong>{{ fmt_ts(h.ts) }}</strong>, {{ h.actor if h.actor != 'sistema' else 'Sistema' }}: {{ h.reason }}</div>
       {% if h.changes %}
-      <ul class="change">{% for label, old, new in h.changes %}<li><span class="f">{{ label }}</span><del>{{ old }}</del> → <ins>{{ new }}</ins></li>{% endfor %}</ul>
+      <ul class="change">{% for label, old, new in h.changes %}<li><span class="f">{{ label }}</span><del>{{ old }}</del> <span class="sr">passa a ser</span><ins>{{ new }}</ins></li>{% endfor %}</ul>
       {% endif %}
-      {% if h.source or h.suggestion_id %}<div class="small muted">{% if h.source %}Fonte: {{ source_ref(h.source) }}{% endif %}{% if h.suggestion_id %} · <a href="/sugestoes/{{ h.suggestion_id }}">sugestão #{{ h.suggestion_id }}</a>{% endif %}</div>{% endif %}
+      {% if h.source or h.suggestion_id %}<div class="small muted">{% if h.source %}Fonte: {{ source_ref(h.source) }}{% endif %}{% if h.suggestion_id %}. <a href="/sugestoes/{{ h.suggestion_id }}">sugestão #{{ h.suggestion_id }}</a>{% endif %}</div>{% endif %}
     </li>
   {% endfor %}
   </ol>
 </section>
 
-<aside class="card">
-  <h2 style="margin-top:0">Fontes</h2>
+<aside>
+  <h2>De onde veio</h2>
   <ul class="sources-list">
   {% for r in refs %}
     <li><span class="kind">{{ {'importada_de':'Importada de','origem_declarada':'Origem declarada','alterada_por':'Alterada com base em','criada_por':'Criada com base em'}.get(r.relation_type, r.relation_type) }}</span>

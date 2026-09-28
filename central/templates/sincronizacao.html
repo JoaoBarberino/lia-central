@@ -2,26 +2,26 @@
 {% block title %}Sincronização{% endblock %}
 {% block content %}
 <h1>Sincronização</h1>
+<p class="lead">A pasta é verificada sozinha a cada <strong>{{ sync_minutes }} min</strong> (o case pede até 15). Se falhar, tenta de novo com espera crescente, até 10 min. O botão serve para demonstração.</p>
 <div class="grid2">
 <section>
-  <p>A aplicação verifica a pasta automaticamente a cada <strong>{{ sync_minutes }} min</strong> (meta do case: até 15 min). Em falha, tenta de novo com espera crescente, até 10 min. O botão “Sincronizar agora” serve para depuração e demonstração.</p>
   <form method="post" action="/sincronizar"><button class="btn" type="submit">Sincronizar agora</button></form>
 
   <h2>Últimas rodadas</h2>
-  <div class="table-scroll"><table>
+  <table class="stack">
     <thead><tr><th>Início</th><th>Origem</th><th>Resultado</th><th>Arquivos</th><th class="hide-sm">Detalhes</th></tr></thead>
     <tbody>
     {% for r in runs %}
     <tr>
       <td>{{ fmt_ts(r.started_at) }}</td>
-      <td>{{ r.trigger }}</td>
-      <td>{% if r.status == 'ok' %}<span class="tag done">ok</span>{% elif r.status == 'parcial' %}<span class="tag soon">parcial</span>{% elif r.status == 'rodando' %}<span class="tag neutral">rodando</span>{% else %}<span class="tag err">falhou</span>{% endif %}</td>
-      <td class="small">{{ r.files_seen }} vistos · {{ r.processed }} processados · {{ r.ignored }} ignorados · {{ r.errors }} com erro</td>
+      <td data-label="Origem">{{ {'auto':'automática','manual':'manual','inicio':'ao iniciar'}.get(r.trigger, r.trigger) }}</td>
+      <td data-label="Resultado">{% if r.status == 'ok' %}<span class="tag done">ok</span>{% elif r.status == 'parcial' %}<span class="tag soon">parcial</span>{% elif r.status == 'rodando' %}<span class="tag neutral">rodando</span>{% else %}<span class="tag err">falhou</span>{% endif %}</td>
+      <td class="small" data-label="Arquivos">{{ r.files_seen }} vistos, {{ r.processed }} processados{% if r.ignored %}, {{ r.ignored }} ignorados{% endif %}{% if r.errors %}, <span class="tag err">{{ r.errors }} com erro</span>{% endif %}</td>
       <td class="hide-sm small" style="white-space: pre-line">{{ r.message or '' }}</td>
     </tr>
     {% else %}<tr><td colspan="5">Nenhuma rodada ainda.</td></tr>{% endfor %}
     </tbody>
-  </table></div>
+  </table>
 </section>
 <aside>
   <h2>Conexão</h2>
@@ -45,7 +45,7 @@
   {% else %}
     <p><span class="tag neutral">desativada</span> Atas são indexadas, mas sem sugestões. Configure <code>GEMINI_API_KEY</code>.</p>
   {% endif %}
-  <p class="small">Chamadas bem-sucedidas: {{ calls.n or 0 }} · tokens de entrada: {{ calls.i or 0 }} · saída: {{ calls.o or 0 }}</p>
+  <p class="small">{{ calls.n or 0 }} chamadas bem-sucedidas, {{ calls.i or 0 }} tokens de entrada e {{ calls.o or 0 }} de saída.</p>
 </aside>
 </div>
 {% endblock %}

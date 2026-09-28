@@ -2,12 +2,14 @@
 {% from "_macros.html" import source_ref, status_tag, due_tag %}
 {% block title %}O que mudou para mim{% endblock %}
 {% block content %}
-<h1>Novidades para {{ me.display_name }}</h1>
+<h1>O que mudou para você</h1>
 <p class="lead">Desde <strong>{{ fmt_ts(since) }}</strong>{% if desde == 'visita' %} ({{ 'sua visita anterior' if has_visit else 'últimos 7 dias; primeira visita' }}){% endif %}. Tudo abaixo vem dos registros, com link para a fonte.</p>
-<div class="actions">
+<div class="toolbar" style="margin-top:0">
+  <div class="filters" role="group" aria-label="Período">
   {% for key, label in [('visita','Desde a última visita'),('1d','Últimas 24 h'),('7d','Últimos 7 dias'),('30d','Últimos 30 dias')] %}
-  <a class="btn small {{ '' if desde == key else 'secondary' }}" href="/novidades?desde={{ key }}" {% if desde == key %}aria-current="true"{% endif %}>{{ label }}</a>
+  <a href="/novidades?desde={{ key }}" {% if desde == key %}aria-current="true"{% endif %}>{{ label }}</a>
   {% endfor %}
+  </div>
 </div>
 
 {% if d.nothing_changed %}
@@ -18,9 +20,9 @@
 <h2>Mudanças confirmadas ({{ d.confirmed|length }})</h2>
 <ul class="timeline">
 {% for c in d.confirmed %}
-  <li><a href="/atividades/{{ c.activity_id }}">{{ c.activity_id }} · {{ c.title }}</a> — {{ fmt_ts(c.ts) }}, por {{ c.actor if c.actor != 'sistema' else 'Sistema' }}
-    <ul class="change">{% for label, old, new in c.changes %}<li>{{ label }}{% if old %}: <del>{{ old }}</del> → <ins>{{ new }}</ins>{% else %}: {{ new }}{% endif %}</li>{% endfor %}</ul>
-    <div class="small">{{ c.reason }}{% if c.source %} · fonte: {{ source_ref(c.source) }}{% endif %}</div>
+  <li><a href="/atividades/{{ c.activity_id }}">{{ c.title }}</a> <span class="id">{{ c.activity_id }}</span>. {{ fmt_ts(c.ts) }}, por {{ c.actor if c.actor != 'sistema' else 'Sistema' }}
+    <ul class="change">{% for label, old, new in c.changes %}<li>{{ label }}{% if old %}: <del>{{ old }}</del> <span class="sr">passa a ser</span><ins>{{ new }}</ins>{% else %}: {{ new }}{% endif %}</li>{% endfor %}</ul>
+    <div class="small">{{ c.reason }}{% if c.source %}. Fonte: {{ source_ref(c.source) }}{% endif %}</div>
   </li>
 {% endfor %}
 </ul>
@@ -28,26 +30,26 @@
 
 {% if d.suggestions %}
 <h2>Propostas que afetam você ({{ d.suggestions|length }})</h2>
-<ul>
+<ul class="rows" style="list-style:none;padding:0;margin:0">
 {% for s in d.suggestions %}
-  <li><a href="/sugestoes/{{ s.id }}">#{{ s.id }} {{ 'alterar ' ~ s.target if s.kind == 'update' else 'nova atividade' }}</a>
-    <span class="tag {{ 'pending' if s.status == 'pendente' else 'neutral' }}">{{ 'pendente: ainda não oficial' if s.status == 'pendente' else s.status.replace('_',' ') }}</span>
-    — {% for k, v in s.proposed.items() %}{{ FIELD_LABELS.get(k, k) }}: {{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}{{ '; ' if not loop.last }}{% endfor %}
-    <div class="small">Fonte: {{ source_ref(s.source) }}</div></li>
+  <li class="row"><a href="/sugestoes/{{ s.id }}">{{ 'Alterar ' ~ s.target if s.kind == 'update' else 'Nova atividade' }}</a> <span class="id">#{{ s.id }}</span>.
+    <span class="tag {{ 'pending' if s.status == 'pendente' else 'neutral' }}">{{ 'Pendente, ainda não oficial' if s.status == 'pendente' else s.status.replace('_',' ')|capitalize }}</span>
+    <div>{% for k, v in s.proposed.items() %}{{ FIELD_LABELS.get(k, k) }}: {{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}{{ '; ' if not loop.last }}{% endfor %}</div>
+    <div class="small muted">Fonte: {{ source_ref(s.source) }}</div></li>
 {% endfor %}
 </ul>
 {% endif %}
 
 <h2>Precisa de atenção</h2>
 {% if d.attention %}
-<ul>{% for a in d.attention %}<li><a href="/atividades/{{ a.activity_id }}">{{ a.activity_id }} · {{ a.title }}</a> {{ status_tag(a.status) }} {{ due_tag(a.due_date, a.status) }}{% if a.status == 'Bloqueada' and a.notes %} — {{ a.notes }}{% endif %}</li>{% endfor %}</ul>
+<ul>{% for a in d.attention %}<li><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a> <span class="id">{{ a.activity_id }}</span>: {{ status_tag(a.status) }}, {{ due_tag(a.due_date, a.status)|lower }}{% if a.status == 'Bloqueada' and a.notes %}. {{ a.notes }}{% endif %}</li>{% endfor %}</ul>
 {% else %}<p>Nenhuma atividade sua bloqueada, vencida ou vencendo nos próximos 3 dias.</p>{% endif %}
 
-<h2>Novidades dos documentos</h2>
+<h2>Documentos novos ou editados</h2>
 {% if d.new_sources or d.edited_sources %}
 <ul>
-{% for s in d.new_sources %}<li>{% if s.sync_status == 'indisponivel' %}<span class="tag err">removido</span>{% else %}<span class="tag neutral">novo</span>{% endif %} <a href="/fontes/{{ s.file_id }}">{{ s.name }}</a> <span class="muted small">({{ ROLE_LABELS.get(s.role, 'não classificado') }}, visto em {{ fmt_ts(s.first_seen_at) }})</span></li>{% endfor %}
-{% for s in d.edited_sources %}<li><span class="tag neutral">editado</span> <a href="/fontes/{{ s.file_id }}">{{ s.name }}</a> — <a href="/fontes/{{ s.file_id }}">ver o que mudou</a> <span class="muted small">(nova versão lida em {{ fmt_ts(s.edited_at) }})</span></li>{% endfor %}
+{% for s in d.new_sources %}<li><a href="/fontes/{{ s.file_id }}">{{ s.name }}</a>: {% if s.sync_status == 'indisponivel' %}<span class="tag err">removido</span>{% else %}<span class="tag neutral">novo</span>{% endif %} <span class="muted small">({{ ROLE_LABELS.get(s.role, 'não classificado') }}, visto em {{ fmt_ts(s.first_seen_at) }})</span></li>{% endfor %}
+{% for s in d.edited_sources %}<li><a href="/fontes/{{ s.file_id }}">{{ s.name }}</a>: <span class="tag neutral">editado</span>, <a href="/fontes/{{ s.file_id }}">ver o que mudou</a> <span class="muted small">(nova versão lida em {{ fmt_ts(s.edited_at) }})</span></li>{% endfor %}
 </ul>
 {% else %}<p>Nenhum documento novo ou editado no período.</p>{% endif %}
 {% if d.unavailable %}

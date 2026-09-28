@@ -36,10 +36,18 @@ templates = Jinja2Templates(directory=str(BASE / "templates"))
 from .db import DEMO_MEMBERS  # noqa: E402
 
 _NAMES = {m[0]: m[1] for m in DEMO_MEMBERS}
-templates.env.filters["nomes"] = lambda ids: ", ".join(_NAMES.get(i, i) for i in (ids or []))
+
+
+def _join_names(ids) -> str:
+    """'Ana', 'Ana e Davi', 'Ana, Bruno e Davi'."""
+    names = [_NAMES.get(i, i) for i in (ids or [])]
+    return " e ".join(names) if len(names) <= 2 else ", ".join(names[:-1]) + " e " + names[-1]
+
+
+templates.env.filters["nomes"] = _join_names
 templates.env.globals.update(
     NAMES=_NAMES, date_parts=views.date_parts,
-    fmt_date=views.fmt_date, fmt_ts=views.fmt_ts, due_info=views.due_info, ROLE_LABELS=ROLE_LABELS,
+    fmt_date=views.fmt_date, fmt_ts=views.fmt_ts, fmt_when=views.fmt_when, due_info=views.due_info, ROLE_LABELS=ROLE_LABELS,
     FIELD_LABELS=acts.FIELD_LABELS, ISSUE_LABELS=ISSUE_LABELS, STATUSES=acts.STATUSES,
 )
 

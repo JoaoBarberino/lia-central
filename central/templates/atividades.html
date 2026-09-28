@@ -2,28 +2,28 @@
 {% from "_macros.html" import status_tag, due_tag, people %}
 {% block title %}Todas as atividades{% endblock %}
 {% block content %}
-<p class="eyebrow">Registro oficial</p>
 <h1>Todas as atividades</h1>
-<p class="lead">Estado oficial atual: a importação da planilha mais as decisões aprovadas nesta aplicação.</p>
+<p class="lead">O registro oficial: o que veio da planilha na importação, mais as decisões aprovadas aqui depois disso.</p>
 <div class="toolbar">
-  <div class="segmented" role="group" aria-label="Filtro">
+  <div class="filters" role="group" aria-label="Filtro">
     <a href="/atividades" {% if not concluidas %}aria-current="true"{% endif %}>Abertas</a>
-    <a href="/atividades?concluidas=1" {% if concluidas %}aria-current="true"{% endif %}>Incluir concluídas</a>
+    <a href="/atividades?concluidas=1" {% if concluidas %}aria-current="true"{% endif %}>Com as concluídas</a>
   </div>
-  <a class="btn small" href="/atividades/nova">+ Nova atividade</a>
+  <a class="btn small" href="/atividades/nova">Nova atividade</a>
 </div>
-<div class="table-card">
-<table>
+<table class="stack">
   <caption class="sr">Atividades</caption>
   <thead><tr><th>Atividade</th><th>Responsáveis</th><th>Prazo</th><th>Estado</th><th class="hide-sm">Próximo passo</th></tr></thead>
   <tbody>
   {% for a in items %}
+  {% set d = due_info(a.due_date, a.status) %}
   <tr>
-    <td><a href="/atividades/{{ a.activity_id }}"><strong>{{ a.title }}</strong></a><div class="small muted"><span class="id">{{ a.activity_id }}</span> · {{ a.front or 'Sem frente' }}</div>
-      {% if a.pending_suggestions %}<a class="tag pending" style="margin-top:.3rem" href="/atividades/{{ a.activity_id }}#sugestoes">mudança pendente</a>{% endif %}</td>
-    <td>{{ people(a.owners, NAMES) }}</td>
-    <td class="num" style="white-space:nowrap">{{ fmt_date(a.due_date) }}<div style="margin-top:.2rem">{{ due_tag(a.due_date, a.status) }}</div></td>
-    <td>{{ status_tag(a.status) }}</td>
+    <td><a href="/atividades/{{ a.activity_id }}"><strong>{{ a.title }}</strong></a>
+      <div class="small muted">{{ a.front or 'Sem frente' }}, <span class="id">{{ a.activity_id }}</span></div>
+      {% if a.pending_suggestions %}<div class="small"><a class="tag pending" href="/atividades/{{ a.activity_id }}#sugestoes">mudança proposta</a></div>{% endif %}</td>
+    <td data-label="Responsáveis">{{ people(a.owners, NAMES) }}</td>
+    <td class="num" data-label="Prazo">{% if a.due_date %}{{ fmt_date(a.due_date) }}{% if d.kind in ('soon', 'overdue') %} <span class="tag {{ d.kind }}">({{ d.label|lower }})</span>{% endif %}{% else %}<span class="muted">a definir</span>{% endif %}</td>
+    <td data-label="Estado">{{ status_tag(a.status) }}</td>
     <td class="hide-sm">{{ a.next_step or '—' }}</td>
   </tr>
   {% else %}
@@ -31,5 +31,4 @@
   {% endfor %}
   </tbody>
 </table>
-</div>
 {% endblock %}

@@ -2,36 +2,38 @@
 {% from "_macros.html" import activity_card %}
 {% block title %}Minhas atividades{% endblock %}
 {% block content %}
-<p class="eyebrow">{{ me.front }}{% if me.can_review %} · revisa sugestões{% endif %}</p>
-<h1>Olá, {{ me.display_name }}</h1>
-<p class="lead">Suas atividades abertas, inclusive as compartilhadas. Prazos no horário de São Paulo.</p>
-
-<section class="stats" aria-label="Resumo">
-  <div class="stat is-blue"><span class="n">{{ stats.open }}</span><span class="l">atividade{{ 's' if stats.open != 1 }} aberta{{ 's' if stats.open != 1 }}</span></div>
-  <div class="stat is-warn {{ 'has' if stats.soon }}"><span class="n">{{ stats.soon }}</span><span class="l">vencida{{ 's' if stats.soon != 1 }} ou vencendo em até 3 dias</span></div>
-  <div class="stat is-danger {{ 'has' if stats.blocked }}"><span class="n">{{ stats.blocked }}</span><span class="l">bloqueada{{ 's' if stats.blocked != 1 }}</span></div>
-  {% if me.can_review %}
-  <a class="stat is-cyan" href="/sugestoes"><span class="n">{{ stats.to_review }}</span><span class="l">sugest{{ 'ões' if stats.to_review != 1 else 'ão' }} para você revisar</span></a>
-  {% else %}
-  <a class="stat is-cyan" href="/sugestoes"><span class="n">{{ stats.pending_me }}</span><span class="l">mudança{{ 's' if stats.pending_me != 1 }} proposta{{ 's' if stats.pending_me != 1 }} para você, aguardando revisão</span></a>
+<h1>Minhas atividades</h1>
+<p class="summary">
+  {% if stats.open == 0 %}{{ me.display_name }}, você não tem atividades abertas.
+  {% else %}{{ me.display_name }}, você tem <strong>{{ stats.open }} {{ 'atividade aberta' if stats.open == 1 else 'atividades abertas' }}</strong>{% if stats.open > 1 %}, contando as compartilhadas{% endif %}.
+    {% if not stats.soon and not stats.blocked %}Nenhuma está vencida, perto do prazo ou bloqueada.
+    {% else %}
+      {%- if stats.soon %} <strong>{{ stats.soon }}</strong> {{ 'vence' if stats.soon == 1 else 'vencem' }} em até 3 dias ou já {{ 'venceu' if stats.soon == 1 else 'venceram' }}{% endif %}
+      {%- if stats.soon and stats.blocked %} e{% endif %}
+      {%- if stats.blocked %} <strong>{{ stats.blocked }}</strong> {{ 'está bloqueada' if stats.blocked == 1 else 'estão bloqueadas' }}{% endif %}.
+    {% endif %}
   {% endif %}
-</section>
-
-
+  {% if me.can_review %}
+    {% if stats.to_review %}<a href="/sugestoes">{{ stats.to_review }} {{ 'sugestão espera' if stats.to_review == 1 else 'sugestões esperam' }} sua revisão</a>.{% endif %}
+  {% elif stats.pending_me %}
+    {{ stats.pending_me }} {{ 'proposta envolvendo você espera' if stats.pending_me == 1 else 'propostas envolvendo você esperam' }} revisão de {{ members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') }}. <a href="/sugestoes">Ver propostas</a>
+  {% endif %}
+</p>
 
 <div class="toolbar">
-  <div class="segmented" role="group" aria-label="Ordenar">
-    <a href="/?ordem=prazo" {% if ordem == 'prazo' %}aria-current="true"{% endif %}>Por prazo</a>
-    <a href="/?ordem=estado" {% if ordem == 'estado' %}aria-current="true"{% endif %}>Bloqueadas primeiro</a>
+  <div class="filters" role="group" aria-label="Ordenar">
+    <span class="label">Ordenar por</span>
+    <a href="/?ordem=prazo" {% if ordem == 'prazo' %}aria-current="true"{% endif %}>prazo</a>
+    <a href="/?ordem=estado" {% if ordem == 'estado' %}aria-current="true"{% endif %}>bloqueadas primeiro</a>
   </div>
-  <a class="btn secondary small" href="/atividades/nova">+ Nova atividade</a>
+  <a class="btn secondary small" href="/atividades/nova">Nova atividade</a>
 </div>
 
 {% if items %}
-<div class="cards">
+<div class="acts">
   {% for a in items %}{{ activity_card(a) }}{% endfor %}
 </div>
 {% else %}
-<div class="empty"><strong>Nenhuma atividade aberta com você.</strong>{% if not last_run %}A pasta ainda não foi sincronizada.{% else %}Quando alguém te atribuir uma tarefa, ela aparece aqui.{% endif %}</div>
+<div class="empty"><strong>Nada aberto com você.</strong>{% if not last_run %}A pasta ainda não foi sincronizada.{% else %}Quando alguém te atribuir uma tarefa, ela aparece aqui.{% endif %}</div>
 {% endif %}
 {% endblock %}

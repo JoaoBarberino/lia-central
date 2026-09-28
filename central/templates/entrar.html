@@ -1,15 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Entrar{% endblock %}
 {% block content %}
-<p class="eyebrow">Protótipo com pessoas fictícias</p>
 <h1>Quem está usando?</h1>
-<p class="lead">Não há senha: a escolha define a visão pessoal e quem pode revisar sugestões. Primeira vez? Veja <a href="/comece-aqui">Comece aqui</a>.</p>
-<form method="post" action="/entrar" class="stats" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
+<p class="lead">As pessoas são fictícias e não há senha. A escolha define a sua visão pessoal e se você pode revisar sugestões. Primeira vez? Veja <a href="/comece-aqui">Comece aqui</a>.</p>
+<form method="post" action="/entrar" class="pick">
   {% for m in members %}
-  <button class="stat" type="submit" name="member_id" value="{{ m.member_id }}" style="text-align:left; cursor:pointer; font:inherit;">
-    <span class="person" style="font-size:1.05rem;font-weight:700;color:var(--ink)"><span class="avatar {{ m.member_id }}" aria-hidden="true">{{ m.display_name[:1] }}</span>{{ m.display_name }}</span>
-    <span class="l">{{ m.front }} · {{ m.role }}</span>
-    {% if m.can_review %}<span><span class="tag progress">Revisa sugestões</span></span>{% endif %}
+  <button type="submit" name="member_id" value="{{ m.member_id }}">
+    <span class="name">{{ m.display_name }}</span>
+    <span class="role">{{ m.front }}, {{ m.role }}</span>
+    {% if m.can_review %}<span class="rev">Revisa sugestões</span>{% endif %}
   </button>
   {% endfor %}
 </form>

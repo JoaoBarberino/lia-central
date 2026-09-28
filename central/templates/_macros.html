@@ -10,37 +10,35 @@
   <span class="tag {{ {'overdue':'overdue','soon':'soon','done':'done'}.get(d.kind, 'neutral') }}">{{ d.label }}</span>
 {%- endmacro %}
 
-{# Bloco de data estilo calendário; o texto completo fica disponível para leitor de tela #}
+{# Coluna de data: número grande e mês; o texto completo fica para leitor de tela #}
 {% macro date_block(due_date, status) -%}
   {% set b = date_parts(due_date, status) %}
   {% if b %}
   <div class="date {{ b.kind }}"><span class="sr">Prazo: {{ fmt_date(due_date) }}</span><span class="d" aria-hidden="true">{{ b.d }}</span><span class="m" aria-hidden="true">{{ b.m }}</span></div>
   {% else %}
-  <div class="date none"><span class="m">Prazo<br>a definir</span></div>
+  <div class="date none">Prazo a definir</div>
   {% endif %}
 {%- endmacro %}
 
 {% macro people(ids, names) -%}
-  <span class="people">
-  {% for o in ids %}<span class="person"><span class="avatar {{ o }}" aria-hidden="true">{{ (names.get(o, o))[:1] }}</span>{{ names.get(o, o) }}</span>{% else %}<span class="person tbd">Responsável a confirmar</span>{% endfor %}
-  </span>
+  {% if ids %}<span class="people">{{ ids | nomes }}</span>{% else %}<span class="people tbd">Responsável a confirmar</span>{% endif %}
 {%- endmacro %}
 
 {% macro activity_card(a) -%}
-<article class="card act {% if a.status == 'Bloqueada' %}blocked{% elif a.pending_suggestions %}pending{% endif %}">
+{% set d = due_info(a.due_date, a.status) %}
+<article class="act">
   {{ date_block(a.due_date, a.status) }}
   <div>
-    <div class="act-title"><h3><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a></h3><span class="id">{{ a.activity_id }}</span></div>
-    <div class="act-meta"><span>{{ a.front or 'Sem frente' }}</span><span>{{ fmt_date(a.due_date) if a.due_date else 'Prazo a definir' }}</span></div>
-    {% if a.status == 'Bloqueada' and a.notes %}<p class="act-next"><b>Bloqueio</b>{{ a.notes }}</p>{% endif %}
-    <p class="act-next"><b>Próximo passo</b>{{ a.next_step or '—' }}</p>
+    <h3><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a></h3>
+    <p class="meta">{{ a.front or 'Sem frente' }}, <span class="id">{{ a.activity_id }}</span>.{% if a.due_date and d.kind == 'ok' %} {{ d.label }}.{% endif %}</p>
+    {% if a.status == 'Bloqueada' and a.notes %}<p class="next blocker">Bloqueio: {{ a.notes }}</p>{% endif %}
+    <p class="next">Próximo passo: {{ (a.next_step or 'não definido').rstrip('.') }}.</p>
+    {% if a.pending_suggestions %}<p class="proposal"><strong>{{ 'Mudança proposta' if a.pending_suggestions == 1 else a.pending_suggestions ~ ' mudanças propostas' }}</strong>, ainda não oficial. <a href="/atividades/{{ a.activity_id }}#sugestoes">Ver o que muda</a></p>{% endif %}
   </div>
-  <div class="act-side">
-    {{ people(a.owners, NAMES) }}
-    <div class="tags">
-      {{ status_tag(a.status) }}{{ due_tag(a.due_date, a.status) }}
-      {% if a.pending_suggestions %}<a class="tag pending" href="/atividades/{{ a.activity_id }}#sugestoes">{{ a.pending_suggestions }} mudança{{ 's' if a.pending_suggestions > 1 }} pendente{{ 's' if a.pending_suggestions > 1 }}</a>{% endif %}
-    </div>
+  <div class="side">
+    <div class="names">{{ people(a.owners, NAMES) }}</div>
+    <div>{{ status_tag(a.status) }}</div>
+    {% if d.kind in ('soon', 'overdue') %}<div>{{ due_tag(a.due_date, a.status) }}</div>{% endif %}
   </div>
 </article>
 {%- endmacro %}
@@ -48,7 +46,7 @@
 {% macro source_ref(src) -%}
   {% if src %}
     {% if src.url %}<a href="{{ src.url }}" target="_blank" rel="noopener">{{ src.name }}<span class="sr"> (abre o original)</span></a>{% else %}{{ src.name }}{% endif %}
-    {% if src.status == 'indisponivel' %}<span class="tag err">fonte indisponível</span>{% elif src.status == 'erro' %}<span class="tag soon">erro na última leitura</span>{% endif %}
-    {% if src.file_id %}<a class="small" href="/fontes/{{ src.file_id }}">(detalhes)</a>{% endif %}
+    {% if src.status == 'indisponivel' %}<span class="tag err">(fonte indisponível)</span>{% elif src.status == 'erro' %}<span class="tag soon">(erro na última leitura)</span>{% endif %}
+    {% if src.file_id %}<a class="small" href="/fontes/{{ src.file_id }}">detalhes</a>{% endif %}
   {% else %}—{% endif %}
 {%- endmacro %}
