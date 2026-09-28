@@ -10,3 +10,5 @@ google-auth>=2.30
 google-auth-oauthlib>=1.2
 google-api-python-client>=2.130
 pytest>=8
+# Windows não traz a base de fusos horários (America/Sao_Paulo); este pacote a fornece
+tzdata>=2024.1

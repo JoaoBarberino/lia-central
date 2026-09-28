@@ -34,6 +34,7 @@
 
 **Problemas encontrados**
 - Um teste falhou de forma intermitente: duas atas processadas na mesma rodada saíam em ordem diferente a cada execução. Corrigi ordenando por papel e depois por nome, para o processamento ser determinístico.
+- Ao rodar no Windows, o app nem iniciou: `ZoneInfoNotFoundError: America/Sao_Paulo`. O Windows não traz a base de fusos horários que o Python usa (no Linux ela vem do sistema, por isso os testes passavam no ambiente de desenvolvimento). Resolvi adicionando o pacote `tzdata` ao `requirements.txt`. Lição: testar a instalação do zero em outro sistema operacional, como a banca vai fazer.
 - Os timestamps em segundos faziam um evento "empatar" com o marco do resumo pessoal. Passei a usar milissegundos.
 
 ## Ter 29/09 — _(a preencher)_
