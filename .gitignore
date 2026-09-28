@@ -1,5 +1,7 @@
-# Segredos: nunca versionar
+# Segredos: nunca versionar (inclui cópias como .env.txt, que o Bloco de Notas pode criar)
 .env
+.env.*
+!.env.example
 client_secret*.json
 token*.json
 *.token
