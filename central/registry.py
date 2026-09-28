@@ -1,0 +1,244 @@
+"""Registro oficial de atividades vindo da planilha.
+
+1. Vínculo: o INDEX.md aponta a planilha pelo nome; no primeiro vínculo guardamos
+   o file_id do Drive. A partir daí o NOME não importa: renomear mantém a
+   autoridade; uma planilha nova com o mesmo nome (outro file_id) não herda nada.
+2. Importação inicial: cria as atividades uma única vez, com referência à célula.
+3. Edição posterior da planilha oficial: comparamos a versão nova com a
+   versão ANTERIOR da planilha (não com o banco). Só células que mudaram na
+   planilha viram sugestões. Assim uma planilha desatualizada não desfaz uma
+   decisão aprovada na aplicação.
+4. Linhas que somem da planilha NÃO apagam atividades: viram pendência.
+5. Outra planilha com formato de registro (ex.: 'Ata - copia vazia.xlsx') não
+   substitui nada: vira pendência visível de conflito.
+"""
+from __future__ import annotations
+
+import json
+import sqlite3
+
+from . import activities as acts
+from . import suggestions as sugg
+from .authority import find_register_pointer
+from .db import get_setting, set_setting
+from .extractors import looks_like_register, normalize
+from .issues import open_issue, resolve_issue
+
+COLUMN_TO_FIELD = {
+    "id": "activity_id", "atividade": "title", "responsaveis": "owners", "prazo": "due_date", "frente": "front",
+    "prioridade": "priority", "status": "status", "proximo passo": "next_step", "origem": "origin_label",
+    "notas e bloqueios": "notes", "descricao": "description",
+}
+
+
+def _col_letter(idx: int) -> str:
+    s = ""
+    idx += 1
+    while idx:
+        idx, r = divmod(idx - 1, 26)
+        s = chr(65 + r) + s
+    return s
+
+
+def row_to_fields(conn, sheet: dict, row: dict) -> tuple[dict, list[str]]:
+    """Converte uma linha da planilha em campos da atividade. Devolve também nomes não reconhecidos."""
+    fields: dict = {}
+    unknown: list[str] = []
+    for header, value in row["cells"].items():
+        key = COLUMN_TO_FIELD.get(normalize(header))
+        if not key:
+            continue
+        if key == "owners":
+            fields["owners"], unknown = acts.parse_owner_names(conn, value)
+        elif key == "status":
+            fields["status"] = acts.normalize_status(value)
+        else:
+            fields[key] = str(value) if value is not None else None
+    return fields, unknown
+
+
+def cell_ref(sheet: dict, row: dict, field: str) -> str:
+    for j, h in enumerate(sheet["headers"]):
+        if COLUMN_TO_FIELD.get(normalize(h)) == field:
+            return f"{sheet['name']}!{_col_letter(j)}{row['row']}"
+    return f"{sheet['name']}!linha {row['row']}"
+
+
+def _pick_sheet(sheets: list[dict], wanted: str | None) -> dict | None:
+    if wanted:
+        for s in sheets:
+            if normalize(s["name"]) == normalize(wanted):
+                return s
+        return None
+    regs = [s for s in sheets if looks_like_register(s)]
+    return regs[0] if len(regs) == 1 else None
+
+
+def _latest_version(conn, file_id):
+    return conn.execute(
+        "SELECT sv.* FROM sources s JOIN source_versions sv ON sv.file_id = s.file_id AND sv.content_hash = s.content_hash "
+        "WHERE s.file_id = ?", (file_id,)).fetchone()
+
+
+def official_register_id(conn) -> str | None:
+    return get_setting(conn, "register_file_id")
+
+
+# ---------------------------------------------------------------------------
+def ensure_register_bound(conn: sqlite3.Connection) -> str | None:
+    """Garante que existe um registro oficial vinculado por file_id. Retorna o file_id ou None."""
+    bound = official_register_id(conn)
+    if bound:
+        return bound
+    index = conn.execute(
+        "SELECT s.file_id, sv.extracted_text FROM sources s JOIN source_versions sv "
+        "ON sv.file_id = s.file_id AND sv.content_hash = s.content_hash "
+        "WHERE s.role = 'indice' AND s.sync_status = 'ok'").fetchall()
+    pointer = None
+    for r in index:
+        pointer = find_register_pointer(r["extracted_text"] or "")
+        if pointer:
+            break
+    if not pointer:
+        open_issue(conn, "registro_nao_definido", "Registro oficial de atividades não definido",
+                   "Nenhum INDEX.md ativo aponta uma planilha como fonte das atividades. Nenhuma atividade foi importada.",
+                   dedupe_key="registro_nao_definido")
+        return None
+    name, sheet = pointer
+    candidates = conn.execute(
+        "SELECT file_id FROM sources WHERE name = ? AND sync_status = 'ok'", (name,)).fetchall()
+    if len(candidates) != 1:
+        detail = (f"O INDEX.md aponta '{name}', mas "
+                  + ("nenhum arquivo com esse nome foi encontrado." if not candidates
+                     else f"existem {len(candidates)} arquivos com esse nome. Não é seguro escolher sozinho."))
+        open_issue(conn, "registro_nao_definido", "Registro oficial de atividades não definido", detail,
+                   dedupe_key="registro_nao_definido")
+        return None
+    file_id = candidates[0]["file_id"]
+    set_setting(conn, "register_file_id", file_id)
+    set_setting(conn, "register_sheet", sheet or "")
+    set_setting(conn, "register_bound_reason", f"Apontado pelo INDEX.md como '{name}'" + (f", aba '{sheet}'" if sheet else ""))
+    resolve_issue(conn, "registro_nao_definido", resolution="Registro vinculado pelo INDEX.md")
+    return file_id
+
+
+def process_official_register(conn: sqlite3.Connection, file_id: str) -> str:
+    """Importa (1ª vez) ou compara a versão nova com a anterior. Retorna um resumo."""
+    version = _latest_version(conn, file_id)
+    if version is None:
+        return "sem versão legível"
+    data = json.loads(version["extracted_json"])
+    sheet = _pick_sheet(data["sheets"], get_setting(conn, "register_sheet") or None)
+    if sheet is None:
+        open_issue(conn, "registro_alterado", "Aba de atividades não encontrada no registro oficial",
+                   f"A aba esperada ('{get_setting(conn, 'register_sheet')}') não existe na versão atual. "
+                   "Nenhuma atividade foi alterada.", dedupe_key=f"registro_sem_aba:{file_id}", file_id=file_id)
+        return "aba não encontrada"
+    baseline_hash = get_setting(conn, "register_baseline_hash")
+    if baseline_hash is None:
+        return _initial_import(conn, file_id, version["content_hash"], sheet)
+    if baseline_hash == version["content_hash"]:
+        return "sem mudanças"
+    base = conn.execute("SELECT extracted_json FROM source_versions WHERE file_id=? AND content_hash=?",
+                        (file_id, baseline_hash)).fetchone()
+    base_sheet = _pick_sheet(json.loads(base["extracted_json"])["sheets"], get_setting(conn, "register_sheet") or None) if base else None
+    summary = _diff_to_suggestions(conn, file_id, version["content_hash"], base_sheet or {"rows": [], "headers": []}, sheet)
+    set_setting(conn, "register_baseline_hash", version["content_hash"])
+    return summary
+
+
+def _initial_import(conn, file_id, content_hash, sheet) -> str:
+    count = 0
+    for row in sheet["rows"]:
+        fields, unknown = row_to_fields(conn, sheet, row)
+        act_id = fields.pop("activity_id", None)
+        if not act_id or not fields.get("title"):
+            continue
+        origin = fields.pop("origin_label", None)
+        if acts.snapshot(conn, act_id):
+            continue  # idempotente
+        if unknown:
+            open_issue(conn, "responsavel_desconhecido", f"Responsável não reconhecido em {act_id}",
+                       f"Nomes não encontrados entre os membros: {', '.join(unknown)}. Mostrando 'responsável a confirmar'.",
+                       dedupe_key=f"resp:{act_id}", file_id=file_id)
+        acts.create_activity(conn, fields, actor_id="sistema", creation_kind="importacao", activity_id=act_id,
+                             origin_label=origin, reason=f"Importação inicial do registro oficial ({sheet['name']}, linha {row['row']})",
+                             source_file_id=file_id, source_version=content_hash)
+        acts.add_ref(conn, act_id, file_id, content_hash, f"{sheet['name']}!linha {row['row']}",
+                     " | ".join(f"{k}: {v}" for k, v in row["cells"].items() if v is not None), "importada_de")
+        if origin:
+            src = conn.execute("SELECT file_id FROM sources WHERE name = ?", (origin,)).fetchone()
+            if src:
+                acts.add_ref(conn, act_id, src["file_id"], None, None, None, "origem_declarada")
+        count += 1
+    set_setting(conn, "register_baseline_hash", content_hash)
+    return f"{count} atividades importadas"
+
+
+def _diff_to_suggestions(conn, file_id, new_hash, old_sheet, new_sheet) -> str:
+    old_rows = {}
+    for r in old_sheet["rows"]:
+        f, _ = row_to_fields(conn, old_sheet, r)
+        if f.get("activity_id"):
+            old_rows[f["activity_id"]] = f
+    created = removed = 0
+    new_ids = set()
+    for row in new_sheet["rows"]:
+        fields, _ = row_to_fields(conn, new_sheet, row)
+        act_id = fields.pop("activity_id", None)
+        fields.pop("origin_label", None)
+        if not act_id:
+            continue
+        new_ids.add(act_id)
+        old = dict(old_rows.get(act_id) or {})
+        old.pop("activity_id", None)
+        old.pop("origin_label", None)
+        if act_id not in old_rows and not acts.snapshot(conn, act_id):
+            if sugg.create_suggestion(conn, kind="create", target_activity_id=None, proposed=fields,
+                                      evidence=f"{new_sheet['name']}!linha {row['row']}",
+                                      reason="Nova linha no registro oficial", source_file_id=file_id,
+                                      source_version=new_hash):
+                created += 1
+            continue
+        changed = {k: v for k, v in fields.items() if old.get(k) != v}
+        if changed:
+            evidence = "; ".join(f"{cell_ref(new_sheet, row, k)}: {old.get(k)!r} → {v!r}" for k, v in changed.items())
+            if sugg.create_suggestion(conn, kind="update", target_activity_id=act_id, proposed=changed,
+                                      evidence=evidence, reason="Célula alterada no registro oficial",
+                                      source_file_id=file_id, source_version=new_hash):
+                created += 1
+    missing = sorted(set(old_rows) - new_ids)
+    if missing:
+        removed = len(missing)
+        open_issue(conn, "registro_alterado", "Linhas sumiram do registro oficial",
+                   f"A versão nova da planilha oficial não tem: {', '.join(missing)}. "
+                   "Nenhuma atividade foi apagada. Confira se a remoção foi intencional e conclua as atividades pela aplicação.",
+                   dedupe_key=f"registro_linhas_ausentes:{file_id}:{new_hash}", file_id=file_id)
+    return f"{created} sugestões a partir da planilha; {removed} linhas ausentes viraram pendência"
+
+
+def process_register_candidate(conn: sqlite3.Connection, file_id: str) -> str:
+    """Planilha com formato de registro que NÃO é a oficial: nunca altera atividades."""
+    src = conn.execute("SELECT * FROM sources WHERE file_id = ?", (file_id,)).fetchone()
+    version = _latest_version(conn, file_id)
+    data = json.loads(version["extracted_json"])
+    reg_sheets = [s for s in data["sheets"] if looks_like_register(s)]
+    rows = sum(len(s["rows"]) for s in reg_sheets)
+    official_id = official_register_id(conn)
+    official = conn.execute("SELECT name FROM sources WHERE file_id = ?", (official_id,)).fetchone() if official_id else None
+    n_acts = conn.execute("SELECT COUNT(*) FROM activities").fetchone()[0]
+    detail = (
+        f"'{src['name']}' tem as colunas de um registro de atividades "
+        f"(aba {', '.join(repr(s['name']) for s in reg_sheets)}, {rows} linha(s) preenchida(s)), "
+        f"mas não é a fonte apontada pelo INDEX.md"
+        + (f" (o registro oficial é '{official['name']}')" if official else "")
+        + f". Nada foi substituído: as {n_acts} atividades oficiais continuam como estavam. "
+        "Ser mais recente ou ter nome parecido não dá autoridade a um arquivo."
+    )
+    key = f"homonimo:{file_id}:{version['content_hash']}"
+    # Pendência de versão anterior do mesmo arquivo é substituída pela atual
+    conn.execute("UPDATE issues SET status='resolvida', resolution='Substituída pela análise da versão nova' "
+                 "WHERE kind='registro_homonimo' AND file_id=? AND dedupe_key<>? AND status='aberta'", (file_id, key))
+    open_issue(conn, "registro_homonimo", f"Planilha concorrente: {src['name']}", detail,
+               dedupe_key=key, file_id=file_id)
+    return "pendência de conflito registrada"

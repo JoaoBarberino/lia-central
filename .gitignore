@@ -1,0 +1,21 @@
+# Segredos: nunca versionar
+.env
+client_secret*.json
+token*.json
+*.token
+
+# Dados locais da aplicação (banco, cache de conteúdo extraído)
+data/
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Sistema
+.DS_Store
+Thumbs.db
