@@ -65,6 +65,9 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
                      (now_iso(), f"Não foi possível listar a pasta: {e}. Nenhum dado foi alterado.", run_id))
         return {"run_id": run_id, "status": "falhou", "message": str(e), **stats}
 
+    # Progresso visível enquanto a rodada acontece
+    conn.execute("UPDATE sync_runs SET files_seen=?, message=? WHERE run_id=?",
+                 (len(files), f"Pasta listada: {len(files)} arquivo(s). Lendo e processando…", run_id))
     changed: list[str] = []
     seen: set[str] = set()
     for f in files:
@@ -170,6 +173,8 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
                                  ("Indexada. IA desativada: sem sugestões por enquanto.", file_id))
                     continue  # não marca como processada: será analisada quando a IA estiver ativa
                 from .ai import analyze_minutes
+                conn.execute("UPDATE sync_runs SET message=? WHERE run_id=?",
+                             (f"Analisando {name['name']} com a IA…", run_id))
                 msg = analyze_minutes(conn, llm, file_id)
             else:
                 msg = "indexado"

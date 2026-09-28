@@ -110,6 +110,10 @@ def scheduler_loop():
 async def lifespan(app: FastAPI):
     conn = connect(settings.database_path)
     init_db(conn)
+    # Rodadas que ficaram "rodando" porque o app foi encerrado no meio (ex.: Ctrl+C)
+    conn.execute("UPDATE sync_runs SET status='falhou', finished_at=?, "
+                 "message='Interrompida: a aplicação foi encerrada durante a sincronização.' "
+                 "WHERE status='rodando'", (now_iso(),))
     conn.close()
     t = threading.Thread(target=scheduler_loop, daemon=True, name="sync-scheduler")
     t.start()

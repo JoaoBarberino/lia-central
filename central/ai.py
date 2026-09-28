@@ -55,7 +55,7 @@ class GeminiLLM:
     URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     TEMPORARY = (429, 500, 502, 503, 504)
 
-    def __init__(self, api_key: str, model: str, fallback_model: str | None = None, timeout: float = 60.0):
+    def __init__(self, api_key: str, model: str, fallback_model: str | None = None, timeout: float = 45.0):
         self.api_key = api_key
         self.models = [m for m in (model, fallback_model) if m]
         self.model = model
