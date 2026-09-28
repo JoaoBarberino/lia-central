@@ -57,7 +57,9 @@ class GeminiLLM:
 
     def __init__(self, api_key: str, model: str, fallback_model: str | None = None, timeout: float = 45.0):
         self.api_key = api_key
-        self.models = [m for m in (model, fallback_model) if m]
+        # GEMINI_FALLBACK_MODEL aceita uma lista separada por vírgulas, tentada em ordem
+        fallbacks = [m.strip() for m in (fallback_model or "").split(",") if m.strip()]
+        self.models = [model] + [m for m in fallbacks if m != model]
         self.model = model
         self.timeout = timeout
 
