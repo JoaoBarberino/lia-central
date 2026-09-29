@@ -32,7 +32,7 @@ def _dedupe_key(kind, target, proposed, source_file_id, source_version) -> str:
 def create_suggestion(conn: sqlite3.Connection, *, kind: str, target_activity_id: str | None, proposed: dict,
                       evidence: str, reason: str, source_file_id: str, source_version: str,
                       doc_date: str | None = None, uncertainties: list[str] | None = None,
-                      model: str | None = None) -> int | None:
+                      model: str | None = None, already: dict | None = None) -> int | None:
     """Grava uma sugestão pendente. Retorna None se ela já existia (idempotente)."""
     key = _dedupe_key(kind, target_activity_id, proposed, source_file_id, source_version)
     if conn.execute("SELECT 1 FROM suggestions WHERE dedupe_key = ?", (key,)).fetchone():
@@ -50,10 +50,11 @@ def create_suggestion(conn: sqlite3.Connection, *, kind: str, target_activity_id
     cur = conn.execute(
         """INSERT INTO suggestions (kind, target_activity_id, proposed_fields, current_fields, evidence, reason,
                                     doc_date, uncertainties, source_file_id, source_version, review_status,
-                                    model, created_at, dedupe_key)
-           VALUES (?,?,?,?,?,?,?,?,?,?, 'pendente', ?,?,?)""",
+                                    model, created_at, dedupe_key, already_fields)
+           VALUES (?,?,?,?,?,?,?,?,?,?, 'pendente', ?,?,?,?)""",
         (kind, target_activity_id, dumps(proposed), dumps(current) if current is not None else None, evidence,
-         reason, doc_date, dumps(uncertainties or []), source_file_id, source_version, model, now_iso(), key))
+         reason, doc_date, dumps(uncertainties or []), source_file_id, source_version, model, now_iso(), key,
+         dumps(already) if already else None))
     return cur.lastrowid
 
 
@@ -76,6 +77,7 @@ def get(conn: sqlite3.Connection, suggestion_id: int) -> dict | None:
     d["proposed"] = {k: raw[k] for k in order if k in raw} | {k: v for k, v in raw.items() if k not in order}
     d["current"] = json.loads(r["current_fields"]) if r["current_fields"] else None
     d["uncertainties_list"] = json.loads(r["uncertainties"] or "[]")
+    d["already"] = json.loads(r["already_fields"]) if r["already_fields"] else {}
     return d
 
 

@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import source_ref %}
+{% from "_macros.html" import source_ref, delta %}
 {% block title %}Sugestão #{{ s.suggestion_id }}{% endblock %}
 {% block content %}
 <a class="back" href="/sugestoes">Sugestões para revisar</a>
 <h1>{% if s.kind == 'update' and current %}{{ current.title }}{% else %}{{ s.proposed.get('title') or 'Atividade nova' }}{% endif %}</h1>
 <p class="meta-line">
-  Sugestão #{{ s.suggestion_id }}, {{ 'mudança numa atividade (código ' ~ s.target_activity_id ~ ')' if s.kind == 'update' else 'atividade nova' }}.&nbsp;
+  {{ 'Mudança sugerida' if s.kind == 'update' else 'Atividade nova sugerida' }} {{ s.origin }}{% if s.kind == 'update' %} · <span class="id">código {{ s.target_activity_id }}</span>{% endif %} ·&nbsp;
   {% if s.review_status == 'pendente' %}<span class="tag pending">Aguardando revisão</span>
   {% elif s.review_status.startswith('aceita') %}<span class="tag done">{{ SUG_STATUS[s.review_status] }}</span>
   {% else %}<span class="tag neutral">{{ SUG_STATUS.get(s.review_status, s.review_status) }}</span>{% endif %}
@@ -19,29 +19,22 @@
 {% if s.review_status == 'pendente' and me and me.can_review %}<a class="btn secondary jump" href="#decisao">Ir para a decisão</a>{% endif %}
 <div class="grid2">
 <section>
-  <h2>O que muda</h2>
-  <table class="cmp">
-    <caption class="sr">Valores de hoje e valores sugeridos</caption>
-    <thead><tr><th scope="col">Campo</th><th scope="col">{{ 'Hoje' if s.review_status == 'pendente' else 'Antes' }}</th><th scope="col">Sugerido</th></tr></thead>
-    <tbody>
-    {% for r in rows %}
-    <tr>
-      <th scope="row">{{ r.label }}</th>
-      <td>{% if current %}<del>{{ r.official }}</del>{% else %}<del class="none">—</del>{% endif %}</td>
-      <td><span class="sr">passa a ser </span><ins>{{ r.proposed }}</ins></td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <h2>{{ 'O que muda ao aceitar' if s.review_status == 'pendente' else ('O que mudou' if s.review_status.startswith('aceita') else 'O que a sugestão propunha') }}</h2>
+  {{ delta(drows, decided=s.review_status != 'pendente') }}
+  {% if already %}<p class="already">Já está no quadro (a ata também fala disso): {{ already | join('; ') }}.</p>{% endif %}
 
-  <h2>Por quê</h2>
-  <p class="label">{{ 'O que diz a ata' if s.model else 'O que mudou na planilha' }}</p>
+  <h2>De onde veio</h2>
+  <p class="label">{% if not s.model %}Célula da planilha oficial{% elif s.doc_date %}Trecho da ata de {{ fmt_date(s.doc_date) }}{% else %}Trecho do documento{% endif %}</p>
   <blockquote class="evidence">{{ s.evidence }}</blockquote>
-  <p class="srcline"><span>Documento: {{ source_ref(s.source) }}</span>{% if s.doc_date %}<span>Reunião de {{ fmt_date(s.doc_date) }}</span>{% endif %}<span>{% if not s.model %}Criada pela comparação da planilha{% elif s.model == 'fake' %}Criada pela IA de teste{% else %}Criada pela IA ({{ s.model }}){% endif %} em {{ fmt_ts(s.created_at) }}</span></p>
-  {% if s.reason %}<p><strong>{{ 'Por que a IA sugeriu:' if s.model else 'Motivo:' }}</strong> {{ s.reason | humano }}</p>{% endif %}
+  <p class="srcline"><span>{{ source_ref(s.source) }}</span></p>
+  {% if s.reason %}<p class="why"><strong>{{ 'Explicação da IA:' if s.model else 'Motivo:' }}</strong> {{ s.reason | humano }}</p>{% endif %}
   {% if s.uncertainties_list %}
   <div class="uncert"><strong>Pontos para conferir</strong><ul>{% for u in s.uncertainties_list %}<li>{{ u }}</li>{% endfor %}</ul></div>
   {% endif %}
+  <details class="tech">
+    <summary>Detalhes técnicos</summary>
+    <p class="small">Sugestão #{{ s.suggestion_id }}, {% if not s.model %}criada pela comparação da planilha{% elif s.model == 'fake' %}criada pela IA de teste{% else %}criada pela IA ({{ s.model }}){% endif %} em {{ fmt_ts(s.created_at) }}. Versão do documento analisada: <code>{{ s.source_version[:10] }}</code>.</p>
+  </details>
 </section>
 
 <aside class="panel review-panel" id="decisao" tabindex="-1">

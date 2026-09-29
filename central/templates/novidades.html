@@ -32,7 +32,7 @@
 <h2>Sugestões que envolvem você ({{ d.suggestions|length }})</h2>
 <ul class="rows" style="list-style:none;padding:0;margin:0">
 {% for s in d.suggestions %}
-  <li class="row"><a href="/sugestoes/{{ s.id }}">{% if s.kind == 'update' %}Mudar {{ s.proposed.keys() | map('field_label') | list | juntar }}: {{ s.target_title or s.target }}{% else %}Nova atividade: {{ s.proposed.get('title') or 'sem título' }}{% endif %}</a> <span class="id">#{{ s.id }}</span>.
+  <li class="row"><a href="/sugestoes/{{ s.id }}">{% if s.kind == 'update' %}{{ s.target_title or s.target }}{% else %}{{ s.proposed.get('title') or 'Atividade sem título' }}{% endif %}</a> <span class="small muted">{{ 'mudança sugerida' if s.kind == 'update' else 'atividade nova sugerida' }}</span>.
     <span class="tag {{ 'pending' if s.status == 'pendente' else 'neutral' }}">{{ SUG_STATUS.get(s.status, s.status) }}</span>
     <div>{% for k, v in s.proposed.items() %}{{ FIELD_LABELS.get(k, k) }}: {{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}{{ '; ' if not loop.last }}{% endfor %}</div>
     <div class="small muted">Documento: {{ source_ref(s.source) }}</div></li>

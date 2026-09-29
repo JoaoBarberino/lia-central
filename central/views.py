@@ -389,3 +389,42 @@ def humano_linhas(text) -> str:
         name, sep, rest = line.partition(": ")
         out.append(f"{name}: {humano(rest)}" if sep else humano(line))
     return "\n".join(out)
+
+
+# ---------------------------------------------------------------------------
+# Sugestões: texto direto, igual na lista e na revisão
+# ---------------------------------------------------------------------------
+SHORT_FIELDS = ("due_date", "owners", "status", "priority", "front")
+
+
+def sug_origin(s: dict) -> str:
+    """'pela ata de 08/10', 'pela planilha oficial', 'pelo documento X'."""
+    src = s.get("source") or {}
+    when = s.get("doc_date")
+    if not when:
+        m = re.search(r"(\d{4}-\d{2}-\d{2})", src.get("name") or "")
+        when = m.group(1) if m else None
+    if not s.get("model"):
+        return "pela planilha oficial"
+    if src.get("role") == "ata" or when:
+        return f"pela ata de {fmt_date(when)[:5]}" if when else "por uma ata"
+    return f"pelo documento {src.get('name') or ''}".strip()
+
+
+def sug_rows(s: dict, names: dict) -> list[dict]:
+    """Uma linha por campo: rótulo, valor de antes (quando havia) e valor sugerido."""
+    before = s.get("current") or {}
+    rows = []
+    for k, v in s["proposed"].items():
+        if s["kind"] != "update" and k == "title":
+            continue  # o título da atividade nova já é o título da sugestão
+        old = before.get(k) if s["kind"] == "update" else None
+        rows.append({"field": k, "label": acts.FIELD_LABELS.get(k, k), "raw": v,
+                     "new": describe_value(k, v, names),
+                     "old": describe_value(k, old, names) if old not in (None, "", []) else None,
+                     "short": k in SHORT_FIELDS})
+    return rows
+
+
+def sug_already(s: dict, names: dict) -> list[str]:
+    return [f"{acts.FIELD_LABELS.get(k, k)} {describe_value(k, v, names)}" for k, v in (s.get("already") or {}).items()]

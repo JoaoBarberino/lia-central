@@ -467,6 +467,9 @@ def sugestoes(request: Request, estado: str = "pendente", conn=Depends(db)):
     for s in items:
         s["source"] = views.source_link(conn, s["source_file_id"])
         s["target_title"] = titles.get(s["target_activity_id"])
+        s["origin"] = views.sug_origin(s)
+        s["rows"] = views.sug_rows(s, names)
+        s["already_txt"] = views.sug_already(s, names)
     notes = [dict(r) | {"source": views.source_link(conn, r["file_id"])} for r in conn.execute(
         "SELECT n.* FROM extraction_notes n JOIN sources s ON s.file_id = n.file_id AND s.content_hash = n.source_version "
         "WHERE n.kind IN ('hipotese','barrada_validacao') ORDER BY n.id DESC")]
@@ -499,7 +502,11 @@ def sugestao(request: Request, sid: int, conn=Depends(db)):
                                       "then": views.describe_value(k, then, names),
                                       "now": views.describe_value(k, current.get(k), names)})
     next_pending = _next_pending(conn, sid)
+    # Exibição: pendente compara com o quadro de hoje; decidida, com o valor de antes da decisão
+    shown = dict(s, current={k: current.get(k) for k in s["proposed"]}) if (current and s["review_status"] == "pendente") else s
+    s["origin"] = views.sug_origin(s)
     return render(request, conn, "sugestao.html", s=s, rows=rows, current=current, names=names,
+                  drows=views.sug_rows(shown, names), already=views.sug_already(s, names),
                   outdated_source=outdated_source, changed_since=changed_since, next_pending=next_pending,
                   n_left=len([x for x in sugg.list_suggestions(conn) if x["suggestion_id"] != sid]))
 

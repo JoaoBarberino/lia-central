@@ -55,7 +55,7 @@ def test_paginas_abrem(client):
 
 def test_revisao_pela_interface(client):
     import re
-    sid = re.search(r'href="/sugestoes/(\d+)">Mudar [^<]*: Preparar carrossel sobre ferramentas', client.get("/sugestoes").text).group(1)
+    sid = re.search(r'href="/sugestoes/(\d+)">Preparar carrossel sobre ferramentas</a>', client.get("/sugestoes").text).group(1)
     login(client, "U-A")
     client.post(f"/sugestoes/{sid}/aceitar", data={})
     assert "05/10/2026" in client.get("/atividades/ACT-101").text  # Ana não pode aprovar
@@ -80,7 +80,7 @@ def test_painel_de_decisao(client):
     import re
     login(client, "U-B")
     lista = client.get("/sugestoes").text
-    sid = re.search(r'href="/sugestoes/(\d+)">Mudar [^<]*: Preparar carrossel sobre ferramentas', lista).group(1)
+    sid = re.search(r'href="/sugestoes/(\d+)">Preparar carrossel sobre ferramentas</a>', lista).group(1)
     pagina = client.get(f"/sugestoes/{sid}").text
     assert 'name="confirmar"' not in pagina
     assert "Ao aceitar, <strong>Preparar carrossel sobre ferramentas</strong> passa a ter" in pagina

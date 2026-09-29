@@ -63,3 +63,16 @@
     {% if src.url %}<a class="small drive-link" href="{{ src.url }}" target="_blank" rel="noopener">abrir no Drive<span class="sr"> (nova aba)</span></a>{% endif %}
   {% else %}—{% endif %}
 {%- endmacro %}
+
+
+{# Mudança sugerida: "Situação  Bloqueada → Em andamento". Textos longos: valor novo embaixo. #}
+{% macro delta(rows, decided=false) -%}
+<dl class="delta">
+  {% for r in rows %}
+  <div class="delta-row{{ ' long' if not r.short }}">
+    <dt>{{ r.label }}</dt>
+    <dd>{% if r.old %}<span class="was">{% if r.short %}<span class="sr">{{ 'antes' if decided else 'hoje' }}: </span>{% else %}<b>{{ 'Antes' if decided else 'Hoje' }}:</b> {% endif %}{{ r.old }}</span> <span class="arrow" aria-hidden="true">→</span> <span class="sr">{{ 'ficou' if decided else 'passa a ser' }}: </span>{% endif %}<ins>{{ r.new }}</ins></dd>
+  </div>
+  {% endfor %}
+</dl>
+{%- endmacro %}

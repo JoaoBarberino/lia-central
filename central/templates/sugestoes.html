@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import source_ref %}
+{% from "_macros.html" import source_ref, delta %}
 {% block title %}Sugestões{% endblock %}
 {% block content %}
 <h1>Sugestões para revisar</h1>
@@ -13,21 +13,20 @@
 {% if items %}
 <div class="rows">
 {% for s in items %}
-  <article class="row">
+  <article class="row sug">
     <div class="row-head">
-      {% set campos = s.proposed.keys() | map('field_label') | list %}
-      <h2 class="item-title"><a href="/sugestoes/{{ s.suggestion_id }}">{% if s.kind == 'update' %}Mudar {{ campos | juntar }}: {{ s.target_title or s.target_activity_id }}{% else %}Nova atividade: {{ s.proposed.get('title') or 'sem título' }}{% endif %}</a> <span class="id">#{{ s.suggestion_id }}</span></h2>
+      <div>
+        <h2 class="item-title"><a href="/sugestoes/{{ s.suggestion_id }}">{% if s.kind == 'update' %}{{ s.target_title or s.target_activity_id }}{% else %}{{ s.proposed.get('title') or 'Atividade sem título' }}{% endif %}</a></h2>
+        <p class="sug-kind">{{ 'Mudança sugerida' if s.kind == 'update' else 'Atividade nova sugerida' }} {{ s.origin }}</p>
+      </div>
       {% if s.review_status == 'pendente' %}<span class="tag pending">Aguardando revisão</span>
       {% elif s.review_status.startswith('aceita') %}<span class="tag done">{{ SUG_STATUS[s.review_status] }}</span>
       {% else %}<span class="tag neutral">{{ SUG_STATUS.get(s.review_status, s.review_status) }}</span>{% endif %}
     </div>
-    <ul class="change">
-      {% for k, v in s.proposed.items() %}
-      <li><span class="f">{{ FIELD_LABELS.get(k, k) }}:</span><ins>{{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}</ins></li>
-      {% endfor %}
-    </ul>
-    <blockquote class="evidence small">{{ s.evidence }}</blockquote>
-    <p class="srcline"><span>Documento: {{ source_ref(s.source) }}</span>{% if s.doc_date %}<span>Reunião de {{ fmt_date(s.doc_date) }}</span>{% endif %}</p>
+    {{ delta(s.rows, decided=s.review_status != 'pendente') }}
+    {% if s.already_txt %}<p class="already">Já está no quadro: {{ s.already_txt | join('; ') }}.</p>{% endif %}
+    <p class="said"><span class="said-label">{{ 'A ata diz:' if s.model else 'Na planilha:' }}</span> <q>{{ s.evidence }}</q></p>
+    <p class="srcline"><span>{{ source_ref(s.source) }}</span></p>
     {% if s.uncertainties_list %}<div class="uncert"><strong>Pontos para conferir:</strong> {{ s.uncertainties_list | join('; ') }}</div>{% endif %}
     {% if s.review_status == 'pendente' %}<p style="margin:1rem 0 0"><a class="btn small" href="/sugestoes/{{ s.suggestion_id }}">Revisar</a></p>{% endif %}
   </article>
