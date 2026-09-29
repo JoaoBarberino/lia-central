@@ -19,9 +19,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import activities as acts
 from . import ask
 from . import busca
-from . import discord_bot
 from . import drive_auth
-from . import notify
 from . import transcribe
 from . import suggestions as sugg
 from . import views
@@ -122,33 +120,6 @@ def make_vision_llm():
     return None
 
 
-_notify_lock = threading.Lock()
-
-
-def notify_now(conn) -> None:
-    """Enfileira avisos novos e manda a fila ao Discord numa thread (a tela não espera o Discord)."""
-    if not settings.discord_enabled:
-        return
-    try:
-        notify.collect(conn, settings.app_base_url, today=views.today(), stale_days=settings.stale_days)
-    except Exception:
-        log.exception("Falha ao preparar avisos do Discord")
-        return
-
-    def _send():
-        if not _notify_lock.acquire(blocking=False):
-            return  # outro envio já está esvaziando a fila
-        c = connect(settings.database_path)
-        try:
-            notify.flush(c, settings.discord_webhook_url)
-        except Exception:
-            log.exception("Falha ao enviar avisos do Discord")
-        finally:
-            c.close()
-            _notify_lock.release()
-    threading.Thread(target=_send, daemon=True).start()
-
-
 def do_sync(trigger: str) -> dict:
     if not _sync_lock.acquire(blocking=False):
         return {"status": "ocupado", "message": "Já existe uma sincronização em andamento."}
@@ -160,9 +131,7 @@ def do_sync(trigger: str) -> dict:
             conn.execute("INSERT INTO sync_runs (trigger, started_at, finished_at, status, message) "
                          "VALUES (?,?,?, 'falhou', ?)", (trigger, now_iso(), now_iso(), str(e)))
             return {"status": "falhou", "message": str(e)}
-        result = run_sync(conn, source, trigger=trigger, llm=make_llm())
-        notify_now(conn)
-        return result
+        return run_sync(conn, source, trigger=trigger, llm=make_llm())
     except Exception as e:  # nunca derruba o agendador
         log.exception("Falha inesperada na sincronização")
         conn.execute("INSERT INTO sync_runs (trigger, started_at, finished_at, status, message) "
@@ -195,13 +164,8 @@ async def lifespan(app: FastAPI):
     conn.close()
     t = threading.Thread(target=scheduler_loop, daemon=True, name="sync-scheduler")
     t.start()
-    try:
-        discord_bot.start(settings, connect, make_qa_llm, views.today)
-    except Exception:
-        log.exception("Bot do Discord não iniciou (o site continua normal)")
     yield
     _stop.set()
-    discord_bot.stop()
 
 
 app = FastAPI(title="Central LIA", lifespan=lifespan)
@@ -558,7 +522,6 @@ async def aceitar(request: Request, sid: int, conn=Depends(db)):
     except sugg.ReviewError as e:
         flash(request, str(e), "erro")
         return to(f"/sugestoes/{sid}")
-    notify_now(conn)
     t = conn.execute("SELECT title FROM activities WHERE activity_id=?", (target,)).fetchone()
     flash(request, f"Sugestão aceita. “{t['title'] if t else target}” foi atualizada no quadro de atividades.")
     return to(f"/sugestoes/{sid}#decisao")
@@ -571,7 +534,6 @@ def rejeitar(request: Request, sid: int, reason: str = Form(""), conn=Depends(db
     except sugg.ReviewError as e:
         flash(request, str(e), "erro")
         return to(f"/sugestoes/{sid}")
-    notify_now(conn)
     flash(request, "Sugestão rejeitada. O quadro de atividades não mudou.")
     return to(f"/sugestoes/{sid}#decisao")
 
@@ -751,26 +713,12 @@ def resolver(request: Request, issue_id: int, resolution: str = Form(""), conn=D
     return to("/pendencias")
 
 
-@app.post("/avisos/teste")
-def avisos_teste(request: Request):
-    if not settings.discord_enabled:
-        flash(request, "Avisos no Discord desligados: coloque o DISCORD_WEBHOOK_URL no .env e reinicie o site.", "erro")
-        return to("/sincronizacao")
-    ok, err = notify._post(settings.discord_webhook_url,
-                           "**Central da Liga conectada.** Os avisos de sugestões e prazos chegam neste canal.")
-    flash(request, "Mensagem de teste enviada ao Discord." if ok else f"O Discord não aceitou a mensagem: {err}",
-          "ok" if ok else "erro")
-    return to("/sincronizacao")
-
-
 @app.get("/sincronizacao", response_class=HTMLResponse)
 def sincronizacao(request: Request, conn=Depends(db)):
     runs = views.group_runs(conn.execute("SELECT * FROM sync_runs ORDER BY run_id DESC LIMIT 40").fetchall())
     connected = bool(get_setting(conn, "google_token"))
     calls = conn.execute("SELECT COUNT(*) n, SUM(input_tokens) i, SUM(output_tokens) o FROM llm_calls WHERE ok=1").fetchone()
-    return render(request, conn, "sincronizacao.html", runs=runs, connected=connected, settings=settings, calls=calls,
-                  avisos=notify.status(conn) if settings.discord_enabled else None,
-                  bot=discord_bot.status() if settings.discord_bot_token else None)
+    return render(request, conn, "sincronizacao.html", runs=runs, connected=connected, settings=settings, calls=calls)
 
 
 @app.post("/sincronizar")

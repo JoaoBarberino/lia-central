@@ -3,10 +3,9 @@ import os
 from datetime import date
 
 from central import activities as acts
-from central import notify, views
+from central import views
 from central.db import connect
 
-from .test_avisos import BASE, URL, Discord
 from .test_cenarios import add_file
 from .test_web import client, login  # noqa: F401  (fixture)
 
@@ -51,24 +50,6 @@ def test_confirmar_recomeca_a_contagem_e_fica_no_historico(conn, sync):
     assert parada(conn, "ACT-102", today=views.today()) is None
     assert acts.activity_history(conn, "ACT-102")[0]["reason"] == acts.CONFIRM_REASON
     assert acts.snapshot(conn, "ACT-102")["status"] == "A fazer"         # nada no quadro mudou
-
-
-def test_aviso_no_discord_uma_vez_por_periodo(conn, sync):
-    sync()
-    envelhecer(conn)
-    d = Discord()
-    notify.collect(conn, BASE, today=DIA, stale_days=14)
-    notify.flush(conn, URL, sender=d)
-    msg = next(m for m in d.msgs if "Montar checklist inicial de onboarding" in m)
-    assert msg.startswith("🕰️ **Isso ainda está valendo?**\n**Montar checklist inicial de onboarding** · Davi")
-    assert "Sem novidade há 19 dias" in msg and f"<{BASE}/atividades/ACT-102>" in msg
-    antes = len(d.msgs)
-    notify.collect(conn, BASE, today=DIA, stale_days=14)
-    notify.flush(conn, URL, sender=d)
-    assert len(d.msgs) == antes                                          # não repete no mesmo período
-    notify.collect(conn, BASE, today=DIA, stale_days=0)
-    notify.flush(conn, URL, sender=d)
-    assert len(d.msgs) == antes                                          # 0 desliga
 
 
 def _db():
