@@ -83,7 +83,8 @@ def test_painel_de_decisao(client):
     sid = re.search(r'href="/sugestoes/(\d+)">Preparar carrossel sobre ferramentas</a>', lista).group(1)
     pagina = client.get(f"/sugestoes/{sid}").text
     assert 'name="confirmar"' not in pagina
-    assert "Ao aceitar, <strong>Preparar carrossel sobre ferramentas</strong> passa a ter" in pagina
+    assert "mudanças <span class=\"side-word\">ao lado</span>" in pagina and "entram no quadro de atividades" in pagina
+    assert "histórico de <strong>Preparar carrossel sobre ferramentas</strong>" in pagina
     # alguém muda o prazo oficial à mão depois da sugestão
     client.post("/atividades/ACT-101/editar", data={"title": "Preparar carrossel sobre ferramentas", "status": "Em andamento",
                                                      "due_date": "2026-10-20", "owners": ["U-A"], "reason": "teste"})

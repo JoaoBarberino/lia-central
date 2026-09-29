@@ -43,9 +43,12 @@
     {% if me and me.can_review %}
     <h2>Sua decisão</h2>
     <p class="consequence">
-      {% if s.kind == 'update' %}Ao aceitar, <strong>{{ current.title if current else s.target_activity_id }}</strong> passa a ter
-        {% for r in rows %}{{ r.label|lower }} <strong>{{ r.proposed }}</strong>{{ ', ' if loop.revindex > 2 else (' e ' if loop.revindex == 2 else '.') }}{% endfor %}
-      {% else %}Ao aceitar, <strong>“{{ s.proposed.get('title') or 'a atividade nova' }}”</strong> entra no quadro de atividades.{% endif %}
+      {% set onde %}<span class="side-word">ao lado</span><span class="below-word">acima</span>{% endset %}
+      {% if s.kind == 'update' %}
+        {% if drows | length == 1 %}Ao aceitar, a mudança {{ onde }} entra no quadro de atividades
+        {% else %}Ao aceitar, as {{ drows | length }} mudanças {{ onde }} entram no quadro de atividades{% endif %}
+        e ficam registradas no histórico de <strong>{{ current.title if current else s.target_activity_id }}</strong>.
+      {% else %}Ao aceitar, <strong>“{{ s.proposed.get('title') or 'a atividade nova' }}”</strong> entra no quadro de atividades como atividade nova.{% endif %}
     </p>
     {% if changed_since %}
     <div class="notice warn changed" role="note">

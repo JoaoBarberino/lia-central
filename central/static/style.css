@@ -232,6 +232,8 @@ details.filt > summary { font-weight: 600; color: var(--navy); font-size: .93rem
 .filt-body label { display: flex; flex-direction: column; gap: .2rem; font-size: .85rem; font-weight: 600; color: var(--muted); }
 .filt-body select { font: inherit; font-size: .95rem; font-weight: 400; color: var(--navy); padding: .4rem .5rem;
   border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; min-width: 11rem; }
+.consequence .below-word { display: none; }
+@media (max-width: 900px) { .consequence .side-word { display: none; } .consequence .below-word { display: inline; } }
 .recent { margin: .6rem 0 0; font-size: .95rem; color: var(--navy); max-width: 70ch; }
 .result-count { color: var(--muted); font-size: .9rem; margin: .4rem 0 .8rem; }
 .hit { color: var(--muted); margin-top: .3rem; max-width: 60ch; }
