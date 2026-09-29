@@ -58,7 +58,7 @@ Detalhes que sustentam a regra:
    - Origem JavaScript: `http://localhost:8000`
    - URI de redirecionamento: `http://localhost:8000/auth/callback`
 6. Crie a pasta de teste no seu Drive, coloque os arquivos de `01_CARGA_INICIAL` e copie o ID da pasta (a parte da URL depois de `/folders/`).
-   - Para os testes com Google Docs: envie o `.docx`, abra-o no Drive e use **Arquivo → Salvar como Documentos Google** (o "Abrir com" apenas edita o `.docx`, sem converter). Depois apague o `.docx`.
+   - O `.docx` do pacote é lido direto. Para testar também o Google Docs nativo: abra o `.docx` no Drive e use **Arquivo → Salvar como Documentos Google** (o "Abrir com" apenas edita o `.docx`, sem converter). Não deixe as duas versões na pasta ao mesmo tempo, para não duplicar a mesma ata.
 7. Copie `.env.example` para `.env` e preencha `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DRIVE_TEST_FOLDER_ID` e `SESSION_SECRET`.
 8. Para a IA, crie uma chave em https://aistudio.google.com e coloque em `GEMINI_API_KEY`. Sem chave, o app funciona, mas as atas ficam só indexadas, sem sugestões.
 
@@ -113,8 +113,16 @@ python -m pytest -q
 | `.xlsx` | download + `openpyxl` (todas as abas) | prazo guardado como data ISO |
 | Google Docs | `files.export` em `text/plain` | limite de 10 MB por exportação da API |
 | Google Sheets | `files.export` em `.xlsx` | mesmo leitor da planilha |
-| PDF com texto | `pdfplumber` | PDF escaneado aparece como "não processado" (OCR fora do escopo) |
-| `.docx` e outros | não lidos | aparecem como "não processado", com o motivo (ex.: "converta para Google Docs") |
+| Google Slides | `files.export` em `text/plain` | texto dos slides |
+| `.docx` (Word) | download + leitura do XML interno (sem biblioteca extra) | parágrafos, quebras e tabelas (uma linha por linha da tabela); lido como Google Docs |
+| `.pptx` (PowerPoint) | download + leitura do XML de cada slide | texto em ordem, com "Slide N" |
+| `.csv` | download + `csv` (detecta `,` `;` ou tab; UTF-8 ou Windows-1252) | vira planilha de uma aba: com colunas de registro, é "planilha parecida com a oficial" e vira pendência |
+| `.txt` | download | como o `.md` |
+| PDF com texto | `pdfplumber` | — |
+| PDF escaneado, imagens | não lidos automaticamente | "não processado", com o motivo (OCR fora do escopo). Nada é inventado |
+| `.doc`, `.ppt` (formatos antigos) e outros | não lidos | "não processado", com o motivo e como resolver (ex.: "salve como .docx") |
+
+Toda leitura acima é **determinística, sem IA**: o texto que entra é exatamente o do arquivo. Arquivo corrompido ou protegido por senha vira erro visível em **Pendências**, sem apagar a última versão boa.
 
 ## 7. IA: onde entra e como é controlada
 
@@ -159,7 +167,7 @@ Observações:
 - O token OAuth fica no banco local (`data/`, fora do Git), sem criptografia em repouso.
 - A varredura completa a cada 3 min atende a uma pasta pequena. Pastas grandes pediriam `changes.list`.
 - A IA depende de um serviço externo. Se ele estiver fora, as atas ficam indexadas e são analisadas na próxima sincronização.
-- `.docx` não é lido diretamente (o case pede Google Docs nativo).
+- PDF escaneado e imagem não são lidos automaticamente (OCR fora do escopo do case).
 
 ## 10. Antes de usar dados reais
 

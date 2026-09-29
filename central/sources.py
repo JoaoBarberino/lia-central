@@ -19,6 +19,10 @@ GSHEET = "application/vnd.google-apps.spreadsheet"
 FOLDER = "application/vnd.google-apps.folder"
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+GSLIDES = "application/vnd.google-apps.presentation"
+PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+CSV = "text/csv"
+TEXT = "text/plain"
 MARKDOWN = "text/markdown"
 PDF = "application/pdf"
 
@@ -87,7 +91,8 @@ class LocalSource:
                 name = p.stem
             else:
                 name = p.name
-                mime = {".md": MARKDOWN, ".xlsx": XLSX, ".docx": DOCX, ".pdf": PDF}.get(
+                mime = {".md": MARKDOWN, ".xlsx": XLSX, ".docx": DOCX, ".pdf": PDF, ".pptx": PPTX, ".csv": CSV,
+                        ".txt": TEXT}.get(
                     p.suffix.lower(), mimetypes.guess_type(p.name)[0] or "application/octet-stream"
                 )
             out.append(
@@ -203,7 +208,7 @@ class DriveSource:
         if not f.can_download:
             raise SourceError("A conta autorizada não tem permissão de download deste arquivo.")
         files = self.service.files()
-        if f.mime_type == GDOC:
+        if f.mime_type in (GDOC, GSLIDES):   # Docs e Slides nativos: exportados como texto
             data = self._call(files.export(fileId=f.file_id, mimeType="text/plain"))
         elif f.mime_type == GSHEET:
             data = self._call(files.export(fileId=f.file_id, mimeType=XLSX))

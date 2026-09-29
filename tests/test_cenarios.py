@@ -247,10 +247,10 @@ def test_arquivo_corrompido_nao_derruba_os_outros(conn, sync, folder):
 
 
 def test_formato_nao_suportado_e_explicado(conn, sync, folder):
-    add_file(folder, "02_ADICIONAR_DEPOIS_DA_CARGA", "Ata_2026-10-03.docx")
+    add_file(folder, "04_EXTRAS", "foto_quadro.png")
     sync()
-    row = conn.execute("SELECT * FROM sources WHERE name='Ata_2026-10-03.docx'").fetchone()
-    assert row["sync_status"] == "nao_suportado" and "Documentos Google" in row["status_message"]
+    row = conn.execute("SELECT * FROM sources WHERE name='foto_quadro.png'").fetchone()
+    assert row["sync_status"] == "nao_suportado" and "imagens" in row["status_message"]
 
 
 # --- Atividade manual e persistência -------------------------------------------------
