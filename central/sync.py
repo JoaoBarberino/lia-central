@@ -200,8 +200,10 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
                 if llm is None:
                     conn.execute("UPDATE sources SET status_message=? WHERE file_id=?",
                                  ("Lida, mas a IA está desligada: sem sugestões por enquanto.", file_id))
-                    stats["processed"] += 1
-                    messages.append(f"{name['name']}: lida, mas a IA está desligada (sem sugestões por enquanto)")
+                    if get_setting(conn, f"sem_ia:{file_id}") != name["content_hash"]:   # avisa uma vez por versão
+                        set_setting(conn, f"sem_ia:{file_id}", name["content_hash"])
+                        stats["processed"] += 1
+                        messages.append(f"{name['name']}: lida, mas a IA está desligada (sem sugestões por enquanto)")
                     continue  # não marca como processada: será analisada quando a IA estiver ativa
                 from .ai import analyze_minutes
                 wait_until = _ai_backoff_until(conn, file_id)
