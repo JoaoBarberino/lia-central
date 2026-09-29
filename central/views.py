@@ -428,3 +428,47 @@ def sug_rows(s: dict, names: dict) -> list[dict]:
 
 def sug_already(s: dict, names: dict) -> list[str]:
     return [f"{acts.FIELD_LABELS.get(k, k)} {describe_value(k, v, names)}" for k, v in (s.get("already") or {}).items()]
+
+
+# ---------------------------------------------------------------------------
+# "O que a IA leu e deixou de fora": um rótulo certo e uma frase fixa para cada tipo
+# ---------------------------------------------------------------------------
+LEFT_OUT = {
+    "instrucao": {"order": 0, "icon": "🛡", "label": "Instrução para a IA, ignorada",
+                  "explain": "O documento tentava dar ordens à IA. A Central trata documentos como informação, nunca como comando."},
+    "ideia": {"order": 1, "icon": "", "label": "Ideia sem decisão",
+              "explain": "Ninguém assumiu nem decidiu. Não vira tarefa."},
+    "nada_novo": {"order": 2, "icon": "", "label": "Nada novo",
+                  "explain": "Só confirma o que o quadro já diz."},
+    "barrada": {"order": 3, "icon": "", "label": "Descartada na checagem",
+                "explain": "A IA sugeriu algo que não passou na checagem da Central, então nada foi alterado."},
+}
+
+
+def left_out_info(n: dict) -> dict:
+    """Classifica uma nota da extração. Notas antigas também: instrução é reconhecida pelo próprio texto."""
+    from .ai import looks_like_injection
+    kind, text, reason = n["kind"], n.get("text") or "", n.get("reason") or ""
+    quote = text
+    if kind == "barrada_validacao":
+        try:
+            quote = (json.loads(text) or {}).get("evidence") or ""
+        except (ValueError, AttributeError):
+            quote = ""
+    if kind == "instrucao_ignorada" or looks_like_injection(quote) or (kind == "barrada_validacao" and "injeção" in reason):
+        key = "instrucao"
+    elif kind == "sem_mudanca":
+        key = "nada_novo"
+    elif kind == "hipotese":
+        key = "ideia"
+    else:
+        key = "barrada"
+    info = dict(LEFT_OUT[key], key=key, quote=quote if key != "barrada" else "")
+    if key == "barrada":
+        info["explain"] += f" Motivo: {humano(reason).rstrip('.')}."
+    return info
+
+
+def left_out(notes: list[dict]) -> list[dict]:
+    out = [dict(n) | {"lo": left_out_info(dict(n))} for n in notes]
+    return sorted(out, key=lambda n: n["lo"]["order"])

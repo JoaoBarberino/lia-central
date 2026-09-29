@@ -472,7 +472,8 @@ def sugestoes(request: Request, estado: str = "pendente", conn=Depends(db)):
         s["already_txt"] = views.sug_already(s, names)
     notes = [dict(r) | {"source": views.source_link(conn, r["file_id"])} for r in conn.execute(
         "SELECT n.* FROM extraction_notes n JOIN sources s ON s.file_id = n.file_id AND s.content_hash = n.source_version "
-        "WHERE n.kind IN ('hipotese','barrada_validacao') ORDER BY n.id DESC")]
+        "WHERE n.kind IN ('hipotese','barrada_validacao','sem_mudanca','instrucao_ignorada') ORDER BY n.id DESC")]
+    notes = views.left_out(notes)
     return render(request, conn, "sugestoes.html", items=items, estado=estado, names=names, notes=notes)
 
 
@@ -612,8 +613,8 @@ def fonte(request: Request, file_id: str, conn=Depends(db)):
         diff = views.diff_versions(versions[1]["extracted_text"], versions[0]["extracted_text"])
     current = versions[0] if versions else None
     table = json.loads(current["extracted_json"]) if current and current["extracted_json"] else None
-    notes = conn.execute("SELECT * FROM extraction_notes WHERE file_id=? AND source_version=? ORDER BY id",
-                         (file_id, s["content_hash"])).fetchall()
+    notes = views.left_out([dict(r) for r in conn.execute(
+        "SELECT * FROM extraction_notes WHERE file_id=? AND source_version=? ORDER BY id", (file_id, s["content_hash"]))])
     sug = conn.execute("SELECT * FROM suggestions WHERE source_file_id=? ORDER BY suggestion_id DESC", (file_id,)).fetchall()
     names = views.member_names(conn)
     tr = transcribe.current(conn, file_id)

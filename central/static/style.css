@@ -262,6 +262,17 @@ blockquote.evidence.small { font-size: .93rem; margin-top: .4rem; }
 .said-label { font-weight: 600; color: var(--muted); font-size: .93rem; }
 .said q { quotes: "“" "”"; }
 .why { margin: .8rem 0 0; max-width: 65ch; }
+/* O que a IA leu e deixou de fora */
+details.left-out { margin-top: 2.5rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+details.left-out > summary { font-weight: 600; color: var(--navy); cursor: pointer; }
+details.left-out > summary .muted { font-weight: 400; }
+.lo-list { list-style: none; padding: 0; margin: .8rem 0 0; display: grid; gap: .9rem; }
+.lo { padding: .8rem 1rem; border: 1px solid var(--line); border-radius: 10px; }
+.lo-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .2rem 1rem; align-items: baseline; }
+.lo-label { font-weight: 600; color: var(--navy); }
+.lo q { display: block; margin: .35rem 0 0; max-width: 70ch; quotes: "“" "”"; }
+.lo-why { margin: .3rem 0 0; font-size: .9rem; color: var(--muted); max-width: 70ch; }
+.lo-instrucao { border-color: #A9E3E8; background: var(--ice-soft); }
 .uncert { margin-top: 1rem; font-size: .93rem; background: var(--warn-soft); border: 1px solid #EBD3A2; color: var(--warn); border-radius: 10px; padding: .7rem 1rem; }
 .uncert ul { margin: .3rem 0 0; padding-left: 1.1rem; }
 .panel { border: 1px solid var(--line-strong); border-top: 4px solid var(--blue); border-radius: 12px; padding: 1.35rem 1.35rem 1.5rem; background: #fff; }

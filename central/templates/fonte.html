@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ s.name }}{% endblock %}
+{% from "_macros.html" import left_out %}
 {% block content %}
 <a class="back" href="/fontes">Documentos</a>
 <h1>{{ s.name }}</h1>
@@ -59,10 +60,7 @@
 <ul>{% for x in sug %}<li><a href="/sugestoes/{{ x.suggestion_id }}">Sugestão #{{ x.suggestion_id }}</a>, {{ 'mudança numa atividade (código ' ~ x.target_activity_id ~ ')' if x.kind == 'update' else 'atividade nova' }}: <span class="tag {{ 'pending' if x.review_status == 'pendente' else 'neutral' }}">{{ SUG_STATUS.get(x.review_status, x.review_status) }}</span>{% if x.source_version != s.content_hash %} <span class="small muted">(versão anterior)</span>{% endif %}</li>{% endfor %}</ul>
 {% endif %}
 
-{% if notes %}
-<h2>O que a IA leu e não virou sugestão</h2>
-<ul>{% for n in notes %}<li><span class="tag {{ 'err' if n.kind == 'barrada_validacao' else 'neutral' }}">{{ {'hipotese':'Ideia sem decisão','barrada_validacao':'Descartada na checagem','sem_mudanca':'Já está no quadro'}.get(n.kind, n.kind) }}</span> {% if n.kind != 'barrada_validacao' %}<q>{{ n.text }}</q>{% endif %}{% if n.kind != 'sem_mudanca' %} {{ n.reason | humano | frase }}{% endif %}</li>{% endfor %}</ul>
-{% endif %}
+{% if notes %}{{ left_out(notes, show_doc=false) }}{% endif %}
 
 {% if current %}
 <h2>Conteúdo lido (versão atual)</h2>

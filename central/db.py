@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS extraction_notes (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     file_id         TEXT NOT NULL,
     source_version  TEXT NOT NULL,
-    kind            TEXT NOT NULL,   -- hipotese | barrada_validacao | sem_mudanca
+    kind            TEXT NOT NULL,   -- hipotese | barrada_validacao | sem_mudanca | instrucao_ignorada
     text            TEXT,
     reason          TEXT,
     created_at      TEXT NOT NULL

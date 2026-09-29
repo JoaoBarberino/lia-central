@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import source_ref, delta %}
+{% from "_macros.html" import source_ref, delta, left_out %}
 {% block title %}Sugestões{% endblock %}
 {% block content %}
 <h1>Sugestões para revisar</h1>
@@ -36,19 +36,5 @@
   <div class="empty"><strong>{{ 'Nada para revisar agora.' if estado == 'pendente' else 'Nenhuma sugestão neste filtro.' }}</strong>{% if estado == 'pendente' %}Quando uma ata nova ou editada chegar ao Drive, as sugestões aparecem aqui.{% endif %}</div>
 {% endif %}
 
-{% if notes %}
-<h2>O que a IA leu e não virou sugestão</h2>
-<table class="stack">
-  <thead><tr><th>Tipo</th><th>Trecho ou motivo</th><th>Documento</th></tr></thead>
-  <tbody>
-  {% for n in notes %}
-  <tr>
-    <td><span class="tag {{ 'neutral' if n.kind == 'hipotese' else 'err' }}">{{ 'Ideia sem decisão' if n.kind == 'hipotese' else 'Descartada na checagem' }}</span></td>
-    <td>{% if n.kind == 'hipotese' %}<q>{{ n.text }}</q><div class="small muted">{{ n.reason }}</div>{% else %}{{ n.reason | frase }}{% endif %}</td>
-    <td class="secondary small" data-label="Documento">{{ source_ref(n.source) }}</td>
-  </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% endif %}
+{% if notes %}{{ left_out(notes) }}{% endif %}
 {% endblock %}

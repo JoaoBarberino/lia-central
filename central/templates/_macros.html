@@ -76,3 +76,20 @@
   {% endfor %}
 </dl>
 {%- endmacro %}
+
+
+{# O que a IA leu e deixou de fora: fechado por padrão, um rótulo e uma frase fixa por tipo #}
+{% macro left_out(notes, show_doc=true) -%}
+<details class="left-out">
+  <summary>O que a IA leu e deixou de fora ({{ notes|length }}). <span class="muted">Nada disso mudou o quadro.</span></summary>
+  <ul class="lo-list">
+  {% for n in notes %}
+    <li class="lo lo-{{ n.lo.key }}">
+      <div class="lo-head"><span class="lo-label">{% if n.lo.icon %}<span aria-hidden="true">{{ n.lo.icon }}</span> {% endif %}{{ n.lo.label }}</span>{% if show_doc %}<span class="small">{{ source_ref(n.source) }}</span>{% endif %}</div>
+      {% if n.lo.quote %}<q>{{ n.lo.quote }}</q>{% endif %}
+      <p class="lo-why">{{ n.lo.explain }}</p>
+    </li>
+  {% endfor %}
+  </ul>
+</details>
+{%- endmacro %}
