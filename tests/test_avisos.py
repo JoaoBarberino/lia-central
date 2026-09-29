@@ -43,14 +43,17 @@ def test_nova_sugestao_e_decisao_avisam_uma_vez(conn, sync, folder):
     add_file(folder, "02_ADICIONAR_DEPOIS_DA_CARGA", "Ata_2026-10-03.md", as_gdoc=True)
     sync()
     _rodada(conn, d)
-    assert len(d.msgs) == 1 and d.msgs[0].startswith("**Nova sugestão para revisar** (Bruno ou Carla)")
-    assert "Preparar carrossel sobre ferramentas" in d.msgs[0] and f"{BASE}/sugestoes/" in d.msgs[0]
+    assert len(d.msgs) == 1 and d.msgs[0].startswith("📝 **Nova sugestão para revisar** (Bruno ou Carla)")
+    assert "**Preparar carrossel sobre ferramentas** · Ana" in d.msgs[0]
+    assert "• Prazo: 05/10 → **07/10**" in d.msgs[0] and f"<{BASE}/sugestoes/" in d.msgs[0]
     _rodada(conn, d)
     assert len(d.msgs) == 1                            # sincronizar de novo não repete
     sugg.accept(conn, pending(conn)[0]["suggestion_id"], "U-B")
     _rodada(conn, d)
-    assert d.msgs[-1].startswith("**Sugestão aceita** por Bruno") and "prazo: 07/10/2026" in d.msgs[-1]
-    assert "Responsáveis: Ana" in d.msgs[-1]
+    aceita = d.msgs[-1]
+    assert aceita.startswith("✅ **Bruno aceitou uma mudança**\n**Preparar carrossel sobre ferramentas** · Ana")
+    assert "• Prazo: 05/10 → **07/10**" in aceita and f"<{BASE}/atividades/ACT-101>" in aceita
+    assert ".." not in aceita
 
 
 def test_rejeicao_leva_o_motivo(conn, sync, folder):
@@ -61,7 +64,8 @@ def test_rejeicao_leva_o_motivo(conn, sync, folder):
     sync()
     sugg.reject(conn, pending(conn)[0]["suggestion_id"], "U-C", "Já está no plano da oficina")
     _rodada(conn, d)
-    assert d.msgs[-1].startswith("**Sugestão rejeitada** por Carla") and "Já está no plano da oficina" in d.msgs[-1]
+    assert d.msgs[-1].startswith("❌ **Carla rejeitou uma sugestão**")
+    assert "Motivo: \u201cJá está no plano da oficina\u201d" in d.msgs[-1] and "não mudou" in d.msgs[-1]
 
 
 def test_prazo_amanha_e_hoje(conn, sync):
@@ -69,8 +73,8 @@ def test_prazo_amanha_e_hoje(conn, sync):
     d = Discord()
     _rodada(conn, d, today=date(2026, 10, 5))          # ACT-102 vence 06/10; ACT-101 vence hoje (05/10)
     textos = "\n".join(d.msgs)
-    assert "**Prazo amanhã**: *Montar checklist inicial de onboarding* (Davi), 06/10/2026" in textos
-    assert "**Prazo hoje**: *Preparar carrossel sobre ferramentas* (Ana)" in textos
+    assert "⏰ **Prazo amanhã (06/10)**\n**Montar checklist inicial de onboarding** · Davi" in textos
+    assert "⏰ **Prazo hoje (05/10)**\n**Preparar carrossel sobre ferramentas** · Ana" in textos
     _rodada(conn, d, today=date(2026, 10, 5))
     assert len(d.msgs) == 2                            # no mesmo dia, uma vez só
 
@@ -102,6 +106,11 @@ def test_mensagem_nao_marca_ninguem(monkeypatch):
     monkeypatch.setattr(httpx, "post", fake_post)
     ok, _ = notify._post(URL, "@everyone olha isso")
     assert ok and enviado["allowed_mentions"] == {"parse": []}
+
+
+def test_texto_limpo_e_data_sem_ano_corrente():
+    assert notify._clean("validar as etapas com Bruno.") == "Validar as etapas com Bruno"
+    assert notify._fmt("2026-10-08", 2026) == "08/10" and notify._fmt("2027-01-02", 2026) == "02/01/2027"
 
 
 def test_endereco_de_webhook_validado():

@@ -28,11 +28,23 @@ def valid_webhook(url: str | None) -> bool:
                                          "https://ptb.discord.com/api/webhooks/", "https://canary.discord.com/api/webhooks/"))
 
 
-def _fmt(iso: str | None) -> str:
+def _fmt(iso: str | None, year: int | None = None) -> str:
+    """Data no formato 08/10; o ano só aparece quando não é o ano corrente."""
     if not iso:
         return "a definir"
     y, m, d = iso[:10].split("-")
-    return f"{d}/{m}/{y}"
+    return f"{d}/{m}" if year and int(y) == year else f"{d}/{m}/{y}"
+
+
+def _clean(text) -> str:
+    """Primeira letra maiúscula e sem pontuação no fim (a mensagem monta a própria pontuação)."""
+    t = " ".join(str(text or "").split()).rstrip(" .;,")
+    return t[:1].upper() + t[1:]
+
+
+def _link(label: str, url: str) -> str:
+    # <url> faz o Discord mostrar o link sem a prévia grande embaixo da mensagem
+    return f"🔗 {label}: <{url}>"
 
 
 def _names(conn) -> dict[str, str]:
@@ -57,45 +69,85 @@ def _enqueue(conn, key: str, kind: str, text: str, sent: str | None = None) -> b
     return cur.rowcount == 1
 
 
-def _suggestion_title(s: dict, title: str | None) -> str:
+SHORT_FIELDS = ("due_date", "owners", "status", "priority", "front")  # nesses vale mostrar antes → depois
+ORDER = ["title", "owners", "due_date", "status", "next_step", "front", "priority", "notes", "description"]
+
+
+def _value(k: str, v, names: dict, year: int | None) -> str:
+    if k == "due_date":
+        return _fmt(v, year)
+    if k == "owners":
+        return _who(v, names)
+    return _clean(v) or "—"
+
+
+def _change_lines(s: dict, names: dict, year: int | None) -> list[str]:
+    """Uma linha por campo: '• Prazo: 06/10 → **08/10**'. Em atividade nova, título e responsáveis já estão no topo."""
+    before = s.get("current") or {}
+    lines = []
+    for k in sorted(s["proposed"], key=lambda k: ORDER.index(k) if k in ORDER else len(ORDER)):
+        if s["kind"] != "update" and k in ("title", "owners"):
+            continue
+        new = _value(k, s["proposed"][k], names, year)
+        label = acts.FIELD_LABELS.get(k, k)
+        if k in SHORT_FIELDS and k in before and before[k] != s["proposed"][k]:
+            lines.append(f"• {label}: {_value(k, before[k], names, year)} → **{new}**")
+        else:
+            lines.append(f"• {label}: {new}")
+    return lines
+
+
+def _subject(conn, s: dict, title: str | None, names: dict, after: bool) -> str:
+    """'**Título** · Responsáveis' da atividade de que a mensagem fala."""
     if s["kind"] == "update":
-        fields = [acts.FIELD_LABELS.get(k, k).lower() for k in s["proposed"]]
-        what = " e ".join(fields) if len(fields) <= 2 else ", ".join(fields[:-1]) + " e " + fields[-1]
-        return f"Mudar {what}: *{title or s['target_activity_id']}*"
-    return f"Nova atividade: *{s['proposed'].get('title') or 'sem título'}*"
+        target = s["target_activity_id"]
+        owners = acts.get_owners(conn, target) if target else []
+        if not after and "owners" in (s.get("current") or {}):
+            owners = s["current"]["owners"]
+        return f"**{title or target}** · {_who(owners, names)}"
+    return f"**{_clean(s['proposed'].get('title')) or 'Sem título'}** · {_who(s['proposed'].get('owners'), names)}"
 
 
-def _new_suggestion_text(conn, s: dict, base_url: str, title: str | None) -> str:
-    src = conn.execute("SELECT name FROM sources WHERE file_id=?", (s["source_file_id"],)).fetchone()
-    ev = (s.get("evidence") or "").strip().replace("\n", " ")
+def _new_suggestion_text(conn, s: dict, base_url: str, title: str | None, names: dict, year: int | None) -> str:
+    src = conn.execute("SELECT name, role FROM sources WHERE file_id=?", (s["source_file_id"],)).fetchone()
+    ev = " ".join((s.get("evidence") or "").split())
     if len(ev) > 300:
         ev = ev[:297] + "…"
-    return (f"**Nova sugestão para revisar** ({_reviewers(conn)})\n{_suggestion_title(s, title)}\n"
-            f"> {ev}\n{src['name'] if src else 'Documento'}\nRevisar: {base_url}/sugestoes/{s['suggestion_id']}")
+    lines = [f"📝 **Nova sugestão para revisar** ({_reviewers(conn)})",
+             _subject(conn, s, title, names, after=False), *_change_lines(s, names, year)]
+    if src:
+        lines.append(f"{'Da ata' if src['role'] == 'ata' else 'Do documento'}: {src['name']}")
+    if ev:
+        lines.append(f"> \u201c{ev}\u201d")
+    lines.append(_link("Revisar", f"{base_url}/sugestoes/{s['suggestion_id']}"))
+    return "\n".join(lines)
 
 
-def _decided_text(conn, s: dict, base_url: str, title: str | None, names: dict) -> str:
-    who_decided = names.get(s["reviewer_id"], s["reviewer_id"] or "alguém")
+def _decided_text(conn, s: dict, base_url: str, title: str | None, names: dict, year: int | None) -> str:
+    who = names.get(s["reviewer_id"], s["reviewer_id"] or "Alguém")
     target = s["target_activity_id"]
-    owners = acts.get_owners(conn, target) if target else []
-    head = _suggestion_title(s, title)
     if s["review_status"] == "rejeitada":
-        return (f"**Sugestão rejeitada** por {who_decided}\n{head}\nMotivo: “{s['review_note'] or 'não informado'}”. "
-                f"O quadro de atividades não mudou.\nVer: {base_url}/sugestoes/{s['suggestion_id']}")
-    parts = []
-    for k, v in s["proposed"].items():
-        v = _fmt(v) if k == "due_date" else (_who(v, names) if k == "owners" else v)
-        parts.append(f"{acts.FIELD_LABELS.get(k, k).lower()}: {v}")
-    adj = " com ajuste" if s["review_status"] == "aceita_com_ajuste" else ""
-    return (f"**Sugestão aceita{adj}** por {who_decided}\n{head}\nAgora vale: {'; '.join(parts)}.\n"
-            f"Responsáveis: {_who(owners, names)}\nVer: {base_url}/atividades/{target}" if target else
-            f"**Sugestão aceita{adj}** por {who_decided}\n{head}\nVer: {base_url}/sugestoes/{s['suggestion_id']}")
+        return "\n".join([
+            f"❌ **{who} rejeitou uma sugestão**",
+            f"**{title or target}**" if s["kind"] == "update"
+            else f"**{_clean(s['proposed'].get('title')) or 'Sem título'}** (atividade nova)",
+            f"Motivo: \u201c{_clean(s['review_note']) or 'Não informado'}\u201d",
+            "O quadro de atividades não mudou.",
+            _link("Ver sugestão", f"{base_url}/sugestoes/{s['suggestion_id']}")])
+    what = "uma mudança" if s["kind"] == "update" else "uma atividade nova"
+    adj = " (com ajuste)" if s["review_status"] == "aceita_com_ajuste" else ""
+    link = (_link("Abrir atividade", f"{base_url}/atividades/{target}") if target
+            else _link("Ver sugestão", f"{base_url}/sugestoes/{s['suggestion_id']}"))
+    return "\n".join([f"✅ **{who} aceitou {what}{adj}**", _subject(conn, s, title, names, after=True),
+                      *_change_lines(s, names, year), link])
 
 
-def _due_text(a: dict, when: str, base_url: str, names: dict) -> str:
+def _due_text(a: dict, when: str, base_url: str, names: dict, year: int | None) -> str:
     label = "Prazo amanhã" if when == "amanha" else "Prazo hoje"
-    return (f"**{label}**: *{a['title']}* ({_who(a['owners'], names)}), {_fmt(a['due_date'])}.\n"
-            f"Próximo passo: {a['next_step'] or 'não definido'}\nVer: {base_url}/atividades/{a['activity_id']}")
+    return "\n".join([f"⏰ **{label} ({_fmt(a['due_date'], year)})**",
+                      f"**{a['title']}** · {_who(a['owners'], names)}",
+                      f"Próximo passo: {_clean(a['next_step']) or 'Não definido'}",
+                      _link("Abrir atividade", f"{base_url}/atividades/{a['activity_id']}")])
 
 
 def collect(conn: sqlite3.Connection, base_url: str, today: date | None = None) -> int:
@@ -112,18 +164,18 @@ def collect(conn: sqlite3.Connection, base_url: str, today: date | None = None) 
         title = titles.get(s["target_activity_id"])
         if s["review_status"] == "pendente":
             n += _enqueue(conn, f"sug_nova:{s['suggestion_id']}", "sugestao_nova",
-                          _new_suggestion_text(conn, s, base_url, title), sent=baseline) and not baseline
+                          _new_suggestion_text(conn, s, base_url, title, names, today.year), sent=baseline) and not baseline
         elif s["review_status"] in ("aceita", "aceita_com_ajuste", "rejeitada"):
             n += _enqueue(conn, f"sug_decidida:{s['suggestion_id']}", "sugestao_decidida",
-                          _decided_text(conn, s, base_url, title, names), sent=baseline) and not baseline
+                          _decided_text(conn, s, base_url, title, names, today.year), sent=baseline) and not baseline
     tomorrow = (today + timedelta(days=1)).isoformat()
     for a in acts.list_activities(conn):
         if a["due_date"] == tomorrow:
             n += _enqueue(conn, f"prazo_amanha:{a['activity_id']}:{a['due_date']}", "prazo",
-                          _due_text(a, "amanha", base_url, names))
+                          _due_text(a, "amanha", base_url, names, today.year))
         elif a["due_date"] == today.isoformat():
             n += _enqueue(conn, f"prazo_hoje:{a['activity_id']}:{a['due_date']}", "prazo",
-                          _due_text(a, "hoje", base_url, names))
+                          _due_text(a, "hoje", base_url, names, today.year))
     if first_time:
         set_setting(conn, "notify_baseline", now_iso())
     return n
