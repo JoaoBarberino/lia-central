@@ -15,7 +15,7 @@
 {% if stale_days %}
 <section class="notice info check" aria-labelledby="check-h">
   <h2 id="check-h">Isso ainda está valendo?</h2>
-  <p class="small">Sem novidade há {{ stale_days }} dias.{% if not can_confirm %} Os responsáveis ou quem aprova sugestões podem confirmar.{% endif %}</p>
+  <p class="small">Sem novidade há {{ stale_days }} dia{{ "s" if stale_days != 1 }}.{% if not can_confirm %} Os responsáveis ou quem aprova sugestões podem confirmar.{% endif %}</p>
   {% if can_confirm %}{{ check_actions(a, '/atividades/' ~ a.activity_id) }}{% endif %}
 </section>
 {% endif %}

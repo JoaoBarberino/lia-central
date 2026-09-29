@@ -155,7 +155,7 @@ def _stale_text(a: dict, days: int, base_url: str, names: dict, year: int | None
     return "\n".join([
         "🕰️ **Isso ainda está valendo?**",
         f"**{a['title']}** · {_who(a['owners'], names)}",
-        f"Sem novidade há {days} dias · Prazo {_fmt(a['due_date'], year)} · {a['status']}",
+        f"Sem novidade há {days} {'dia' if days == 1 else 'dias'} · Prazo {_fmt(a['due_date'], year)} · {a['status']}",
         _link("Confirmar ou atualizar", f"{base_url}/atividades/{a['activity_id']}")])
 
 

@@ -388,7 +388,7 @@ def conferir(request: Request, activity_id: str, resposta: str = Form(...), volt
     else:
         acts.confirm_still_valid(conn, activity_id, me)
         flash(request, f"Registrado: “{a['title']}” continua valendo. A Central só pergunta de novo se passar mais "
-                       f"{settings.stale_days} dias sem novidade.")
+                       f"{settings.stale_days} {'dia' if settings.stale_days == 1 else 'dias'} sem novidade.")
     return to(back)
 
 

@@ -23,7 +23,7 @@
 {% if stale %}
 <section class="notice info check" aria-labelledby="check-h">
   <h2 id="check-h">Isso ainda está valendo?</h2>
-  <p class="small">{{ 'Esta atividade está' if stale|length == 1 else 'Estas atividades estão' }} sem novidade há mais de {{ STALE_DAYS }} dias. Um clique mantém o quadro confiável.</p>
+  <p class="small">{{ 'Esta atividade está' if stale|length == 1 else 'Estas atividades estão' }} sem novidade há mais de {{ STALE_DAYS }} dia{{ "s" if STALE_DAYS != 1 }}. Um clique mantém o quadro confiável.</p>
   {% for a in stale %}
   <div class="check-item">
     <div class="check-head"><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a> {{ stale_tag(a.stale_days) }}</div>

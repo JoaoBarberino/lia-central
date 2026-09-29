@@ -33,7 +33,7 @@
 </div>
 {%- endmacro %}
 
-{% macro stale_tag(n) -%}<span class="tag stale">Sem novidade há {{ n }} dias</span>{%- endmacro %}
+{% macro stale_tag(n) -%}<span class="tag stale">Sem novidade há {{ n }} dia{{ "s" if n != 1 }}</span>{%- endmacro %}
 
 {% macro activity_card(a, show_stale=true) -%}
 {% set d = due_info(a.due_date, a.status) %}
