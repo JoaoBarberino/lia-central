@@ -33,6 +33,22 @@ ROLE_LABELS = {
 
 HISTORIC_STATUS = {"deprecated", "obsoleto", "substituido", "arquivado", "historico"}
 
+# Ata não depende do nome do arquivo: "Reunião Growth 10-10" com título "Ata de reunião" também é ata.
+_MINUTES_WORDS = re.compile(r"\b(ata|atas|reuniao|reunioes|minuta|encontro|alinhamento|retrospectiva|retro|assembleia)\b")
+_BODY_PEOPLE = re.compile(r"\b(participaram|participantes|presentes|presenca)\b")
+_BODY_DECISION = re.compile(r"\b(decis|decidi|encaminhamento|proximos passos|ficou combinado|ficou decidido|responsavel)")
+
+
+def looks_like_minutes(name: str, ext: Extracted) -> bool:
+    """Ata pelo cabeçalho, pelo nome ou título, ou pelo corpo (quem participou + o que foi decidido)."""
+    if "data_da_reuniao" in ext.meta:
+        return True
+    words = normalize(re.sub(r"[_\-.]+", " ", name)) + " " + normalize(ext.title or "")
+    if _MINUTES_WORDS.search(words):
+        return True
+    head = normalize("\n".join((ext.text or "").splitlines()[:40]))
+    return bool(_BODY_PEOPLE.search(head) and _BODY_DECISION.search(head))
+
 
 def classify(name: str, ext: Extracted | None, is_official_register: bool) -> str:
     n = normalize(name)
@@ -51,10 +67,10 @@ def classify(name: str, ext: Extracted | None, is_official_register: bool) -> st
         return "indice"
     if n.startswith("estado-atual") or n.startswith("estado_atual"):
         return "estado_atual"
-    if "data_da_reuniao" in ext.meta or n.startswith("ata"):
-        return "ata"
     if n.startswith("guia") or normalize(ext.title or "") == "comece aqui":
         return "guia"
+    if looks_like_minutes(name, ext):
+        return "ata"
     return "outro"
 
 

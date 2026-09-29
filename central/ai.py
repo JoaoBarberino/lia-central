@@ -248,6 +248,15 @@ INJECTION_MARKERS = ["ignore as regras", "ignore todas as regras", "ignore as in
                      "sem revisao humana", "ignore previous", "system prompt"]
 
 
+HEDGE_MARKERS = re.compile(r"\b(talvez|poderiamos|podiamos|quem sabe|seria bom|seria legal|podemos pensar|"
+                           r"vale pensar|vale a pena pensar|cogit\w*|hipotese|ideia seria|sem decisao)\b")
+
+
+def looks_like_hypothesis(evidence: str) -> bool:
+    """Trecho com linguagem de hipótese ("talvez", "poderíamos") não é decisão, diga a IA o que disser."""
+    return bool(HEDGE_MARKERS.search(normalize(evidence or "")))
+
+
 def looks_like_injection(evidence: str) -> bool:
     ev = normalize(evidence)
     return any(m in ev for m in INJECTION_MARKERS)
@@ -270,7 +279,13 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
              "uncertainties": uncertainties}
     if kind == "no_action":
         return clean, None
+    if looks_like_hypothesis(evidence):
+        # regra da Central, não do modelo: hipótese nunca vira sugestão de tarefa
+        clean.update(kind="no_action", category="ideia",
+                     reason="O trecho fala em possibilidade (\"talvez\", \"poderíamos\"), não em decisão.")
+        return clean, None
 
+    current_owners = acts.get_owners(conn, item.get("target_activity_id")) if kind == "update" else []
     proposed: dict = {}
     for f in PROPOSABLE_FIELDS:
         v = item.get(f)
@@ -297,12 +312,15 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
             mid = o if o in names else by_name.get(normalize(str(o)))
             if not mid:
                 uncertainties.append(f"Responsável {o!r} não é um membro conhecido; responsável a confirmar.")
-            elif normalize(names[mid]) not in normalize(text):
+            elif normalize(names[mid]) not in normalize(text) and mid not in current_owners:
                 uncertainties.append(f"{names[mid]} não é citado no documento; responsável a confirmar.")
             elif mid not in owners:
-                owners.append(mid)
+                owners.append(mid)   # quem já é responsável e a IA manteve na lista continua, mesmo sem ser citado
         if owners:
             proposed["owners"] = sorted(owners)
+            removed = [names.get(o, o) for o in current_owners if o not in owners]
+            if removed:
+                uncertainties.append(f"A sugestão tira {' e '.join(removed)} dos responsáveis: confira se o documento diz isso.")
         else:
             proposed.pop("owners")
 
@@ -391,7 +409,7 @@ def analyze_minutes(conn: sqlite3.Connection, llm: LLM, file_id: str) -> str:
             _note(conn, file_id, version, "barrada_validacao", dumps(item)[:1000], problem)
             continue
         if clean["kind"] == "no_action":
-            category = str((item or {}).get("category") or "").strip().lower()
+            category = str(clean.get("category") or (item or {}).get("category") or "").strip().lower()
             if category == "instrucao" or looks_like_injection(clean["evidence"]):
                 kind = "instrucao_ignorada"   # a Central reconhece a instrução por conta própria, sem depender da IA
             elif category == "sem_mudanca":
