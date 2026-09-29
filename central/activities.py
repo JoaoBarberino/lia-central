@@ -200,7 +200,36 @@ def list_activities(conn: sqlite3.Connection, member_id: str | None = None, incl
         r["pending_suggestions"] = conn.execute(
             "SELECT COUNT(*) FROM suggestions WHERE target_activity_id = ? AND review_status = 'pendente'",
             (r["activity_id"],)).fetchone()[0]
+        r["last_movement"] = last_movement(conn, r["activity_id"]) or r["updated_at"]
     return rows
+
+
+# ---------------------------------------------------------------------------
+# "Isso ainda está valendo?": atividade aberta há muito tempo sem nenhuma novidade
+# ---------------------------------------------------------------------------
+CONFIRM_REASON = "Confirmou que continua valendo"
+
+
+def last_movement(conn: sqlite3.Connection, activity_id: str) -> str | None:
+    """Última novidade da atividade: qualquer evento do histórico (mudança, sugestão aceita, confirmação)."""
+    return conn.execute("SELECT MAX(ts) FROM activity_events WHERE activity_id = ?", (activity_id,)).fetchone()[0]
+
+
+def days_without_news(a: dict, today: date, limit: int) -> int | None:
+    """Dias sem novidade quando passou do limite; None se está em dia, concluída ou com sugestão chegando.
+    limit 0 desliga a verificação."""
+    if not limit or a.get("status") == "Concluída" or a.get("pending_suggestions"):
+        return None
+    last = a.get("last_movement") or a.get("updated_at")
+    if not last:
+        return None
+    days = (today - date.fromisoformat(last[:10])).days
+    return days if days >= limit else None
+
+
+def confirm_still_valid(conn: sqlite3.Connection, activity_id: str, actor_id: str) -> None:
+    """Registra no histórico que a atividade continua valendo. Nenhum campo muda; a contagem recomeça."""
+    _log_event(conn, activity_id, actor_id, {}, {}, CONFIRM_REASON)
 
 
 def activity_history(conn: sqlite3.Connection, activity_id: str) -> list[dict]:

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_card %}
+{% from "_macros.html" import activity_card, check_actions, stale_tag %}
 {% block title %}Minhas atividades{% endblock %}
 {% block content %}
 <h1>Minhas atividades</h1>
@@ -20,6 +20,20 @@
   {% endif %}
 </p>
 
+{% if stale %}
+<section class="notice info check" aria-labelledby="check-h">
+  <h2 id="check-h">Isso ainda está valendo?</h2>
+  <p class="small">{{ 'Esta atividade está' if stale|length == 1 else 'Estas atividades estão' }} sem novidade há mais de {{ STALE_DAYS }} dias. Um clique mantém o quadro confiável.</p>
+  {% for a in stale %}
+  <div class="check-item">
+    <div class="check-head"><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a> {{ stale_tag(a.stale_days) }}</div>
+    <p class="small muted">Prazo {{ fmt_date(a.due_date) }} · {{ a.status }} · Próximo passo: {{ (a.next_step or 'não definido').rstrip('.') }}</p>
+    {{ check_actions(a, '/') }}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
 <div class="toolbar">
   <div class="filters" role="group" aria-label="Ordenar">
     <span class="label">Ordenar por</span>
@@ -31,7 +45,7 @@
 
 {% if items %}
 <div class="acts">
-  {% for a in items %}{{ activity_card(a) }}{% endfor %}
+  {% for a in items %}{{ activity_card(a, show_stale=false) }}{% endfor %}
 </div>
 {% else %}
 <div class="empty"><strong>Nada aberto com você.</strong>{% if not last_run %}A pasta do Drive ainda não foi lida.{% else %}Quando alguém te atribuir uma tarefa, ela aparece aqui.{% endif %}</div>

@@ -48,6 +48,7 @@ class Settings:
     app_base_url: str
     session_secret: str
     sync_interval: int
+    stale_days: int
     database_path: Path
 
     @property
@@ -90,5 +91,7 @@ def get_settings() -> Settings:
         app_base_url=env("APP_BASE_URL", "http://localhost:8000").strip(),
         session_secret=env("SESSION_SECRET", "dev-inseguro-troque-no-env"),
         sync_interval=int(env("SYNC_INTERVAL_SECONDS", "180")),
+        # "Isso ainda está valendo?": dias sem novidade até a Central perguntar (0 desliga)
+        stale_days=int(env("DIAS_SEM_NOVIDADE", "14") or 0),
         database_path=path(env("DATABASE_PATH", "./data/central.db")),
     )

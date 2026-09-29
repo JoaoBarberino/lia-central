@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import status_tag, due_tag, source_ref, date_block, people %}
+{% from "_macros.html" import status_tag, due_tag, source_ref, date_block, people, check_actions %}
 {% block title %}{{ a.activity_id }}{% endblock %}
 {% block content %}
 <a class="back" href="{{ back_href or '/' }}">{{ back_label or 'Minhas atividades' }}</a>
@@ -11,6 +11,14 @@
     <p class="small muted">{% if a.creation_kind == 'importacao' %}Veio da planilha oficial em {{ fmt_ts(a.created_at) }}.{% elif a.creation_kind == 'sugestao' %}Criada a partir de uma sugestão aprovada em {{ fmt_ts(a.created_at) }}.{% else %}Criada por {{ names.get(a.created_by, a.created_by) }} em {{ fmt_ts(a.created_at) }}.{% endif %}</p>
   </div>
 </div>
+
+{% if stale_days %}
+<section class="notice info check" aria-labelledby="check-h">
+  <h2 id="check-h">Isso ainda está valendo?</h2>
+  <p class="small">Sem novidade há {{ stale_days }} dias.{% if not can_confirm %} Os responsáveis ou quem aprova sugestões podem confirmar.{% endif %}</p>
+  {% if can_confirm %}{{ check_actions(a, '/atividades/' ~ a.activity_id) }}{% endif %}
+</section>
+{% endif %}
 
 {% if pend %}
 <section id="sugestoes" class="notice info">

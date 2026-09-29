@@ -57,6 +57,9 @@ templates.env.globals.update(
     humano=views.humano, sheet_ref=views.sheet_ref, doc_meta_items=views.doc_meta_items, doc_status=views.doc_status,
     fmt_date=views.fmt_date, fmt_ts=views.fmt_ts, fmt_when=views.fmt_when, due_info=views.due_info, ROLE_LABELS=ROLE_LABELS,
     FIELD_LABELS=acts.FIELD_LABELS, ISSUE_LABELS=ISSUE_LABELS, SUG_STATUS=sugg.SUG_STATUS, STATUSES=acts.STATUSES,
+    STALE_DAYS=settings.stale_days,
+    # dias sem novidade (ou None): usado no selo "Sem novidade há N dias" dos cartões
+    sem_novidade=lambda a: acts.days_without_news(a, views.today(), settings.stale_days),
 )
 
 _sync_lock = threading.Lock()
@@ -107,7 +110,7 @@ def notify_now(conn) -> None:
     if not settings.discord_enabled:
         return
     try:
-        notify.collect(conn, settings.app_base_url, today=views.today())
+        notify.collect(conn, settings.app_base_url, today=views.today(), stale_days=settings.stale_days)
     except Exception:
         log.exception("Falha ao preparar avisos do Discord")
         return
@@ -262,7 +265,14 @@ def home(request: Request, ordem: str = "prazo", conn=Depends(db)):
         "pending_me": len(mine_pending),
         "to_review": conn.execute("SELECT COUNT(*) FROM suggestions WHERE review_status='pendente'").fetchone()[0],
     }
-    return render(request, conn, "minhas.html", items=items, ordem=ordem, mine_pending=mine_pending, stats=stats)
+    stale = []
+    for a in items:
+        n = acts.days_without_news(a, views.today(), settings.stale_days)
+        if n:
+            stale.append(a | {"stale_days": n})
+    stale.sort(key=lambda a: -a["stale_days"])
+    return render(request, conn, "minhas.html", items=items, ordem=ordem, mine_pending=mine_pending, stats=stats,
+                  stale=stale)
 
 
 @app.get("/atividades", response_class=HTMLResponse)
@@ -336,8 +346,50 @@ def detalhe(request: Request, activity_id: str, conn=Depends(db)):
     # "voltar" leva para a lista de onde a pessoa veio
     ref = request.headers.get("referer") or ""
     back = ("/atividades", "Todas as atividades") if "/atividades" in ref and "/atividades/" not in ref else ("/", "Minhas atividades")
+    row["pending_suggestions"] = len(pend)
+    row["last_movement"] = history[0]["ts"] if history else row["updated_at"]
+    stale_days = acts.days_without_news(row, views.today(), settings.stale_days)
     return render(request, conn, "atividade.html", a=row, history=history, refs=refs, pend=pend, names=names,
-                  back_href=back[0], back_label=back[1])
+                  back_href=back[0], back_label=back[1], stale_days=stale_days,
+                  can_confirm=can_confirm(conn, require_member(request), row["owners"]))
+
+
+def can_confirm(conn, member_id: str | None, owners: list[str]) -> bool:
+    """Responsáveis pela atividade ou quem aprova sugestões."""
+    if not member_id:
+        return False
+    if member_id in owners:
+        return True
+    m = conn.execute("SELECT can_review FROM members WHERE member_id=?", (member_id,)).fetchone()
+    return bool(m and m["can_review"])
+
+
+def _back_to(volta: str, fallback: str) -> str:
+    return volta if volta.startswith("/") and not volta.startswith("//") else fallback
+
+
+@app.post("/atividades/{activity_id}/conferir")
+def conferir(request: Request, activity_id: str, resposta: str = Form(...), volta: str = Form(""), conn=Depends(db)):
+    """Resposta a "Isso ainda está valendo?": continua valendo ou já terminou."""
+    me = require_member(request)
+    if not me:
+        return to("/entrar")
+    a = acts.snapshot(conn, activity_id)
+    if not a:
+        return render(request, conn, "erro.html", message=f"Atividade {activity_id} não encontrada.")
+    back = _back_to(volta, f"/atividades/{activity_id}")
+    if not can_confirm(conn, me, a["owners"]):
+        flash(request, "Só os responsáveis pela atividade ou quem aprova sugestões podem responder.", "erro")
+        return to(back)
+    if resposta == "terminou":
+        acts.update_activity(conn, activity_id, {"status": "Concluída"}, actor_id=me,
+                             reason="Já terminou (respondeu “Isso ainda está valendo?”)")
+        flash(request, f"“{a['title']}” marcada como concluída.")
+    else:
+        acts.confirm_still_valid(conn, activity_id, me)
+        flash(request, f"Registrado: “{a['title']}” continua valendo. A Central só pergunta de novo se passar mais "
+                       f"{settings.stale_days} dias sem novidade.")
+    return to(back)
 
 
 @app.get("/atividades/{activity_id}/editar", response_class=HTMLResponse)

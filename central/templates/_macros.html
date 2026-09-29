@@ -24,7 +24,18 @@
   {% if ids %}<span class="people">{{ ids | nomes }}</span>{% else %}<span class="people tbd">Responsável a confirmar</span>{% endif %}
 {%- endmacro %}
 
-{% macro activity_card(a) -%}
+{# Respostas a "Isso ainda está valendo?" #}
+{% macro check_actions(a, volta) -%}
+<div class="actions check-actions">
+  <form method="post" action="/atividades/{{ a.activity_id }}/conferir"><input type="hidden" name="resposta" value="continua"><input type="hidden" name="volta" value="{{ volta }}"><button class="btn small" type="submit" data-busy="Registrando…">Continua valendo</button></form>
+  <a class="btn secondary small" href="/atividades/{{ a.activity_id }}/editar">Atualizar</a>
+  <form method="post" action="/atividades/{{ a.activity_id }}/conferir"><input type="hidden" name="resposta" value="terminou"><input type="hidden" name="volta" value="{{ volta }}"><button class="btn secondary small" type="submit">Já terminou</button></form>
+</div>
+{%- endmacro %}
+
+{% macro stale_tag(n) -%}<span class="tag stale">Sem novidade há {{ n }} dias</span>{%- endmacro %}
+
+{% macro activity_card(a, show_stale=true) -%}
 {% set d = due_info(a.due_date, a.status) %}
 <article class="act">
   {{ date_block(a.due_date, a.status) }}
@@ -39,6 +50,7 @@
     <div class="names">{{ people(a.owners, NAMES) }}</div>
     <div>{{ status_tag(a.status) }}</div>
     {% if d.kind in ('soon', 'overdue') %}<div>{{ due_tag(a.due_date, a.status) }}</div>{% endif %}
+    {% if show_stale %}{% set sn = sem_novidade(a) %}{% if sn %}<div>{{ stale_tag(sn) }}</div>{% endif %}{% endif %}
   </div>
 </article>
 {%- endmacro %}

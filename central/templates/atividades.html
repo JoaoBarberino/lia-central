@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import status_tag, due_tag, people %}
+{% from "_macros.html" import status_tag, due_tag, people, stale_tag %}
 {% block title %}Todas as atividades{% endblock %}
 {% block content %}
 <h1>Todas as atividades</h1>
@@ -22,7 +22,7 @@
       {% if a.pending_suggestions %}<div class="small"><a class="tag pending" href="/atividades/{{ a.activity_id }}#sugestoes">sugestão aguardando revisão</a></div>{% endif %}</td>
     <td data-label="Responsáveis">{{ people(a.owners, NAMES) }}</td>
     <td class="num" data-label="Prazo">{% if a.due_date %}{{ fmt_date(a.due_date) }}{% if d.kind in ('soon', 'overdue') %} <span class="tag {{ d.kind }}">({{ d.label|lower }})</span>{% endif %}{% else %}<span class="muted">a definir</span>{% endif %}</td>
-    <td data-label="Situação">{{ status_tag(a.status) }}</td>
+    <td data-label="Situação">{{ status_tag(a.status) }}{% set sn = sem_novidade(a) %}{% if sn %}<div class="stale-line">{{ stale_tag(sn) }}</div>{% endif %}</td>
     <td class="secondary" data-label="Próximo passo">{{ a.next_step or '—' }}</td>
   </tr>
   {% else %}

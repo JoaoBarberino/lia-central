@@ -1,4 +1,5 @@
-"""Avisos no Discord: nova sugestão para revisar, sugestão decidida e prazo perto (amanhã) ou no dia.
+"""Avisos no Discord: nova sugestão para revisar, sugestão decidida, prazo perto (amanhã) ou no dia
+e atividade parada ("Isso ainda está valendo?").
 
 Como funciona:
 - `collect` olha o estado atual e enfileira o que ainda não foi avisado (chave única por aviso);
@@ -150,7 +151,15 @@ def _due_text(a: dict, when: str, base_url: str, names: dict, year: int | None) 
                       _link("Abrir atividade", f"{base_url}/atividades/{a['activity_id']}")])
 
 
-def collect(conn: sqlite3.Connection, base_url: str, today: date | None = None) -> int:
+def _stale_text(a: dict, days: int, base_url: str, names: dict, year: int | None) -> str:
+    return "\n".join([
+        "🕰️ **Isso ainda está valendo?**",
+        f"**{a['title']}** · {_who(a['owners'], names)}",
+        f"Sem novidade há {days} dias · Prazo {_fmt(a['due_date'], year)} · {a['status']}",
+        _link("Confirmar ou atualizar", f"{base_url}/atividades/{a['activity_id']}")])
+
+
+def collect(conn: sqlite3.Connection, base_url: str, today: date | None = None, stale_days: int = 0) -> int:
     """Enfileira os avisos que ainda não foram dados. Devolve quantos entraram na fila."""
     from . import suggestions as sugg
     today = today or date.today()
@@ -176,6 +185,11 @@ def collect(conn: sqlite3.Connection, base_url: str, today: date | None = None) 
         elif a["due_date"] == today.isoformat():
             n += _enqueue(conn, f"prazo_hoje:{a['activity_id']}:{a['due_date']}", "prazo",
                           _due_text(a, "hoje", base_url, names, today.year))
+        # "Isso ainda está valendo?": uma vez por período parado (a chave muda quando a atividade tem novidade)
+        days = acts.days_without_news(a, today, stale_days)
+        if days:
+            n += _enqueue(conn, f"parada:{a['activity_id']}:{a['last_movement'][:19]}", "parada",
+                          _stale_text(a, days, base_url, names, today.year))
     if first_time:
         set_setting(conn, "notify_baseline", now_iso())
     return n

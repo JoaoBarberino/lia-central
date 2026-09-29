@@ -106,6 +106,8 @@ def changes_for_member(conn: sqlite3.Connection, member_id: str, since_iso: str)
         after = json.loads(e["after_json"]) if e["after_json"] else {}
         if before is None and e["actor_id"] == "sistema":
             continue  # importação inicial da planilha: é o ponto de partida, não uma "novidade"
+        if before == {} and not after:
+            continue  # "continua valendo": confirmação, não mudança
         owners_involved = set(after.get("owners") or []) | set((before or {}).get("owners") or [])
         if e["activity_id"] not in mine_now and member_id not in owners_involved:
             continue
