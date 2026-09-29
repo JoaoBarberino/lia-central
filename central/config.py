@@ -45,6 +45,8 @@ class Settings:
     gemini_fallback_model: str
     gemini_qa_models: str
     discord_webhook_url: str
+    discord_bot_token: str
+    discord_guild_id: str
     app_base_url: str
     session_secret: str
     sync_interval: int
@@ -88,6 +90,9 @@ def get_settings() -> Settings:
         # Perguntas do "Comece aqui": modelos rápidos primeiro (sem raciocínio interno), tentados em ordem
         gemini_qa_models=env("GEMINI_QA_MODELS", "gemini-3.1-flash-lite,gemini-3.5-flash-lite,gemini-3.6-flash"),
         discord_webhook_url=env("DISCORD_WEBHOOK_URL", "").strip(),
+        # Bot com /pergunta, /prazos e /minhas (opcional). O token é secreto: fica só no .env.
+        discord_bot_token=env("DISCORD_BOT_TOKEN", "").strip(),
+        discord_guild_id=env("DISCORD_GUILD_ID", "").strip(),
         app_base_url=env("APP_BASE_URL", "http://localhost:8000").strip(),
         session_secret=env("SESSION_SECRET", "dev-inseguro-troque-no-env"),
         sync_interval=int(env("SYNC_INTERVAL_SECONDS", "180")),

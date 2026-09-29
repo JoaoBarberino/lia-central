@@ -18,6 +18,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import activities as acts
 from . import ask
+from . import discord_bot
 from . import drive_auth
 from . import notify
 from . import suggestions as sugg
@@ -175,8 +176,13 @@ async def lifespan(app: FastAPI):
     conn.close()
     t = threading.Thread(target=scheduler_loop, daemon=True, name="sync-scheduler")
     t.start()
+    try:
+        discord_bot.start(settings, connect, make_qa_llm, views.today)
+    except Exception:
+        log.exception("Bot do Discord não iniciou (o site continua normal)")
     yield
     _stop.set()
+    discord_bot.stop()
 
 
 app = FastAPI(title="Central LIA", lifespan=lifespan)
@@ -651,7 +657,8 @@ def sincronizacao(request: Request, conn=Depends(db)):
     connected = bool(get_setting(conn, "google_token"))
     calls = conn.execute("SELECT COUNT(*) n, SUM(input_tokens) i, SUM(output_tokens) o FROM llm_calls WHERE ok=1").fetchone()
     return render(request, conn, "sincronizacao.html", runs=runs, connected=connected, settings=settings, calls=calls,
-                  avisos=notify.status(conn) if settings.discord_enabled else None)
+                  avisos=notify.status(conn) if settings.discord_enabled else None,
+                  bot=discord_bot.status() if settings.discord_bot_token else None)
 
 
 @app.post("/sincronizar")

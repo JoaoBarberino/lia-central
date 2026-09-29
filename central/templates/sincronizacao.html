@@ -40,13 +40,21 @@
   {% endif %}
   <h2>Avisos no Discord</h2>
   {% if avisos %}
-    <p><span class="tag done">ligados</span> Novas sugestões, decisões e prazos (amanhã e hoje) vão para o canal configurado.</p>
+    <p><span class="tag done">ligados</span> Novas sugestões, decisões, prazos (amanhã e hoje) e atividades sem novidade vão para o canal configurado.</p>
     <p class="small">{% if avisos.last_sent %}Último aviso às {{ fmt_ts(avisos.last_sent) }}.{% else %}Nenhum aviso enviado ainda.{% endif %}
       {% if avisos.queued %} {{ avisos.queued }} {{ 'aguardando envio' if avisos.queued == 1 else 'aguardando envio' }}.{% endif %}</p>
     {% if avisos.last_error %}<p class="small"><span class="tag err">último erro</span> {{ avisos.last_error }}</p>{% endif %}
     <form method="post" action="/avisos/teste"><button class="btn small secondary" type="submit" data-busy="Enviando…">Mandar mensagem de teste</button></form>
   {% else %}
     <p><span class="tag neutral">desligados</span> Para ligar, coloque o endereço do webhook do canal em <code>DISCORD_WEBHOOK_URL</code> no <code>.env</code>.</p>
+  {% endif %}
+  <h2>Bot no Discord</h2>
+  {% if bot %}
+    {% if bot.status == 'conectado' %}<p><span class="tag done">conectado</span> como <b>{{ bot.name }}</b>. Comandos: <code>/pergunta</code>, <code>/prazos</code> e <code>/minhas</code>.</p>
+    {% elif bot.status == 'erro' %}<p><span class="tag err">com erro</span> {{ bot.error }}</p>
+    {% else %}<p><span class="tag neutral">conectando…</span> Recarregue a página em alguns segundos.</p>{% endif %}
+  {% else %}
+    <p><span class="tag neutral">desligado</span> Para ligar, coloque o token do bot em <code>DISCORD_BOT_TOKEN</code> no <code>.env</code>.</p>
   {% endif %}
   <h2>IA</h2>
   {% if llm_enabled %}
