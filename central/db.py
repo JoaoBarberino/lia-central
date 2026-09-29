@@ -193,6 +193,17 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     raw_output      TEXT
 );
 
+-- Avisos no Discord (fila com chave única: o mesmo aviso nunca sai duas vezes)
+CREATE TABLE IF NOT EXISTS notifications (
+    key         TEXT PRIMARY KEY,
+    kind        TEXT NOT NULL,
+    text        TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    sent_at     TEXT,            -- data do envio; "ja_existia" = marcado como visto ao ligar os avisos
+    attempts    INTEGER NOT NULL DEFAULT 0,
+    last_error  TEXT
+);
+
 CREATE TABLE IF NOT EXISTS member_visits (
     member_id      TEXT PRIMARY KEY,
     last_visit_at  TEXT,

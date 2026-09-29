@@ -98,3 +98,9 @@ def test_pergunta_pela_interface(client):
     r = client.get("/comece-aqui?pergunta=Quem aprova os posts de Growth?")
     assert r.status_code == 200 and "Pergunte à Central" in r.text
     assert "IA está desligada" in r.text  # nos testes a IA fica desligada: cai na busca simples
+
+
+def test_avisos_desligados_sem_webhook(client):
+    assert "Avisos no Discord" in client.get("/sincronizacao").text
+    r = client.post("/avisos/teste", follow_redirects=True)
+    assert "DISCORD_WEBHOOK_URL" in r.text
