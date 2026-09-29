@@ -12,18 +12,47 @@
 <a class="skip" href="#conteudo">Pular para o conteúdo</a>
 {% set path = request.url.path %}
 <header class="top">
+  {%- set mais = path.startswith('/pendencias') or path.startswith('/fontes') or path.startswith('/sincronizacao') %}
   <div class="wrap bar">
     <a class="brand" href="/" aria-label="Central da Liga, página inicial">Central da Liga</a>
+    {# Celular: um botão abre o menu completo (os mesmos itens, agrupados) #}
+    <details class="mmenu">
+      <summary><span aria-hidden="true">☰</span> Menu{% if n_pending or n_issues %}<span class="count"><span class="sr">: </span>{{ n_pending + n_issues }}<span class="sr"> itens para ver</span></span>{% endif %}</summary>
+      <div class="mm-panel">
+        <nav aria-label="Principal (celular)">
+          <a href="/comece-aqui" {% if path.startswith('/comece') %}aria-current="page"{% endif %}>Comece aqui</a>
+          <p class="mm-grp">Atividades</p>
+          <a href="/" {% if path == '/' %}aria-current="page"{% endif %}>Minhas atividades</a>
+          <a href="/atividades" {% if path.startswith('/atividades') %}aria-current="page"{% endif %}>Todas as atividades</a>
+          <p class="mm-grp">Revisão</p>
+          <a href="/sugestoes" {% if path.startswith('/sugestoes') %}aria-current="page"{% endif %}>Sugestões para revisar{% if n_pending %}<span class="count"><span class="sr">: </span>{{ n_pending }}<span class="sr"> pendentes</span></span>{% endif %}</a>
+          <a href="/pendencias" {% if path.startswith('/pendencias') %}aria-current="page"{% endif %}>Pendências{% if n_issues %}<span class="count"><span class="sr">: </span>{{ n_issues }}<span class="sr"> abertas</span></span>{% endif %}</a>
+          <p class="mm-grp">Documentos</p>
+          <a href="/novidades" {% if path.startswith('/novidades') %}aria-current="page"{% endif %}>Novidades dos documentos</a>
+          <a href="/fontes" {% if path.startswith('/fontes') %}aria-current="page"{% endif %}>Documentos</a>
+          <a href="/sincronizacao" {% if path.startswith('/sincronizacao') %}aria-current="page"{% endif %}>Estado da sincronização</a>
+        </nav>
+        <form method="post" action="/entrar" class="mm-who">
+          <label for="member-switch-m" class="mm-grp">Ver o site como</label>
+          <select id="member-switch-m" name="member_id" onchange="this.form.submit()">
+            {% if not me %}<option value="">Quem é você?</option>{% endif %}
+            {% for m in members %}<option value="{{ m.member_id }}" {% if me and me.member_id == m.member_id %}selected{% endif %}>{{ m.display_name }}{% if m.can_review %} (aprova){% endif %}, {{ m.front }}</option>{% endfor %}
+          </select>
+          <noscript><button class="btn small" type="submit">Trocar</button></noscript>
+        </form>
+      </div>
+    </details>
     <div class="sync">
-      <span>
+      <a class="sync-name" href="/sincronizacao">Estado da sincronização</a>
+      <span class="sync-when">
       {%- if last_run -%}
         {%- set when = fmt_when(last_run.finished_at or last_run.started_at) -%}
-        {%- if last_run.status == 'ok' -%}<a href="/sincronizacao"><span class="wide">Atualizado com o Drive</span><span class="narrow">Atualizado</span> às <b class="num">{{ when }}</b></a>
-        {%- elif last_run.status == 'parcial' -%}<a href="/sincronizacao">Atualizado às <b class="num">{{ when }}</b>, com erro em arquivos</a>
-        {%- elif last_run.status == 'rodando' -%}<a href="/sincronizacao"><b>Atualizando agora…</b></a>
-        {%- else -%}<a href="/sincronizacao"><b>A atualização falhou</b> às {{ when }}</a>{% if last_ok %}; dados de {{ fmt_when(last_ok.finished_at) }}{% endif %}{%- endif -%}
-      {%- else -%}<a href="/sincronizacao">Ainda não atualizado com o Drive</a>{%- endif -%}
-      {%- if not llm_enabled %}<span class="wide">. IA desligada.</span>{% endif -%}
+        {%- if last_run.status == 'ok' -%}atualizado às <b class="num">{{ when }}</b>
+        {%- elif last_run.status == 'parcial' -%}atualizado às <b class="num">{{ when }}</b>, com erro em arquivos
+        {%- elif last_run.status == 'rodando' -%}<b>atualizando agora…</b>
+        {%- else -%}<b>a atualização falhou</b> às {{ when }}{% if last_ok %}; dados de {{ fmt_when(last_ok.finished_at) }}{% endif %}{%- endif -%}
+      {%- else -%}ainda não atualizado{%- endif -%}
+      {%- if not llm_enabled %}<span class="wide">. IA desligada</span>{% endif -%}
       </span>
       <form method="post" action="/sincronizar"><button class="linkish" type="submit" data-busy="Atualizando…">Atualizar agora</button></form>
     </div>
@@ -38,16 +67,21 @@
       <noscript><button type="submit">Trocar</button></noscript>
     </form>
   </div>
-  <div class="wrap">
+  <div class="wrap nav-row">
     <nav class="main" aria-label="Principal">
       <a href="/comece-aqui" {% if path.startswith('/comece') %}aria-current="page"{% endif %}>Comece aqui</a>
       <a href="/" {% if path == '/' %}aria-current="page"{% endif %}>Minhas atividades</a>
       <a href="/atividades" {% if path.startswith('/atividades') %}aria-current="page"{% endif %}>Todas as atividades</a>
       <a href="/sugestoes" {% if path.startswith('/sugestoes') %}aria-current="page"{% endif %}>Sugestões para revisar{% if n_pending %}<span class="count"><span class="sr">: </span>{{ n_pending }}<span class="sr"> pendentes</span></span>{% endif %}</a>
       <a href="/novidades" {% if path.startswith('/novidades') %}aria-current="page"{% endif %}>Novidades dos documentos</a>
-      <a href="/pendencias" {% if path.startswith('/pendencias') %}aria-current="page"{% endif %}>Pendências{% if n_issues %}<span class="count"><span class="sr">: </span>{{ n_issues }}<span class="sr"> abertas</span></span>{% endif %}</a>
-      <a href="/fontes" {% if path.startswith('/fontes') %}aria-current="page"{% endif %}>Documentos</a>
-      <a href="/sincronizacao" {% if path.startswith('/sincronizacao') %}aria-current="page"{% endif %}>Estado da sincronização</a>
+      <details class="more">
+        <summary {% if mais %}class="current"{% endif %}>Mais<span class="caret" aria-hidden="true">▾</span>{% if n_issues %}<span class="count"><span class="sr">: </span>{{ n_issues }}<span class="sr"> pendências abertas</span></span>{% endif %}</summary>
+        <div class="more-panel">
+          <a href="/pendencias" {% if path.startswith('/pendencias') %}aria-current="page"{% endif %}>Pendências{% if n_issues %}<span class="count"><span class="sr">: </span>{{ n_issues }}<span class="sr"> abertas</span></span>{% endif %}</a>
+          <a href="/fontes" {% if path.startswith('/fontes') %}aria-current="page"{% endif %}>Documentos</a>
+          <a href="/sincronizacao" {% if path.startswith('/sincronizacao') %}aria-current="page"{% endif %}>Estado da sincronização</a>
+        </div>
+      </details>
     </nav>
   </div>
 </header>
@@ -64,13 +98,17 @@
     if (window.matchMedia('(max-width: 700px)').matches)
       document.querySelectorAll('details.filt').forEach(function (d) { d.open = false; });
   });
-  /* No celular o menu rola para o lado: deixa o item da página atual à vista */
-  (function () { var n = document.querySelector('nav.main'); if (!n) return;
-    var a = n.querySelector('a[aria-current="page"]');
-    if (a && n.scrollWidth > n.clientWidth) n.scrollLeft = a.offsetLeft - 16;
-    function edges() { n.classList.toggle('more-left', n.scrollLeft > 4);
-      n.classList.toggle('at-end', n.scrollLeft + n.clientWidth >= n.scrollWidth - 4); }
-    n.addEventListener('scroll', edges, {passive: true}); edges(); })();
+  /* Menus "Mais" e "☰ Menu": fecham com Esc ou ao clicar fora */
+  (function () {
+    var menus = document.querySelectorAll('details.more, details.mmenu');
+    document.addEventListener('click', function (e) {
+      menus.forEach(function (d) { if (d.open && !d.contains(e.target)) d.open = false; });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      menus.forEach(function (d) { if (d.open) { d.open = false; d.querySelector('summary').focus(); } });
+    });
+  })();
 </script>
 <main id="conteudo" class="wrap">
   {% for f in flashes %}<div class="flash {{ f.kind }}" role="alert">{{ f.message }}</div>{% endfor %}

@@ -198,7 +198,6 @@ Observações:
 - PDF escaneado e imagem não são lidos automaticamente (OCR fora do escopo do case); a transcrição depende de uma pessoa conferir.
 - "Pergunte à Central" manda ao modelo todos os documentos lidos da pasta a cada pergunta nova.
 - No modo pasta local (testes), o identificador do arquivo é o número do arquivo no disco: se um arquivo for apagado e outro criado em seguida, o sistema pode confundir os dois. No Drive o ID é estável.
-- A primeira tela no computador tem o menu em duas linhas, para caber os nomes que o case pede ("Sugestões para revisar", "Novidades dos documentos", "Estado da sincronização").
 
 ## 10. Antes de usar dados reais
 

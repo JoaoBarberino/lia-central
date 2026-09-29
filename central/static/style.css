@@ -79,6 +79,28 @@ nav.main a { position: relative; color: #E2E8FF; text-decoration: none; padding:
   white-space: nowrap; border-bottom: 2px solid transparent; }
 nav.main a:hover { color: #fff; border-bottom-color: rgba(255,255,255,.55); }
 nav.main a[aria-current="page"] { color: #fff; font-weight: 600; border-bottom-color: var(--cyan); }
+/* "Mais": Pendências, Documentos e Estado da sincronização */
+nav.main { align-items: stretch; }
+details.more { position: relative; }
+details.more > summary { list-style: none; cursor: pointer; color: #E2E8FF; padding: .7rem 0 .75rem; font-size: .95rem; font-weight: 500;
+  white-space: nowrap; border-bottom: 2px solid transparent; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::before { display: none !important; }
+details.more .caret { margin-left: .3rem; font-size: .8em; }
+details.more > summary:hover { color: #fff; border-bottom-color: rgba(255,255,255,.55); }
+details.more > summary.current { color: #fff; font-weight: 600; border-bottom-color: var(--cyan); }
+.more-panel { position: absolute; right: 0; top: 100%; z-index: 20; min-width: 15rem; padding: .35rem; background: #fff;
+  border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(12, 26, 107, .18); }
+nav.main .more-panel a { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .6rem .8rem; border-radius: 7px;
+  color: var(--navy); text-decoration: none; font-weight: 500; border: 0; white-space: nowrap; }
+nav.main .more-panel a:hover { background: var(--ice-soft); color: var(--navy); }
+nav.main .more-panel a[aria-current="page"] { background: var(--ice); font-weight: 600; color: var(--navy); }
+header.top .more-panel :focus-visible { outline-color: var(--blue); }
+/* topo: "Estado da sincronização" sempre à vista */
+.sync .sync-name { color: #fff; font-weight: 600; text-decoration: none; }
+.sync .sync-name:hover { text-decoration: underline; }
+/* celular: botão ☰ Menu (escondido no computador) */
+details.mmenu { display: none; }
 .count { display: inline-block; min-width: 1.3rem; margin-left: .35rem; padding: 0 .38rem; border-radius: .65rem; background: var(--cyan);
   color: var(--navy); font-size: .76rem; font-weight: 700; line-height: 1.3rem; text-align: center; vertical-align: .05rem; }
 
@@ -440,18 +462,7 @@ pre.doc { white-space: pre-wrap; border: 1px solid var(--line); padding: 1rem; b
   .sync { font-size: .82rem; }
   .sync .wide { display: none; }
   .sync .narrow { display: inline; }
-  /* menu numa linha só, rolando para o lado; o esmaecido na borda indica que há mais itens */
-  nav.main { flex-wrap: nowrap; overflow-x: auto; gap: 0 1.25rem; margin: 0 -1rem; padding: 0 2rem 0 1rem;
-    scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
-    mask-image: linear-gradient(90deg, #000 85%, transparent); }
-  nav.main::-webkit-scrollbar { display: none; }
-  /* rolado: esmaece também a borda esquerda (há itens antes); no fim, some o esmaecido da direita */
-  nav.main.more-left { -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 85%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 12%, #000 85%, transparent); }
-  nav.main.more-left.at-end { -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%);
-    mask-image: linear-gradient(90deg, transparent, #000 12%); }
-  nav.main.at-end:not(.more-left) { -webkit-mask-image: none; mask-image: none; }
-  nav.main a { font-size: .92rem; padding: 0; min-height: 44px; display: inline-flex; align-items: center; }
+
   .summary { font-size: 1.05rem; }
   .act { grid-template-columns: 4.25rem minmax(0, 1fr); gap: .5rem 1rem; padding: 1.2rem 0; }
   .date { width: 4.25rem; padding: .5rem .2rem .55rem; }
@@ -489,4 +500,28 @@ pre.doc { white-space: pre-wrap; border: 1px solid var(--line); padding: 1rem; b
   .filters { gap: 0 1.1rem; }
   .brand { min-height: 44px; }
   input[type=text], input[type=date], main select, textarea { min-height: 44px; font-size: 16px; }
+}
+
+@media (max-width: 1000px) {
+  /* telas até 1000px: o menu vira um botão que abre a lista completa; a pessoa é trocada dentro dele */
+  header.top { position: relative; }
+  .nav-row, .who { display: none; }
+  details.mmenu { display: block; margin-left: auto; }
+  details.mmenu > summary { list-style: none; display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; padding: 0 .8rem;
+    color: #fff; font-weight: 600; font-size: .95rem; border: 1px solid rgba(255,255,255,.55); border-radius: 8px; cursor: pointer; }
+  details.mmenu > summary::-webkit-details-marker { display: none; }
+  details.mmenu > summary::before { display: none !important; }
+  details.mmenu[open] > summary { background: #fff; color: var(--blue); }
+  .mm-panel { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; background: #fff; padding: .5rem 1rem 1.2rem;
+    border-bottom: 1px solid var(--line); box-shadow: 0 14px 28px rgba(12, 26, 107, .16); max-height: calc(100vh - 7rem); overflow-y: auto; }
+  .mm-panel nav a { display: flex; justify-content: space-between; align-items: center; min-height: 44px; padding: 0 .75rem; border-radius: 8px;
+    color: var(--navy); text-decoration: none; font-size: 1rem; }
+  .mm-panel nav a[aria-current="page"] { background: var(--ice); font-weight: 600; box-shadow: inset 3px 0 0 var(--blue); }
+  .mm-grp { display: block; margin: 1rem 0 .2rem .75rem; font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); }
+  .mm-who select { width: 100%; font: inherit; font-size: 16px; min-height: 44px; margin-top: .2rem; padding: .4rem .6rem;
+    border: 1px solid var(--line-strong); border-radius: 8px; color: var(--navy); background: #fff; }
+  .sync { order: 3; width: 100%; }
+  .bar { flex-wrap: wrap; gap: .5rem 1rem; }
+  .sync { margin-left: 0; }
 }
