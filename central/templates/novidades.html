@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% from "_macros.html" import source_ref, status_tag, due_tag %}
-{% block title %}O que mudou para mim{% endblock %}
+{% block title %}Novidades dos documentos{% endblock %}
 {% block content %}
-<h1>O que mudou para você</h1>
+<h1>Novidades dos documentos</h1>
+<p class="summary" style="margin-top:0">O que mudou para você: mudanças já confirmadas no quadro, sugestões ainda não oficiais e o que está incerto ou em conflito.</p>
 <p class="lead">Desde {{ fmt_ts(since) }}{% if desde == 'visita' %} ({{ 'sua visita anterior' if has_visit else 'primeira visita: últimos 7 dias' }}){% endif %}.</p>
 <div class="toolbar" style="margin-top:0">
   <div class="filters" role="group" aria-label="Período">
@@ -35,6 +36,8 @@
   <li class="row"><a href="/sugestoes/{{ s.id }}">{% if s.kind == 'update' %}{{ s.target_title or s.target }}{% else %}{{ s.proposed.get('title') or 'Atividade sem título' }}{% endif %}</a> <span class="small muted">{{ 'mudança sugerida' if s.kind == 'update' else 'atividade nova sugerida' }}</span>.
     <span class="tag {{ 'pending' if s.status == 'pendente' else 'neutral' }}">{{ SUG_STATUS.get(s.status, s.status) }}</span>
     <div>{% for k, v in s.proposed.items() %}{{ FIELD_LABELS.get(k, k) }}: {{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}{{ '; ' if not loop.last }}{% endfor %}</div>
+    {% if s.status == 'pendente' %}<div class="small muted">Ainda não oficial: o quadro só muda depois da revisão.</div>{% endif %}
+    {% if s.uncertainties %}<div class="uncert small"><span class="tag soon">incerto</span> {{ s.uncertainties | join('; ') }}</div>{% endif %}
     <div class="small muted">Documento: {{ source_ref(s.source) }}</div></li>
 {% endfor %}
 </ul>
@@ -48,10 +51,15 @@
 <h2>Documentos novos ou editados</h2>
 {% if d.new_sources or d.edited_sources %}
 <ul>
-{% for s in d.new_sources %}<li><a href="/fontes/{{ s.file_id }}">{{ s.name }}</a>: {% if s.sync_status == 'indisponivel' %}<span class="tag err">removido</span>{% else %}<span class="tag neutral">novo</span>{% endif %} <span class="muted small">({{ ROLE_LABELS.get(s.role, 'tipo não reconhecido') }}, visto em {{ fmt_ts(s.first_seen_at) }})</span></li>{% endfor %}
+{% for s in d.new_sources %}<li><a href="/fontes/{{ s.file_id }}">{{ s.name }}</a>: {% if s.sync_status == 'indisponivel' %}<span class="tag err">removido</span>{% else %}<span class="tag neutral">novo</span>{% endif %} <span class="muted small">({{ doc_kind(s) }}, visto em {{ fmt_ts(s.first_seen_at) }})</span></li>{% endfor %}
 {% for s in d.edited_sources %}<li><a href="/fontes/{{ s.file_id }}">{{ s.name }}</a>: <span class="tag neutral">editado</span>, <a href="/fontes/{{ s.file_id }}">ver o que mudou</a> <span class="muted small">(nova versão lida em {{ fmt_ts(s.edited_at) }})</span></li>{% endfor %}
 </ul>
 {% else %}<p>Nenhum documento novo ou editado no período.</p>{% endif %}
+{% if conflicts %}
+<h2>Em conflito, aguardando decisão</h2>
+<ul>{% for c in conflicts %}<li><span class="tag err">conflito</span> {{ c.title }}. <a href="/pendencias">Ver em Pendências</a></li>{% endfor %}</ul>
+<p class="small muted">Enquanto uma pessoa não decide, o quadro de atividades continua com os valores oficiais.</p>
+{% endif %}
 {% if d.unavailable %}
 <div class="notice warn"><strong>Documentos com problema:</strong> {% for u in d.unavailable %}<a href="/fontes/{{ u.file_id }}">{{ u.name }}</a>{{ ', ' if not loop.last }}{% endfor %}. Informações que dependem delas podem estar desatualizadas.</div>
 {% endif %}

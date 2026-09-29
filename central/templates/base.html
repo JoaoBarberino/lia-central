@@ -43,10 +43,11 @@
       <a href="/comece-aqui" {% if path.startswith('/comece') %}aria-current="page"{% endif %}>Comece aqui</a>
       <a href="/" {% if path == '/' %}aria-current="page"{% endif %}>Minhas atividades</a>
       <a href="/atividades" {% if path.startswith('/atividades') %}aria-current="page"{% endif %}>Todas as atividades</a>
-      <a href="/sugestoes" {% if path.startswith('/sugestoes') %}aria-current="page"{% endif %}>Sugestões{% if n_pending %}<span class="count"><span class="sr">: </span>{{ n_pending }}<span class="sr"> pendentes</span></span>{% endif %}</a>
-      <a href="/novidades" {% if path.startswith('/novidades') %}aria-current="page"{% endif %}>O que mudou</a>
+      <a href="/sugestoes" {% if path.startswith('/sugestoes') %}aria-current="page"{% endif %}>Sugestões para revisar{% if n_pending %}<span class="count"><span class="sr">: </span>{{ n_pending }}<span class="sr"> pendentes</span></span>{% endif %}</a>
+      <a href="/novidades" {% if path.startswith('/novidades') %}aria-current="page"{% endif %}>Novidades dos documentos</a>
       <a href="/pendencias" {% if path.startswith('/pendencias') %}aria-current="page"{% endif %}>Pendências{% if n_issues %}<span class="count"><span class="sr">: </span>{{ n_issues }}<span class="sr"> abertas</span></span>{% endif %}</a>
       <a href="/fontes" {% if path.startswith('/fontes') %}aria-current="page"{% endif %}>Documentos</a>
+      <a href="/sincronizacao" {% if path.startswith('/sincronizacao') %}aria-current="page"{% endif %}>Estado da sincronização</a>
     </nav>
   </div>
 </header>

@@ -63,6 +63,7 @@
       <summary>Ajustar antes de aceitar</summary>
       <form method="post" action="/sugestoes/{{ s.suggestion_id }}/aceitar" class="stack">
         <input type="hidden" name="ajustar" value="1">
+        {% if s.kind == 'create' and rows | selectattr('missing') | list %}<p class="small muted" style="margin:0">Campos que a ata não trouxe ficam em branco: preencha se souber, ou deixe a definir.</p>{% endif %}
         {% for r in rows %}
           {% if r.field == 'owners' %}
           <fieldset class="checks"><legend>{{ r.label }}</legend>
@@ -72,6 +73,8 @@
           <div><label for="adj-{{ r.field }}">{{ r.label }}</label><input type="date" id="adj-{{ r.field }}" name="due_date" value="{{ r.raw }}"></div>
           {% elif r.field == 'status' %}
           <div><label for="adj-status">{{ r.label }}</label><select id="adj-status" name="status">{% for st in STATUSES %}<option {% if r.raw == st %}selected{% endif %}>{{ st }}</option>{% endfor %}</select></div>
+          {% elif r.field == 'front' %}
+          <div><label for="adj-front">{{ r.label }}</label><select id="adj-front" name="front"><option value="">Sem frente</option>{% for f in ['Growth', 'Formação', 'Operações'] + ([r.raw] if r.raw and r.raw not in ['Growth', 'Formação', 'Operações'] else []) %}<option {% if r.raw == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
           {% else %}
           <div><label for="adj-{{ r.field }}">{{ r.label }}</label><input type="text" autocomplete="off" id="adj-{{ r.field }}" name="{{ r.field }}" value="{{ r.raw }}"></div>
           {% endif %}

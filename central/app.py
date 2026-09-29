@@ -131,6 +131,12 @@ def do_sync(trigger: str) -> dict:
             conn.execute("INSERT INTO sync_runs (trigger, started_at, finished_at, status, message) "
                          "VALUES (?,?,?, 'falhou', ?)", (trigger, now_iso(), now_iso(), str(e)))
             return {"status": "falhou", "message": str(e)}
+        if hasattr(source, "folder_info") and not get_setting(conn, "drive_folder"):
+            try:   # nome e link da pasta conectada, para mostrar na tela (R01)
+                from .db import set_setting
+                set_setting(conn, "drive_folder", json.dumps(source.folder_info(), ensure_ascii=False))
+            except Exception:
+                log.warning("Não consegui ler o nome da pasta conectada", exc_info=True)
         return run_sync(conn, source, trigger=trigger, llm=make_llm())
     except Exception as e:  # nunca derruba o agendador
         log.exception("Falha inesperada na sincronização")
@@ -247,6 +253,12 @@ def home(request: Request, ordem: str = "prazo", q: str = "", prazo: str = "", s
     items = busca.filter_activities(all_mine, q=q, situacao=situacao, prazo=prazo, novidade=bool(novidade),
                                     today=views.today(), stale_days=settings.stale_days, names=views.member_names(conn))
     filtro = {"q": q.strip(), "prazo": prazo, "situacao": situacao, "novidade": novidade, "ordem": ordem}
+    visit = conn.execute("SELECT prev_visit_at FROM member_visits WHERE member_id=?", (me,)).fetchone()
+    since = visit["prev_visit_at"] if visit and visit["prev_visit_at"] else views.since_options()["7d"]
+    ch = views.changes_for_member(conn, me, since)
+    recent = {"since": since, "first": not (visit and visit["prev_visit_at"]), "confirmed": len(ch["confirmed"]),
+              "suggestions": len([x for x in ch["suggestions"] if x["status"] == "pendente"]),
+              "docs": len(ch["new_sources"]) + len(ch["edited_sources"])}
     filtering = bool(filtro["q"] or prazo or situacao or novidade)
     if ordem == "estado":
         items.sort(key=lambda a: (a["status"] != "Bloqueada", a["due_date"] or "9999"))
@@ -266,7 +278,7 @@ def home(request: Request, ordem: str = "prazo", q: str = "", prazo: str = "", s
             stale.append(a | {"stale_days": n})
     stale.sort(key=lambda a: -a["stale_days"])
     return render(request, conn, "minhas.html", items=items, ordem=ordem, mine_pending=mine_pending, stats=stats,
-                  stale=stale, filtro=filtro, filtering=filtering)
+                  stale=stale, filtro=filtro, filtering=filtering, recent=recent)
 
 
 @app.get("/atividades", response_class=HTMLResponse)
@@ -352,6 +364,8 @@ def detalhe(request: Request, activity_id: str, conn=Depends(db)):
     ref = request.headers.get("referer") or ""
     back = ("/atividades", "Todas as atividades") if "/atividades" in ref and "/atividades/" not in ref else ("/", "Minhas atividades")
     row["pending_suggestions"] = len(pend)
+    last = history[0] if history else None
+    row["last_update"] = {"ts": last["ts"], "by": last["actor"]} if last else None
     row["last_movement"] = history[0]["ts"] if history else row["updated_at"]
     stale_days = acts.days_without_news(row, views.today(), settings.stale_days)
     return render(request, conn, "atividade.html", a=row, history=history, refs=refs, pend=pend, names=names,
@@ -473,6 +487,12 @@ def sugestao(request: Request, sid: int, conn=Depends(db)):
                      "official": views.describe_value(k, (s["current"] or {}).get(k) if s["review_status"] != "pendente"
                                                      else current.get(k), names) if current else "—",
                      "proposed": views.describe_value(k, v, names), "raw": v})
+    if s["kind"] == "create" and s["review_status"] == "pendente":
+        # dado ausente: o revisor completa responsável, prazo etc. antes de aceitar
+        for k in views.CREATE_FIELDS:
+            if k not in s["proposed"]:
+                rows.append({"field": k, "label": acts.FIELD_LABELS.get(k, k), "official": "—",
+                             "proposed": "—", "raw": [] if k == "owners" else "", "missing": True})
     ver = conn.execute("SELECT content_hash FROM sources WHERE file_id=?", (s["source_file_id"],)).fetchone()
     outdated_source = bool(ver and ver["content_hash"] != s["source_version"])
     # Campos cujo valor oficial mudou depois que a sugestão foi criada: só então o revisor precisa confirmar.
@@ -508,11 +528,16 @@ async def aceitar(request: Request, sid: int, conn=Depends(db)):
     s = sugg.get(conn, sid)
     adjusted = {}
     if s and form.get("ajustar"):
-        for k in s["proposed"]:
+        fields = list(s["proposed"]) + ([k for k in views.CREATE_FIELDS if k not in s["proposed"]]
+                                        if s["kind"] == "create" else [])
+        for k in fields:
             if k == "owners":
                 adjusted[k] = form.getlist("owners")
             elif k in form:
                 adjusted[k] = (form.get(k) or "").strip() or None
+        # campo que a ata não trouxe e o revisor deixou em branco (ou no padrão "A fazer") não conta como ajuste
+        adjusted = {k: v for k, v in adjusted.items()
+                    if k in s["proposed"] or (v not in (None, "", []) and not (k == "status" and v == "A fazer"))}
         if "due_date" in adjusted and adjusted["due_date"] and not acts.valid_iso_date(adjusted["due_date"]):
             flash(request, "Prazo ajustado inválido. Use uma data válida.", "erro")
             return to(f"/sugestoes/{sid}")
@@ -553,7 +578,10 @@ def novidades(request: Request, desde: str = "visita", conn=Depends(db)):
     else:
         since = (visit["prev_visit_at"] if visit and visit["prev_visit_at"] else opts["7d"])
     data = views.changes_for_member(conn, me, since)
-    return render(request, conn, "novidades.html", d=data, since=since, desde=desde,
+    # conflitos e dados que dependem de decisão humana (o resumo tem de dizer o que está em disputa)
+    conflicts = [i for i in open_issues(conn) if i["kind"] in ("registro_homonimo", "registro_nao_definido",
+                                                                 "registro_alterado", "responsavel_desconhecido")]
+    return render(request, conn, "novidades.html", d=data, since=since, desde=desde, conflicts=conflicts,
                   has_visit=bool(visit and visit["prev_visit_at"]))
 
 
@@ -718,7 +746,9 @@ def sincronizacao(request: Request, conn=Depends(db)):
     runs = views.group_runs(conn.execute("SELECT * FROM sync_runs ORDER BY run_id DESC LIMIT 40").fetchall())
     connected = bool(get_setting(conn, "google_token"))
     calls = conn.execute("SELECT COUNT(*) n, SUM(input_tokens) i, SUM(output_tokens) o FROM llm_calls WHERE ok=1").fetchone()
-    return render(request, conn, "sincronizacao.html", runs=runs, connected=connected, settings=settings, calls=calls)
+    folder = json.loads(get_setting(conn, "drive_folder") or "null")
+    return render(request, conn, "sincronizacao.html", runs=runs, connected=connected, settings=settings, calls=calls,
+                  folder=folder)
 
 
 @app.post("/sincronizar")

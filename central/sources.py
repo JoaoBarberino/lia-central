@@ -204,6 +204,11 @@ class DriveSource:
                     break
         return out
 
+    def folder_info(self) -> dict:
+        """Nome e link da pasta raiz, para mostrar ao avaliador qual pasta está conectada (R01)."""
+        r = self._call(self.service.files().get(fileId=self.root_id, fields="id, name, webViewLink"))
+        return {"id": r.get("id"), "name": r.get("name"), "url": r.get("webViewLink")}
+
     def fetch(self, f: RemoteFile) -> bytes:
         if not f.can_download:
             raise SourceError("A conta autorizada não tem permissão de download deste arquivo.")

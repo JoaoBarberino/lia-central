@@ -60,3 +60,64 @@ def test_ata_com_outro_nome_gera_sugestao(conn, sync, folder):
     sync()
     assert conn.execute("SELECT role FROM sources WHERE name='Reunião Growth 10-10.md'").fetchone()[0] == "ata"
     assert len(pending(conn)) == 1 and pending(conn)[0]["target_activity_id"] == "ACT-101"
+
+
+# --- Lacunas ------------------------------------------------------------------------
+from .test_web import client, login  # noqa: E402,F401  (fixture)
+
+
+def test_menu_com_os_nomes_do_case(client):  # noqa: F811
+    login(client, "U-A")
+    home = client.get("/").text
+    for nome in ("Comece aqui", "Minhas atividades", "Todas as atividades", "Sugestões para revisar",
+                 "Novidades dos documentos", "Estado da sincronização"):
+        assert nome in home, nome
+
+
+def test_estado_da_sincronizacao_mostra_pasta_e_restricao(client):  # noqa: F811
+    t = client.get("/sincronizacao").text
+    assert "<h1>Estado da sincronização</h1>" in t and "Pasta conectada" in t and "só esta pasta e as subpastas" in t
+    assert "Última atualização bem-sucedida" in t and "sem mudança" in t
+
+
+def test_resumo_mostra_incerto_e_conflito(client):  # noqa: F811
+    login(client, "U-C")
+    t = client.get("/novidades?desde=30d").text
+    assert "Em conflito, aguardando decisão" in t and "Planilha concorrente" in t   # a cópia vazia do pacote
+    assert "Ainda não oficial" in t
+
+
+def test_minhas_mostra_mudancas_recentes_e_atividade_mostra_ultima_atualizacao(client):  # noqa: F811
+    login(client, "U-A")
+    assert 'class="recent"' in client.get("/").text
+    t = client.get("/atividades/ACT-101").text
+    assert "Última atualização:" in t and "<dt>Descrição</dt>" in t
+
+
+def test_revisor_completa_responsavel_que_faltava(client):  # noqa: F811
+    import re
+    login(client, "U-B")
+    lista = client.get("/sugestoes").text
+    sid = re.search(r'href="/sugestoes/(\d+)">Propor exercício', lista).group(1)
+    pagina = client.get(f"/sugestoes/{sid}").text
+    assert 'name="front"' in pagina                                   # campo que a ata não trouxe
+    client.post(f"/sugestoes/{sid}/aceitar", data={"ajustar": "1", "owners": ["U-C"], "title": "Propor exercício prático da primeira oficina",
+                                                   "due_date": "2026-10-10", "next_step": "Escolher um problema real simples",
+                                                   "front": "Formação", "status": "A fazer"})
+    assert "Formação" in client.get("/atividades/ACT-105").text
+
+
+def test_video_nao_e_baixado(conn, sync, folder):
+    sync()
+    (folder / "gravacao.mp4").write_bytes(b"\x00" * 10)
+    sync()
+    r = conn.execute("SELECT * FROM sources WHERE name='gravacao.mp4'").fetchone()
+    assert r["sync_status"] == "nao_suportado" and "Vídeo" in r["status_message"]
+
+
+def test_nativo_do_google_nao_lido_vira_nao_processado():
+    import pytest
+    from central.extractors import Unsupported, skip_before_download
+    with pytest.raises(Unsupported, match="formulário"):
+        skip_before_download("application/vnd.google-apps.form", "Inscrições")
+    skip_before_download("application/vnd.google-apps.document", "Ata")   # esse é lido

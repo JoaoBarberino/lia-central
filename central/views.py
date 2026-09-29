@@ -138,6 +138,7 @@ def changes_for_member(conn: sqlite3.Connection, member_id: str, since_iso: str)
             t = conn.execute("SELECT title FROM activities WHERE activity_id=?", (s["target_activity_id"],)).fetchone()
             suggestions.append({"id": s["suggestion_id"], "kind": s["kind"], "target": s["target_activity_id"],
                                 "target_title": t["title"] if t else None,
+                                "uncertainties": json.loads(s["uncertainties"] or "[]"),
                                 "status": s["review_status"], "proposed": json.loads(s["proposed_fields"]),
                                 "source": source_link(conn, s["source_file_id"]), "evidence": s["evidence"]})
 
@@ -148,7 +149,7 @@ def changes_for_member(conn: sqlite3.Connection, member_id: str, since_iso: str)
             attention.append({**a, "due": info})
 
     new_sources = [dict(r) for r in conn.execute(
-        "SELECT file_id, name, web_url, role, first_seen_at, sync_status FROM sources WHERE first_seen_at > ? ORDER BY first_seen_at DESC",
+        "SELECT file_id, name, web_url, role, mime_type, first_seen_at, sync_status FROM sources WHERE first_seen_at > ? ORDER BY first_seen_at DESC",
         (since_iso,))]
     new_ids = {r["file_id"] for r in conn.execute("SELECT file_id FROM sources WHERE first_seen_at > ?", (since_iso,))}
     edited_sources = [dict(r) for r in conn.execute(
@@ -395,6 +396,7 @@ def humano_linhas(text) -> str:
 # Sugestões: texto direto, igual na lista e na revisão
 # ---------------------------------------------------------------------------
 SHORT_FIELDS = ("due_date", "owners", "status", "priority", "front")
+CREATE_FIELDS = ("title", "owners", "due_date", "front", "next_step", "status")
 
 
 def sug_origin(s: dict) -> str:

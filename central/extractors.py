@@ -243,6 +243,27 @@ def parse_csv(data: bytes, name: str = "dados") -> Extracted:
 
 
 # ---------------------------------------------------------------------------
+GOOGLE_READABLE = {"application/vnd.google-apps.document", "application/vnd.google-apps.spreadsheet",
+                   "application/vnd.google-apps.presentation"}
+ARCHIVES = (".zip", ".rar", ".7z", ".tar", ".gz")
+
+
+def skip_before_download(mime_type: str, name: str) -> None:
+    """Formatos que a Central não lê de jeito nenhum: recusa antes de baixar (vídeo inteiro na memória, não)."""
+    m, low = (mime_type or "").lower(), (name or "").lower()
+    if m.startswith("video/"):
+        raise Unsupported("Vídeo: o protótipo não lê vídeos (fora do escopo).")
+    if m.startswith("audio/"):
+        raise Unsupported("Áudio: o protótipo não transcreve áudio.")
+    if m.startswith("application/vnd.google-apps.") and m not in GOOGLE_READABLE:
+        kind = {"form": "formulário", "drawing": "desenho", "shortcut": "atalho", "site": "site",
+                "jam": "quadro do Jamboard", "map": "mapa"}.get(m.rsplit(".", 1)[-1], "arquivo")
+        raise Unsupported(f"Arquivo nativo do Google ({kind}): o protótipo lê Documentos, Planilhas e "
+                          f"Apresentações Google.")
+    if low.endswith(ARCHIVES) or m in ("application/zip", "application/x-rar-compressed", "application/x-7z-compressed"):
+        raise Unsupported("Arquivo compactado: coloque os arquivos soltos na pasta para a Central ler.")
+
+
 IMAGE_MIMES = ("image/png", "image/jpeg", "image/webp", "image/heic", "image/heif", "image/gif")
 
 

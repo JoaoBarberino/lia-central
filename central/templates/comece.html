@@ -4,6 +4,45 @@
 {% block content %}
 <h1>Comece aqui</h1>
 
+
+{% if o.first_action %}
+<section class="first-action" aria-labelledby="primeira">
+  <h2 id="primeira" style="margin:0">Sua primeira ação{% if me %}, {{ me.display_name }}{% endif %}</h2>
+  <p class="big">{{ o.first_action.next_step or 'Próximo passo não definido' }}</p>
+  <p style="margin:0">Faz parte de <a href="/atividades/{{ o.first_action.activity_id }}">{{ o.first_action.title }}</a> (<span class="id">código {{ o.first_action.activity_id }}</span>). {{ status_tag(o.first_action.status) }} {{ due_tag(o.first_action.due_date, o.first_action.status) }}</p>
+</section>
+{% elif me %}
+<div class="empty"><strong>Você ainda não tem atividades atribuídas.</strong>Fale com a pessoa líder da sua frente.</div>
+{% else %}
+<div class="notice"><a href="/entrar">Escolha quem você é</a> para ver sua primeira ação.</div>
+{% endif %}
+
+<h2>Propósito</h2>
+{% if o.purpose %}
+  <div class="prose">
+  {% for p in o.purpose %}<p>{{ p }}</p>{% endfor %}
+  <p class="small muted">Fonte: <a href="/fontes/{{ o.estado.file_id }}">{{ o.estado.name }}</a></p>
+  </div>
+{% else %}<p>Propósito não documentado na pasta.</p>{% endif %}
+
+{% if o.gaps %}
+<div class="notice warn gaps" role="note">
+  <strong>Ainda a confirmar</strong>
+  {% set proposito = o.purpose | join(' ') %}
+  <ul style="margin:.35rem 0 0">{% for g in o.gaps if g not in proposito %}<li>{{ g }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<h2>Frentes e pessoas</h2>
+{% if o.fronts %}
+<ul class="fronts">
+  {% for f in o.fronts %}{% set parts = f.split(':', 1) %}
+  <li><strong>{{ parts[0] }}</strong>{{ parts[1] if parts|length > 1 else '' }}</li>
+  {% endfor %}
+</ul>
+<p class="small muted">Fonte: {% set g = o.guia or o.estado %}<a href="/fontes/{{ g.file_id }}">{{ g.name }}</a></p>
+{% else %}<p>Frentes não documentadas.</p>{% endif %}
+
 <section class="ask" aria-labelledby="ask-title" id="pergunte">
   <h2 id="ask-title" class="ask-title">Pergunte à Central</h2>
   <form method="get" action="/comece-aqui#pergunte" class="ask-form" role="search">
@@ -52,46 +91,8 @@
   {% endif %}
 </section>
 
-{% if o.first_action %}
-<section class="first-action" aria-labelledby="primeira">
-  <h2 id="primeira" style="margin:0">Sua primeira ação{% if me %}, {{ me.display_name }}{% endif %}</h2>
-  <p class="big">{{ o.first_action.next_step or 'Próximo passo não definido' }}</p>
-  <p style="margin:0">Faz parte de <a href="/atividades/{{ o.first_action.activity_id }}">{{ o.first_action.title }}</a> (<span class="id">código {{ o.first_action.activity_id }}</span>). {{ status_tag(o.first_action.status) }} {{ due_tag(o.first_action.due_date, o.first_action.status) }}</p>
-</section>
-{% elif me %}
-<div class="empty"><strong>Você ainda não tem atividades atribuídas.</strong>Fale com a pessoa líder da sua frente.</div>
-{% else %}
-<div class="notice"><a href="/entrar">Escolha quem você é</a> para ver sua primeira ação.</div>
-{% endif %}
-
-<h2>Propósito</h2>
-{% if o.purpose %}
-  <div class="prose">
-  {% for p in o.purpose %}<p>{{ p }}</p>{% endfor %}
-  <p class="small muted">Fonte: <a href="/fontes/{{ o.estado.file_id }}">{{ o.estado.name }}</a></p>
-  </div>
-{% else %}<p>Propósito não documentado na pasta.</p>{% endif %}
-
-{% if o.gaps %}
-<div class="notice warn gaps" role="note">
-  <strong>Ainda a confirmar</strong>
-  {% set proposito = o.purpose | join(' ') %}
-  <ul style="margin:.35rem 0 0">{% for g in o.gaps if g not in proposito %}<li>{{ g }}</li>{% endfor %}</ul>
-</div>
-{% endif %}
-
-<h2>Frentes e pessoas</h2>
-{% if o.fronts %}
-<ul class="fronts">
-  {% for f in o.fronts %}{% set parts = f.split(':', 1) %}
-  <li><strong>{{ parts[0] }}</strong>{{ parts[1] if parts|length > 1 else '' }}</li>
-  {% endfor %}
-</ul>
-<p class="small muted">Fonte: {% set g = o.guia or o.estado %}<a href="/fontes/{{ g.file_id }}">{{ g.name }}</a></p>
-{% else %}<p>Frentes não documentadas.</p>{% endif %}
-
 <h2>Onde estão suas tarefas</h2>
-<p class="prose">Em <a href="/">Minhas atividades</a>. O que as atas novas propõem aparece antes em <a href="/sugestoes">Sugestões</a>.</p>
+<p class="prose">Em <a href="/">Minhas atividades</a>. O que as atas novas propõem aparece antes em <a href="/sugestoes">Sugestões para revisar</a>.</p>
 {% if o.steps %}
 <ol class="steps">{% for s in o.steps %}<li><span>{{ s }}</span></li>{% endfor %}</ol>
 {% endif %}

@@ -23,7 +23,7 @@ from . import suggestions as sugg
 from .authority import classify
 from .db import dumps, get_setting, now_iso, set_setting
 from . import transcribe
-from .extractors import Extracted, ExtractionError, Unsupported, extract
+from .extractors import Extracted, ExtractionError, Unsupported, extract, skip_before_download
 from .issues import open_issue, resolve_issue
 from .sources import Source, SourceError, sha256
 
@@ -126,6 +126,7 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
                 from .extractors import parse_text_document
                 ext = parse_text_document(transcript)
             else:
+                skip_before_download(f.mime_type, f.name)   # vídeo, áudio, compactado…: nem baixa
                 data = source.fetch(f)
                 ext = extract(f.mime_type, f.name, data)
         except Unsupported as u:
@@ -199,6 +200,8 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
                 if llm is None:
                     conn.execute("UPDATE sources SET status_message=? WHERE file_id=?",
                                  ("Lida, mas a IA está desligada: sem sugestões por enquanto.", file_id))
+                    stats["processed"] += 1
+                    messages.append(f"{name['name']}: lida, mas a IA está desligada (sem sugestões por enquanto)")
                     continue  # não marca como processada: será analisada quando a IA estiver ativa
                 from .ai import analyze_minutes
                 wait_until = _ai_backoff_until(conn, file_id)
@@ -208,6 +211,7 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
                     conn.execute("UPDATE sources SET status_message=? WHERE file_id=?",
                                  (f"IA indisponível na última tentativa. Nova tentativa automática após "
                                   f"{wait_until[11:16]}, ou use 'Sincronizar agora'.", file_id))
+                    messages.append(f"{name['name']}: aguardando a IA voltar (nova tentativa após {wait_until[11:16]})")
                     continue
                 conn.execute("UPDATE sync_runs SET message=? WHERE run_id=?",
                              (f"Analisando {name['name']} com a IA…", run_id))

@@ -19,6 +19,16 @@
     {{ stats.pending_me }} {{ 'sugestão envolvendo você aguarda' if stats.pending_me == 1 else 'sugestões envolvendo você aguardam' }} revisão de {{ members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') }}. <a href="/sugestoes">Ver sugestões</a>
   {% endif %}
 </p>
+{% if not filtering %}
+<p class="recent">{% if recent.first %}Nos últimos 7 dias{% else %}Desde sua última visita ({{ fmt_ts(recent.since) }}){% endif %}:
+  {% if recent.confirmed or recent.suggestions or recent.docs %}
+    {%- set partes = [] -%}
+    {%- if recent.confirmed %}{% set _ = partes.append(recent.confirmed ~ (' mudança confirmada' if recent.confirmed == 1 else ' mudanças confirmadas')) %}{% endif -%}
+    {%- if recent.suggestions %}{% set _ = partes.append(recent.suggestions ~ (' sugestão pendente' if recent.suggestions == 1 else ' sugestões pendentes') ~ ' que te envolve' ~ ('' if recent.suggestions == 1 else 'm')) %}{% endif -%}
+    {%- if recent.docs %}{% set _ = partes.append(recent.docs ~ (' documento novo ou editado' if recent.docs == 1 else ' documentos novos ou editados')) %}{% endif %}
+    {{ partes | join(', ') }}. <a href="/novidades">Ver novidades dos documentos</a>
+  {% else %}nada mudou para você.{% endif %}</p>
+{% endif %}
 
 {% if stale and not filtering %}
 <section class="notice info check" aria-labelledby="check-h">

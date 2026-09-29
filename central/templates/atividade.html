@@ -8,7 +8,8 @@
   <div>
     <h1>{{ a.title }}</h1>
     <p class="meta-line">{{ a.front or 'Sem frente' }}, <span class="id">código {{ a.activity_id }}</span>. {{ status_tag(a.status) }} {% if a.due_date %}{{ due_tag(a.due_date, a.status) }}{% endif %}</p>
-    <p class="small muted">{% if a.creation_kind == 'importacao' %}Veio da planilha oficial em {{ fmt_ts(a.created_at) }}.{% elif a.creation_kind == 'sugestao' %}Criada a partir de uma sugestão aprovada em {{ fmt_ts(a.created_at) }}.{% else %}Criada por {{ names.get(a.created_by, a.created_by) }} em {{ fmt_ts(a.created_at) }}.{% endif %}</p>
+    <p class="small muted">{% if a.creation_kind == 'importacao' %}Veio da planilha oficial em {{ fmt_ts(a.created_at) }}.{% elif a.creation_kind == 'sugestao' %}Criada a partir de uma sugestão aprovada em {{ fmt_ts(a.created_at) }}.{% else %}Criada por {{ names.get(a.created_by, a.created_by) }} em {{ fmt_ts(a.created_at) }}.{% endif %}
+      {% if a.last_update %}<strong>Última atualização: {{ fmt_ts(a.last_update.ts) }}</strong>{% if a.last_update.by != 'sistema' %}, por {{ a.last_update.by }}{% endif %}.{% endif %}</p>
   </div>
 </div>
 
@@ -39,7 +40,7 @@
       <div><dt>Prioridade</dt><dd>{{ a.priority or '—' }}</dd></div>
       <div class="wide"><dt>Próximo passo</dt><dd>{{ a.next_step or '—' }}</dd></div>
       <div class="wide"><dt>Notas e bloqueios</dt><dd>{{ a.notes or '—' }}</dd></div>
-      {% if a.description %}<div class="wide"><dt>Descrição</dt><dd>{{ a.description }}</dd></div>{% endif %}
+      <div class="wide"><dt>Descrição</dt><dd>{{ a.description or '—' }}</dd></div>
   </dl>
     <div class="actions" style="margin-top:1.5rem">
       <a class="btn secondary small" href="/atividades/{{ a.activity_id }}/editar">Editar</a>

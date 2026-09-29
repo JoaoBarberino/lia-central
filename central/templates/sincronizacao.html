@@ -1,8 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Atualização com o Drive{% endblock %}
+{% block title %}Estado da sincronização{% endblock %}
 {% block content %}
-<h1>Atualização com o Drive</h1>
-<p class="lead">Verificação automática a cada {{ sync_minutes }} min.</p>
+<h1>Estado da sincronização</h1>
+<p class="lead">Verificação automática a cada {{ sync_minutes }} min.
+  {% if last_ok %}Última atualização bem-sucedida: <strong>{{ fmt_ts(last_ok.finished_at) }}</strong>.{% else %}Ainda não houve atualização bem-sucedida.{% endif %}
+  {% if last_run and last_run.status == 'falhou' %}<span class="tag err">a última tentativa falhou</span>: os dados mostrados são os da última atualização bem-sucedida.{% endif %}</p>
 <div class="grid2">
 <section>
   <form method="post" action="/sincronizar"><button class="btn" type="submit" data-busy="Atualizando…">Atualizar agora</button></form>
@@ -15,7 +17,12 @@
     <tr>
       <td>{% if r.count > 1 %}<span class="nw">{{ fmt_ts(r.first) }} a {{ fmt_ts(r.started_at)[-5:] }}</span><div class="small muted">{{ r.count }} verificações</div>{% else %}<span class="nw">{{ fmt_ts(r.started_at) }}</span>{% if r.trigger != 'auto' %}<div class="small muted">{{ {'manual':'pedida no botão','inicio':'ao iniciar'}.get(r.trigger, r.trigger) }}</div>{% endif %}{% endif %}</td>
       <td data-label="Resultado">{% if r.status == 'ok' %}<span class="tag done">ok</span>{% elif r.status == 'parcial' %}<span class="tag soon">com erro em arquivos</span>{% elif r.status == 'rodando' %}<span class="tag neutral">em andamento</span>{% else %}<span class="tag err">falhou</span>{% endif %}</td>
-      <td class="small" data-label="Arquivos">{{ r.files_seen }} conferidos, {% if r.processed %}{{ r.processed }} {{ 'lido de novo' if r.processed == 1 else 'lidos de novo' }}{% else %}nenhum mudou{% endif %}{% if r.errors %}, <span class="tag err">{{ r.errors }} com erro</span>{% endif %}</td>
+      <td class="small" data-label="Arquivos">{{ r.files_seen }} conferidos:
+        {% set partes = [] %}
+        {% if r.processed %}{% set _ = partes.append(r.processed ~ (' lido agora' if r.processed == 1 else ' lidos agora')) %}{% endif %}
+        {% if r.unchanged %}{% set _ = partes.append(r.unchanged ~ ' sem mudança') %}{% endif %}
+        {% if r.ignored %}{% set _ = partes.append(r.ignored ~ ' não ' ~ ('processado' if r.ignored == 1 else 'processados') ~ ' (formato)') %}{% endif %}
+        {{ partes | join(', ') or 'nenhum mudou' }}{% if r.errors %}, <span class="tag err">{{ r.errors }} com erro</span>{% endif %}</td>
       <td class="secondary small" data-label="Detalhes" style="white-space: pre-line">{% if r.quiet %}—{% else %}{{ (r.message | humano_linhas) or '—' }}{% endif %}</td>
     </tr>
     {% else %}<tr><td colspan="4">Nenhuma verificação ainda.</td></tr>{% endfor %}
@@ -27,7 +34,9 @@
   {% if source_mode == 'drive' %}
     {% if connected %}
       <p><span class="tag done">Google Drive conectado</span></p>
-      <p class="small">Só leitura, apenas da pasta configurada e das subpastas.</p>
+      <p>Pasta conectada: {% if folder and folder.name %}<strong>{{ folder.name }}</strong>{% if folder.url %} · <a href="{{ folder.url }}" target="_blank" rel="noopener">abrir no Drive<span class="sr"> (nova aba)</span></a>{% endif %}{% else %}<em>o nome aparece depois da primeira atualização</em>{% endif %}</p>
+      <p class="small muted">ID da pasta: <code>{{ settings.drive_folder_id }}</code></p>
+      <p class="small">A Central lê <strong>só esta pasta e as subpastas dela</strong>, em modo somente leitura. Nada fora dela é lido, e nada no Drive é alterado.</p>
       <form method="post" action="/auth/desconectar" onsubmit="return confirm('Desconectar o Google Drive e revogar o acesso? As atualizações param até você conectar de novo.')"><button class="btn small danger" type="submit">Desconectar e revogar acesso</button></form>
     {% else %}
       <p><span class="tag err">Drive não conectado</span></p>
@@ -36,7 +45,8 @@
     {% endif %}
   {% else %}
     <p><span class="tag neutral">Pasta local (só para testes)</span></p>
-    <p class="small">Lendo <code>{{ settings.local_folder }}</code>.</p>
+    <p>Pasta conectada: <code>{{ settings.local_folder }}</code></p>
+    <p class="small">A Central lê <strong>só esta pasta e as subpastas dela</strong>, sem alterar nada. Modo para testar sem conta Google.</p>
   {% endif %}
   <h2>IA</h2>
   {% if llm_enabled %}
