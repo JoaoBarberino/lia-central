@@ -58,6 +58,11 @@
     setTimeout(function () { b.disabled = true; b.setAttribute('aria-busy', 'true');
       if (b.dataset.busy) b.textContent = b.dataset.busy; }, 0);
   });
+  /* No celular os filtros começam recolhidos ("Filtros (2)"), para a lista aparecer logo */
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.matchMedia('(max-width: 700px)').matches)
+      document.querySelectorAll('details.filt').forEach(function (d) { d.open = false; });
+  });
   /* No celular o menu rola para o lado: deixa o item da página atual à vista */
   (function () { var a = document.querySelector('nav.main a[aria-current="page"]');
     if (a && a.parentNode.scrollWidth > a.parentNode.clientWidth) a.parentNode.scrollLeft = a.offsetLeft - 16; })();

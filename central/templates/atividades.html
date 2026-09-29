@@ -3,13 +3,56 @@
 {% block title %}Todas as atividades{% endblock %}
 {% block content %}
 <h1>Todas as atividades</h1>
-<div class="toolbar">
-  <div class="filters" role="group" aria-label="Filtro">
-    <a href="/atividades" {% if not concluidas %}aria-current="true"{% endif %}>Abertas</a>
-    <a href="/atividades?concluidas=1" {% if concluidas %}aria-current="true"{% endif %}>Com as concluídas</a>
-  </div>
-  <a class="btn small" href="/atividades/nova">Nova atividade</a>
+{% set qs = ('q=' ~ (filtro.q | urlencode) ~ '&') if filtro.q else '' %}
+<div class="toolbar finder-top">
+  <form class="search" role="search" method="get" action="/atividades">
+    <label class="sr" for="q">Buscar atividades</label>
+    <input type="search" id="q" name="q" value="{{ filtro.q }}" placeholder="Buscar por título, próximo passo, código ou pessoa…" autocomplete="off">
+    {% for k in ('responsavel', 'frente', 'situacao', 'prazo') %}{% if filtro[k] %}<input type="hidden" name="{{ k }}" value="{{ filtro[k] }}">{% endif %}{% endfor %}
+    {% if filtro.novidade %}<input type="hidden" name="novidade" value="1">{% endif %}
+    <button class="btn small" type="submit">Buscar</button>
+  </form>
+  <a class="btn small secondary" href="/atividades/nova">Nova atividade</a>
 </div>
+<div class="chips" role="group" aria-label="Atalhos">
+  <span class="label">Atalhos:</span>
+  <a class="chip" href="/atividades?{{ qs }}prazo=vencidas" {% if filtro.prazo == 'vencidas' %}aria-current="true"{% endif %}>Vencidas</a>
+  <a class="chip" href="/atividades?{{ qs }}prazo=7dias" {% if filtro.prazo == '7dias' %}aria-current="true"{% endif %}>Próximos 7 dias</a>
+  <a class="chip" href="/atividades?{{ qs }}situacao=Bloqueada" {% if filtro.situacao == 'Bloqueada' %}aria-current="true"{% endif %}>Bloqueadas</a>
+  <a class="chip" href="/atividades?{{ qs }}responsavel={{ SEM }}" {% if filtro.responsavel == SEM %}aria-current="true"{% endif %}>Sem responsável</a>
+  <a class="chip" href="/atividades?{{ qs }}novidade=1" {% if filtro.novidade %}aria-current="true"{% endif %}>Sem novidade</a>
+</div>
+<form method="get" action="/atividades">
+  {% if filtro.q %}<input type="hidden" name="q" value="{{ filtro.q }}">{% endif %}
+  <details class="filt" open>
+    <summary>Filtros{% if n_filtros %} ({{ n_filtros }}){% endif %}</summary>
+    <div class="filt-body">
+      <label>Responsável
+        <select name="responsavel" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for m in members %}<option value="{{ m.member_id }}" {% if filtro.responsavel == m.member_id %}selected{% endif %}>{{ m.display_name }}</option>{% endfor %}
+          <option value="{{ SEM }}" {% if filtro.responsavel == SEM %}selected{% endif %}>Sem responsável</option>
+        </select></label>
+      <label>Frente
+        <select name="frente" onchange="this.form.submit()">
+          <option value="">Todas</option>
+          {% for f in fronts %}<option {% if filtro.frente == f %}selected{% endif %}>{{ f }}</option>{% endfor %}
+          <option value="{{ SEM }}" {% if filtro.frente == SEM %}selected{% endif %}>Sem frente</option>
+        </select></label>
+      <label>Situação
+        <select name="situacao" onchange="this.form.submit()">
+          {% for v, l in SITUACOES %}<option value="{{ v }}" {% if filtro.situacao == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select></label>
+      <label>Prazo
+        <select name="prazo" onchange="this.form.submit()">
+          {% for v, l in PRAZOS %}<option value="{{ v }}" {% if filtro.prazo == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select></label>
+      {% if filtro.novidade %}<input type="hidden" name="novidade" value="1">{% endif %}
+      <noscript><button class="btn small secondary" type="submit">Aplicar</button></noscript>
+    </div>
+  </details>
+</form>
+<p class="result-count" role="status">{{ items|length }} {{ 'atividade encontrada' if items|length == 1 else 'atividades encontradas' }}{% if filtering %} · <a href="/atividades">Limpar filtros</a>{% endif %}</p>
 <table class="stack">
   <caption class="sr">Atividades</caption>
   <thead><tr><th>Atividade</th><th>Responsáveis</th><th>Prazo</th><th>Situação</th><th>Próximo passo</th></tr></thead>
@@ -26,7 +69,7 @@
     <td class="secondary" data-label="Próximo passo">{{ a.next_step or '—' }}</td>
   </tr>
   {% else %}
-  <tr><td colspan="5">Nenhuma atividade no quadro.</td></tr>
+  <tr><td colspan="5">{{ 'Nenhuma atividade com esses filtros.' if filtering else 'Nenhuma atividade no quadro.' }}</td></tr>
   {% endfor %}
   </tbody>
 </table>

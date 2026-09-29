@@ -2,13 +2,34 @@
 {% block title %}Documentos{% endblock %}
 {% block content %}
 <h1>Documentos</h1>
-{% if official %}{% set of = rows | selectattr('file_id', 'equalto', official) | list %}<p class="lead">Quadro de atividades: <strong>{{ of[0].name if of else official }}</strong> (indicada no INDEX.md).</p>{% endif %}
+{% if official %}<p class="lead">Quadro de atividades: <strong>{{ official_name }}</strong> (indicada no INDEX.md).</p>{% endif %}
+<form class="finder" method="get" action="/fontes" role="search">
+  <div class="toolbar finder-top">
+    <div class="search">
+      <label class="sr" for="q">Buscar documentos</label>
+      <input type="search" id="q" name="q" value="{{ filtro.q }}" placeholder="Buscar no nome ou no conteúdo dos documentos…" autocomplete="off">
+      <button class="btn small" type="submit">Buscar</button>
+    </div>
+  </div>
+  <details class="filt" open>
+    <summary>Filtros{% set nf = (1 if filtro.tipo else 0) + (1 if filtro.situacao else 0) %}{% if nf %} ({{ nf }}){% endif %}</summary>
+    <div class="filt-body">
+      <label>Tipo
+        <select name="tipo" onchange="this.form.submit()">{% for v, l in DOC_TIPOS %}<option value="{{ v }}" {% if filtro.tipo == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+      <label>Situação
+        <select name="situacao" onchange="this.form.submit()">{% for v, l in DOC_SITUACOES %}<option value="{{ v }}" {% if filtro.situacao == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+      <noscript><button class="btn small secondary" type="submit">Aplicar</button></noscript>
+    </div>
+  </details>
+</form>
+<p class="result-count" role="status">{% if filtering %}{{ rows|length }} de {{ total }} {{ 'documento' if total == 1 else 'documentos' }} · <a href="/fontes">Limpar filtros</a>{% else %}{{ total }} {{ 'documento' if total == 1 else 'documentos' }} na pasta{% endif %}</p>
 <table class="stack">
   <thead><tr><th>Documento</th><th>Tipo</th><th>Situação</th><th>Modificado</th><th>Resultado</th></tr></thead>
   <tbody>
   {% for r in rows %}
   <tr>
     <td><a href="/fontes/{{ r.file_id }}">{{ r.name }}</a>{% if r.path and r.path != '/' %}<div class="small muted">{{ r.path }}</div>{% endif %}
+      {% if r.hit %}<div class="hit small">{{ r.hit.before }}<mark>{{ r.hit.match }}</mark>{{ r.hit.after }}</div>{% endif %}
       {% if r.web_url %}<div class="small"><a href="{{ r.web_url }}" target="_blank" rel="noopener">abrir no Drive<span class="sr"> (nova aba)</span></a></div>{% endif %}</td>
     <td data-label="Tipo">{{ doc_kind(r) }}{% if r.doc_status and r.role not in ('historico',) %} <span class="tag {{ 'soon' if r.doc_status in ('deprecated', 'obsoleto', 'substituido', 'parcial') else 'neutral' }}">({{ doc_status(r.doc_status) }})</span>{% endif %}</td>
     <td data-label="Situação">{% if r.sync_status == 'ok' %}<span class="tag done">lido</span>{% if r.file_id in transcritos %} <span class="tag ai">transcrito pela IA</span>{% endif %}
@@ -19,7 +40,7 @@
     <td class="secondary nw" data-label="Modificado">{{ fmt_ts(r.modified_at) }}</td>
     <td class="secondary small" data-label="Resultado">{{ (r.status_message | humano) or '—' }}</td>
   </tr>
-  {% else %}<tr><td colspan="5">Nenhum documento lido ainda.</td></tr>{% endfor %}
+  {% else %}<tr><td colspan="5">{{ 'Nenhum documento com esses filtros.' if filtering else 'Nenhum documento lido ainda.' }}</td></tr>{% endfor %}
   </tbody>
 </table>
 {% endblock %}

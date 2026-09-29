@@ -18,6 +18,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import activities as acts
 from . import ask
+from . import busca
 from . import discord_bot
 from . import drive_auth
 from . import notify
@@ -273,36 +274,52 @@ def sair(request: Request):
 # A. Minhas atividades
 # ---------------------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, ordem: str = "prazo", conn=Depends(db)):
+def home(request: Request, ordem: str = "prazo", q: str = "", prazo: str = "", situacao: str = "", novidade: int = 0,
+         conn=Depends(db)):
     me = require_member(request)
     if not me:
         return to("/entrar")
-    items = acts.list_activities(conn, me)
+    all_mine = acts.list_activities(conn, me)
+    items = busca.filter_activities(all_mine, q=q, situacao=situacao, prazo=prazo, novidade=bool(novidade),
+                                    today=views.today(), stale_days=settings.stale_days, names=views.member_names(conn))
+    filtro = {"q": q.strip(), "prazo": prazo, "situacao": situacao, "novidade": novidade, "ordem": ordem}
+    filtering = bool(filtro["q"] or prazo or situacao or novidade)
     if ordem == "estado":
         items.sort(key=lambda a: (a["status"] != "Bloqueada", a["due_date"] or "9999"))
     mine_pending = [s for s in sugg.list_suggestions(conn) if (s["target_activity_id"] in {a["activity_id"] for a in items})
                     or me in (s["proposed"].get("owners") or [])]
     stats = {
-        "open": len(items),
-        "soon": sum(1 for a in items if views.due_info(a["due_date"], a["status"])["kind"] in ("soon", "overdue")),
-        "blocked": sum(1 for a in items if a["status"] == "Bloqueada"),
+        "open": len(all_mine),
+        "soon": sum(1 for a in all_mine if views.due_info(a["due_date"], a["status"])["kind"] in ("soon", "overdue")),
+        "blocked": sum(1 for a in all_mine if a["status"] == "Bloqueada"),
         "pending_me": len(mine_pending),
         "to_review": conn.execute("SELECT COUNT(*) FROM suggestions WHERE review_status='pendente'").fetchone()[0],
     }
     stale = []
-    for a in items:
+    for a in all_mine:
         n = acts.days_without_news(a, views.today(), settings.stale_days)
         if n:
             stale.append(a | {"stale_days": n})
     stale.sort(key=lambda a: -a["stale_days"])
     return render(request, conn, "minhas.html", items=items, ordem=ordem, mine_pending=mine_pending, stats=stats,
-                  stale=stale)
+                  stale=stale, filtro=filtro, filtering=filtering)
 
 
 @app.get("/atividades", response_class=HTMLResponse)
-def todas(request: Request, concluidas: int = 0, conn=Depends(db)):
-    return render(request, conn, "atividades.html", items=acts.list_activities(conn, include_done=bool(concluidas)),
-                  concluidas=concluidas)
+def todas(request: Request, q: str = "", responsavel: str = "", frente: str = "", situacao: str = "", prazo: str = "",
+          novidade: int = 0, concluidas: int = 0, conn=Depends(db)):
+    if concluidas and not situacao:
+        situacao = "todas"   # link antigo "Com as concluídas"
+    everything = acts.list_activities(conn, include_done=True)
+    items = busca.filter_activities(everything, q=q, responsavel=responsavel, frente=frente, situacao=situacao,
+                                    prazo=prazo, novidade=bool(novidade), today=views.today(),
+                                    stale_days=settings.stale_days, names=views.member_names(conn))
+    filtro = {"q": q.strip(), "responsavel": responsavel, "frente": frente, "situacao": situacao, "prazo": prazo,
+              "novidade": novidade}
+    n_filtros = sum(1 for k in ("responsavel", "frente", "situacao", "prazo", "novidade") if filtro[k])
+    return render(request, conn, "atividades.html", items=items, filtro=filtro, n_filtros=n_filtros,
+                  filtering=bool(filtro["q"] or n_filtros), fronts=busca.fronts(everything),
+                  PRAZOS=busca.PRAZOS, SITUACOES=busca.SITUACOES, SEM=busca.SEM)
 
 
 @app.get("/atividades/nova", response_class=HTMLResponse)
@@ -592,11 +609,16 @@ def comece(request: Request, pergunta: str = "", conn=Depends(db)):
 # Fontes, pendências e sincronização
 # ---------------------------------------------------------------------------
 @app.get("/fontes", response_class=HTMLResponse)
-def fontes(request: Request, conn=Depends(db)):
-    rows = [dict(r) for r in conn.execute("SELECT * FROM sources ORDER BY path, name")]
+def fontes(request: Request, q: str = "", tipo: str = "", situacao: str = "", conn=Depends(db)):
+    all_rows = [dict(r) for r in conn.execute("SELECT * FROM sources ORDER BY path, name")]
+    rows = busca.filter_sources(conn, all_rows, q=q, tipo=tipo, situacao=situacao)
+    filtro = {"q": q.strip(), "tipo": tipo, "situacao": situacao}
     official = get_setting(conn, "register_file_id")
     transcritos = {r["file_id"] for r in rows if r["sync_status"] == "ok" and transcribe.confirmed_info(conn, r["file_id"])}
     return render(request, conn, "fontes.html", rows=rows, official=official, transcritos=transcritos,
+                  filtro=filtro, total=len(all_rows), filtering=bool(filtro["q"] or tipo or situacao),
+                  DOC_TIPOS=busca.DOC_TIPOS, DOC_SITUACOES=busca.DOC_SITUACOES,
+                  official_name=next((r["name"] for r in all_rows if r["file_id"] == official), official),
                   bound_reason=get_setting(conn, "register_bound_reason"))
 
 

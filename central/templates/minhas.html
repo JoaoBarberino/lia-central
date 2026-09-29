@@ -20,7 +20,7 @@
   {% endif %}
 </p>
 
-{% if stale %}
+{% if stale and not filtering %}
 <section class="notice info check" aria-labelledby="check-h">
   <h2 id="check-h">Isso ainda está valendo?</h2>
   <p class="small">{{ 'Esta atividade está' if stale|length == 1 else 'Estas atividades estão' }} sem novidade há mais de {{ STALE_DAYS }} dia{{ "s" if STALE_DAYS != 1 }}. Um clique mantém o quadro confiável.</p>
@@ -34,20 +34,39 @@
 </section>
 {% endif %}
 
-<div class="toolbar">
-  <div class="filters" role="group" aria-label="Ordenar">
-    <span class="label">Ordenar por</span>
-    <a href="/?ordem=prazo" {% if ordem == 'prazo' %}aria-current="true"{% endif %}>prazo</a>
-    <a href="/?ordem=estado" {% if ordem == 'estado' %}aria-current="true"{% endif %}>bloqueadas primeiro</a>
-  </div>
+{% set qs = ('q=' ~ (filtro.q | urlencode) ~ '&') if filtro.q else '' %}
+<div class="toolbar finder-top">
+  <form class="search" role="search" method="get" action="/">
+    <label class="sr" for="q">Buscar nas minhas atividades</label>
+    <input type="search" id="q" name="q" value="{{ filtro.q }}" placeholder="Buscar nas minhas atividades…" autocomplete="off">
+    {% for k in ('prazo', 'situacao') %}{% if filtro[k] %}<input type="hidden" name="{{ k }}" value="{{ filtro[k] }}">{% endif %}{% endfor %}
+    {% if filtro.novidade %}<input type="hidden" name="novidade" value="1">{% endif %}
+    <input type="hidden" name="ordem" value="{{ ordem }}">
+    <button class="btn small" type="submit">Buscar</button>
+  </form>
   <a class="btn secondary small" href="/atividades/nova">Nova atividade</a>
 </div>
+<div class="toolbar finder-row">
+  <div class="chips" role="group" aria-label="Atalhos">
+    <a class="chip" href="/?{{ qs }}prazo=vencidas" {% if filtro.prazo == 'vencidas' %}aria-current="true"{% endif %}>Vencidas</a>
+    <a class="chip" href="/?{{ qs }}prazo=7dias" {% if filtro.prazo == '7dias' %}aria-current="true"{% endif %}>Próximos 7 dias</a>
+    <a class="chip" href="/?{{ qs }}situacao=Bloqueada" {% if filtro.situacao == 'Bloqueada' %}aria-current="true"{% endif %}>Bloqueadas</a>
+    <a class="chip" href="/?{{ qs }}novidade=1" {% if filtro.novidade %}aria-current="true"{% endif %}>Sem novidade</a>
+  </div>
+  <div class="filters" role="group" aria-label="Ordenar">
+    <span class="label">Ordenar por</span>
+    <a href="/?{{ qs }}ordem=prazo" {% if ordem == 'prazo' %}aria-current="true"{% endif %}>prazo</a>
+    <a href="/?{{ qs }}ordem=estado" {% if ordem == 'estado' %}aria-current="true"{% endif %}>bloqueadas primeiro</a>
+  </div>
+</div>
+{% if filtering %}<p class="result-count" role="status">{{ items|length }} {{ 'atividade encontrada' if items|length == 1 else 'atividades encontradas' }} · <a href="/">Limpar filtros</a></p>{% endif %}
 
 {% if items %}
 <div class="acts">
   {% for a in items %}{{ activity_card(a, show_stale=false) }}{% endfor %}
 </div>
 {% else %}
-<div class="empty"><strong>Nada aberto com você.</strong>{% if not last_run %}A pasta do Drive ainda não foi lida.{% else %}Quando alguém te atribuir uma tarefa, ela aparece aqui.{% endif %}</div>
+{% if filtering %}<div class="empty"><strong>Nada encontrado com esses filtros.</strong><a href="/">Limpar filtros</a></div>
+{% else %}<div class="empty"><strong>Nada aberto com você.</strong>{% if not last_run %}A pasta do Drive ainda não foi lida.{% else %}Quando alguém te atribuir uma tarefa, ela aparece aqui.{% endif %}</div>{% endif %}
 {% endif %}
 {% endblock %}
