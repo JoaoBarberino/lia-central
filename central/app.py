@@ -131,7 +131,8 @@ def do_sync(trigger: str) -> dict:
             conn.execute("INSERT INTO sync_runs (trigger, started_at, finished_at, status, message) "
                          "VALUES (?,?,?, 'falhou', ?)", (trigger, now_iso(), now_iso(), str(e)))
             return {"status": "falhou", "message": str(e)}
-        if hasattr(source, "folder_info") and not get_setting(conn, "drive_folder"):
+        cached = json.loads(get_setting(conn, "drive_folder") or "null")
+        if hasattr(source, "folder_info") and (not cached or cached.get("id") != settings.drive_folder_id):
             try:   # nome e link da pasta conectada, para mostrar na tela (R01)
                 from .db import set_setting
                 set_setting(conn, "drive_folder", json.dumps(source.folder_info(), ensure_ascii=False))
@@ -186,7 +187,7 @@ def flash(request: Request, message: str, kind: str = "ok"):
     request.session.setdefault("flash", []).append({"message": message, "kind": kind})
 
 
-def render(request: Request, conn, template: str, **ctx):
+def render(request: Request, conn, template: str, status_code: int = 200, **ctx):
     member_id = request.session.get("member_id")
     member = conn.execute("SELECT * FROM members WHERE member_id=?", (member_id,)).fetchone() if member_id else None
     last_run = conn.execute("SELECT * FROM sync_runs ORDER BY run_id DESC LIMIT 1").fetchone()
@@ -199,7 +200,7 @@ def render(request: Request, conn, template: str, **ctx):
         source_mode=settings.source_mode, llm_enabled=settings.llm_enabled,
         sync_minutes=round(settings.sync_interval / 60, 1) if settings.sync_interval % 60 else settings.sync_interval // 60,
     )
-    return templates.TemplateResponse(request, template, ctx)
+    return templates.TemplateResponse(request, template, ctx, status_code=status_code)
 
 
 def require_member(request: Request):
@@ -343,7 +344,7 @@ async def nova(request: Request, conn=Depends(db)):
 def detalhe(request: Request, activity_id: str, conn=Depends(db)):
     a = acts.snapshot(conn, activity_id)
     if not a:
-        return render(request, conn, "erro.html", message=f"Atividade {activity_id} não encontrada.")
+        return render(request, conn, "erro.html", status_code=404, message=f"Atividade {activity_id} não encontrada.")
     row = dict(conn.execute("SELECT * FROM activities WHERE activity_id=?", (activity_id,)).fetchone())
     names = views.member_names(conn)
     row["owners"] = a["owners"]
@@ -395,7 +396,7 @@ def conferir(request: Request, activity_id: str, resposta: str = Form(...), volt
         return to("/entrar")
     a = acts.snapshot(conn, activity_id)
     if not a:
-        return render(request, conn, "erro.html", message=f"Atividade {activity_id} não encontrada.")
+        return render(request, conn, "erro.html", status_code=404, message=f"Atividade {activity_id} não encontrada.")
     back = _back_to(volta, f"/atividades/{activity_id}")
     if not can_confirm(conn, me, a["owners"]):
         flash(request, "Só os responsáveis pela atividade ou quem aprova sugestões podem responder.", "erro")
@@ -440,6 +441,8 @@ def mudar_estado(request: Request, activity_id: str, status: str = Form(...), re
     me = require_member(request)
     if not me:
         return to("/entrar")
+    if not acts.snapshot(conn, activity_id):
+        return render(request, conn, "erro.html", status_code=404, message=f"Atividade {activity_id} não encontrada.")
     if status not in acts.STATUSES:
         flash(request, "Situação inválida. Escolha uma das opções da lista.", "erro")
         return to(f"/atividades/{activity_id}")
@@ -476,7 +479,7 @@ def sugestoes(request: Request, estado: str = "pendente", conn=Depends(db)):
 def sugestao(request: Request, sid: int, conn=Depends(db)):
     s = sugg.get(conn, sid)
     if not s:
-        return render(request, conn, "erro.html", message="Sugestão não encontrada.")
+        return render(request, conn, "erro.html", status_code=404, message="Sugestão não encontrada.")
     names = views.member_names(conn)
     s["source"] = views.source_link(conn, s["source_file_id"])
     current = acts.snapshot(conn, s["target_activity_id"]) if s["target_activity_id"] else None
@@ -616,7 +619,7 @@ def fontes(request: Request, q: str = "", tipo: str = "", situacao: str = "", co
 def fonte(request: Request, file_id: str, conn=Depends(db)):
     s = conn.execute("SELECT * FROM sources WHERE file_id=?", (file_id,)).fetchone()
     if not s:
-        return render(request, conn, "erro.html", message="Documento não encontrado.")
+        return render(request, conn, "erro.html", status_code=404, message="Documento não encontrado.")
     versions = [dict(r) for r in conn.execute(
         "SELECT id, drive_version, content_hash, modified_at, name, fetched_at, extracted_text, extracted_json "
         "FROM source_versions WHERE file_id=? ORDER BY id DESC", (file_id,))]
@@ -755,8 +758,10 @@ def sincronizacao(request: Request, conn=Depends(db)):
 def sincronizar(request: Request):
     r = do_sync("manual")
     if r.get("status") in ("ok", "parcial"):
-        changed = (f"{r['processed']} {'lido de novo' if r['processed'] == 1 else 'lidos de novo'}" if r["processed"]
+        changed = (f"{r['processed']} {'lido agora' if r['processed'] == 1 else 'lidos agora'}" if r["processed"]
                    else "nenhum mudou")
+        if r.get("ignored"):
+            changed += f", {r['ignored']} não {'processado' if r['ignored'] == 1 else 'processados'} (formato)"
         errors = f", {r['errors']} com erro" if r["errors"] else ""
         flash(request, f"Atualizado com o Drive: {r['files_seen']} arquivos conferidos, {changed}{errors}.",
               "ok" if r["status"] == "ok" else "aviso")

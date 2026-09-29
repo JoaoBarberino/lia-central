@@ -249,11 +249,19 @@ INJECTION_MARKERS = ["ignore as regras", "ignore todas as regras", "ignore as in
 
 
 HEDGE_MARKERS = re.compile(r"\b(talvez|poderiamos|podiamos|quem sabe|seria bom|seria legal|podemos pensar|"
-                           r"vale pensar|vale a pena pensar|cogit\w*|hipotese|ideia seria|sem decisao)\b")
+                           r"vale pensar|vale a pena pensar|cogit\w*|a ideia seria)\b")
+DECISION_MARKERS = re.compile(r"\b(decidid\w*|decidimos|combinad\w*|combinamos|definid\w*|definimos|fara|farao|"
+                              r"vai|vao|assumiu|assume|assumira|entregara|aprovara|mudou|passou para|confirmou|"
+                              r"ficou (decidido|combinado|definido))\b")
 
 
 def looks_like_hypothesis(evidence: str) -> bool:
-    """Trecho com linguagem de hipótese ("talvez", "poderíamos") não é decisão, diga a IA o que disser."""
+    """Só possibilidade, sem decisão: "Talvez o checklist fique para dia 20" (e não "Davi fará; talvez Carla ajude")."""
+    flat = normalize(evidence or "")
+    return bool(HEDGE_MARKERS.search(flat)) and not DECISION_MARKERS.search(flat)
+
+
+def mentions_possibility(evidence: str) -> bool:
     return bool(HEDGE_MARKERS.search(normalize(evidence or "")))
 
 
@@ -285,6 +293,8 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
                      reason="O trecho fala em possibilidade (\"talvez\", \"poderíamos\"), não em decisão.")
         return clean, None
 
+    if mentions_possibility(evidence):   # decisão com um "talvez" no meio: segue, mas o revisor é avisado
+        uncertainties.append("O trecho também fala em possibilidade (\"talvez\"): confira o que foi de fato decidido.")
     current_owners = acts.get_owners(conn, item.get("target_activity_id")) if kind == "update" else []
     proposed: dict = {}
     for f in PROPOSABLE_FIELDS:

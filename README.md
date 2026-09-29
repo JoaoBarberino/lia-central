@@ -143,9 +143,9 @@ Toda leitura acima é **determinística, sem IA**: o texto que entra é exatamen
   - a data precisa ser ISO válida **e estar escrita no documento** (datas inferidas viram incerteza);
   - os responsáveis precisam ser membros conhecidos citados no texto;
   - campos iguais ao valor oficial são descartados, o que evita sugestão vazia e duplicata.
-- **Hipóteses** ("talvez", sem dono nem decisão) viram `no_action`. Além do que o modelo diz, a própria Central barra qualquer proposta cujo trecho fale em possibilidade ("talvez", "poderíamos", "quem sabe"): hipótese nunca vira sugestão.
+- **Hipóteses** ("talvez", sem dono nem decisão) viram `no_action`. Além do que o modelo diz, a própria Central barra a proposta cujo trecho só fala em possibilidade ("talvez", "poderíamos", "quem sabe") sem nenhuma decisão: hipótese nunca vira sugestão. Se o trecho tem uma decisão e um "talvez" no meio, a sugestão segue com um ponto para conferir.
 - **Responsáveis:** quem já é responsável e continua na lista do modelo é mantido, mesmo sem ser citado no documento; se a proposta tira alguém, isso aparece como ponto para conferir.
-- **Reconhecimento de ata:** pelo cabeçalho `data_da_reuniao`, pelo nome ou título ("ata", "reunião", "minuta", "encontro"…) ou pelo corpo (quem participou + o que foi decidido). O nome do arquivo não precisa começar com "Ata".
+- **Reconhecimento de ata:** pelo cabeçalho `data_da_reuniao`, pelo nome ou título ("ata", "minuta", ou "reunião" com data, como "Reunião Growth 10-10") ou pelo corpo (quem participou + o que foi decidido). O nome do arquivo não precisa começar com "Ata".
 - **Tudo que foi deixado de fora** aparece em "O que a IA leu e deixou de fora": instrução para a IA ignorada, ideia sem decisão, nada novo, descartada na checagem.
 - **Novidades dos documentos** (o resumo pessoal, "o que mudou para mim"): montado a partir dos registros, **sem IA**, para que todo fato venha de um registro com link. Separa mudanças confirmadas, sugestões ainda não oficiais (com o selo "incerto" quando há pontos para conferir) e conflitos aguardando decisão. Se nada mudou, a página diz isso.
 

@@ -65,8 +65,12 @@
       document.querySelectorAll('details.filt').forEach(function (d) { d.open = false; });
   });
   /* No celular o menu rola para o lado: deixa o item da página atual à vista */
-  (function () { var a = document.querySelector('nav.main a[aria-current="page"]');
-    if (a && a.parentNode.scrollWidth > a.parentNode.clientWidth) a.parentNode.scrollLeft = a.offsetLeft - 16; })();
+  (function () { var n = document.querySelector('nav.main'); if (!n) return;
+    var a = n.querySelector('a[aria-current="page"]');
+    if (a && n.scrollWidth > n.clientWidth) n.scrollLeft = a.offsetLeft - 16;
+    function edges() { n.classList.toggle('more-left', n.scrollLeft > 4);
+      n.classList.toggle('at-end', n.scrollLeft + n.clientWidth >= n.scrollWidth - 4); }
+    n.addEventListener('scroll', edges, {passive: true}); edges(); })();
 </script>
 <main id="conteudo" class="wrap">
   {% for f in flashes %}<div class="flash {{ f.kind }}" role="alert">{{ f.message }}</div>{% endfor %}

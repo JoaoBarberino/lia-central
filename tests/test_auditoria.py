@@ -121,3 +121,31 @@ def test_nativo_do_google_nao_lido_vira_nao_processado():
     with pytest.raises(Unsupported, match="formulário"):
         skip_before_download("application/vnd.google-apps.form", "Inscrições")
     skip_before_download("application/vnd.google-apps.document", "Ata")   # esse é lido
+
+
+# --- Segunda rodada da auditoria --------------------------------------------------------
+def test_decisao_com_talvez_no_meio_continua_sugestao(conn, sync):
+    sync()
+    texto = "Ficou decidido que Davi fará o checklist até 2026-10-12; talvez Carla ajude."
+    item = {"kind": "update", "target_activity_id": "ACT-102", "due_date": "2026-10-12", "evidence": texto,
+            "uncertainties": []}
+    clean, _ = validate_item(conn, item, texto)
+    assert clean["kind"] == "update" and clean["proposed"]["due_date"] == "2026-10-12"
+    assert any("possibilidade" in u for u in clean["uncertainties"])
+    texto2 = "Descartamos a hipótese de adiar; Ana entrega até 2026-10-07."
+    clean2, _ = validate_item(conn, {"kind": "update", "target_activity_id": "ACT-101", "due_date": "2026-10-07",
+                                     "evidence": texto2, "uncertainties": []}, texto2)
+    assert clean2["kind"] == "update"
+
+
+def test_guia_sobre_reunioes_nao_e_ata():
+    assert classify("Como conduzir reuniões", parse_text_document("# Como conduzir reuniões\n\nDicas."), False) == "outro"
+    equipe = parse_text_document("# Equipe\n\nParticipantes: Ana, Bruno.\nResponsável pela sede: Davi.")
+    assert classify("Equipe", equipe, False) == "outro"
+
+
+def test_nao_encontrado_responde_404(client):  # noqa: F811
+    login(client, "U-A")
+    assert client.get("/atividades/ACT-999").status_code == 404
+    assert client.get("/sugestoes/999").status_code == 404
+    assert client.post("/atividades/ACT-999/estado", data={"status": "Concluída"}).status_code == 404

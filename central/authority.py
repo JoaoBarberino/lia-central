@@ -34,17 +34,21 @@ ROLE_LABELS = {
 HISTORIC_STATUS = {"deprecated", "obsoleto", "substituido", "arquivado", "historico"}
 
 # Ata não depende do nome do arquivo: "Reunião Growth 10-10" com título "Ata de reunião" também é ata.
-_MINUTES_WORDS = re.compile(r"\b(ata|atas|reuniao|reunioes|minuta|encontro|alinhamento|retrospectiva|retro|assembleia)\b")
-_BODY_PEOPLE = re.compile(r"\b(participaram|participantes|presentes|presenca)\b")
-_BODY_DECISION = re.compile(r"\b(decis|decidi|encaminhamento|proximos passos|ficou combinado|ficou decidido|responsavel)")
+_MINUTES_WORDS = re.compile(r"\b(ata|atas|minuta)\b")
+_MEETING_WORDS = re.compile(r"\b(reuniao|encontro|alinhamento|retrospectiva|retro|assembleia)\b")
+_DATE_IN_NAME = re.compile(r"\d{4}-\d{2}-\d{2}|\b\d{1,2}[-/]\d{1,2}\b")
+_BODY_PEOPLE = re.compile(r"\b(participaram|presentes|estiveram presentes)\b")
+_BODY_DECISION = re.compile(r"\b(decis|decidi|encaminhamento|proximos passos|ficou combinado|ficou decidido)")
 
 
 def looks_like_minutes(name: str, ext: Extracted) -> bool:
     """Ata pelo cabeçalho, pelo nome ou título, ou pelo corpo (quem participou + o que foi decidido)."""
     if "data_da_reuniao" in ext.meta:
         return True
-    words = normalize(re.sub(r"[_\-.]+", " ", name)) + " " + normalize(ext.title or "")
+    words = normalize(re.sub(r"[_.]+", " ", name)) + " " + normalize(ext.title or "")
     if _MINUTES_WORDS.search(words):
+        return True
+    if _MEETING_WORDS.search(words) and _DATE_IN_NAME.search(words):   # "Reunião Growth 10-10", não "Como conduzir reuniões"
         return True
     head = normalize("\n".join((ext.text or "").splitlines()[:40]))
     return bool(_BODY_PEOPLE.search(head) and _BODY_DECISION.search(head))
