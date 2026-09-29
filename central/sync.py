@@ -22,6 +22,7 @@ from . import registry
 from . import suggestions as sugg
 from .authority import classify
 from .db import dumps, get_setting, now_iso, set_setting
+from . import transcribe
 from .extractors import Extracted, ExtractionError, Unsupported, extract
 from .issues import open_issue, resolve_issue
 from .sources import Source, SourceError, sha256
@@ -107,7 +108,8 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
                 conn.execute("UPDATE sources SET sync_status='ok', status_message=NULL WHERE file_id=?", (f.file_id,))
                 resolve_issue(conn, f"indisponivel:{f.file_id}", resolution="A fonte voltou a aparecer na pasta")
             same_version = row["drive_version"] == f.version
-            if same_version and row["sync_status"] == "nao_suportado":
+            if same_version and row["sync_status"] == "nao_suportado" and \
+                    transcribe.confirmed_text(conn, f.file_id, f.version) is None:
                 stats["ignored"] += 1
                 continue
             if same_version and row["sync_status"] in ("ok", "indisponivel") and row["content_hash"]:
@@ -118,11 +120,20 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
             # versão nova ou erro anterior: baixa de novo
 
         try:
-            data = source.fetch(f)
-            ext = extract(f.mime_type, f.name, data)
+            transcript = transcribe.confirmed_text(conn, f.file_id, f.version)
+            if transcript is not None:
+                # imagem/scan: vale o texto que uma pessoa conferiu com o original (só para esta versão)
+                from .extractors import parse_text_document
+                ext = parse_text_document(transcript)
+            else:
+                data = source.fetch(f)
+                ext = extract(f.mime_type, f.name, data)
         except Unsupported as u:
+            msg = str(u)
+            if transcribe.had_older_confirmed(conn, f.file_id, f.version):
+                msg += " O arquivo mudou no Drive depois da transcrição conferida: transcreva de novo."
             conn.execute("UPDATE sources SET sync_status='nao_suportado', status_message=?, drive_version=? WHERE file_id=?",
-                         (str(u), f.version, f.file_id))
+                         (msg, f.version, f.file_id))
             stats["ignored"] += 1
             continue
         except (SourceError, ExtractionError) as e:

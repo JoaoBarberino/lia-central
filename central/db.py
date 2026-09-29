@@ -178,6 +178,22 @@ CREATE TABLE IF NOT EXISTS sync_runs (
     message      TEXT
 );
 
+-- Transcrição de imagem/PDF escaneado pedida por uma pessoa: rascunho da IA, conferido antes de valer
+CREATE TABLE IF NOT EXISTS transcriptions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_id       TEXT NOT NULL,
+    drive_version TEXT,               -- vale só para esta versão do arquivo
+    ai_text       TEXT NOT NULL,      -- o que a IA leu
+    text          TEXT NOT NULL,      -- o que a pessoa confirmou (pode ter correções)
+    note          TEXT,               -- observação da IA (ex.: trechos ilegíveis)
+    status        TEXT NOT NULL,      -- rascunho | confirmada | descartada
+    model         TEXT,
+    created_by    TEXT NOT NULL,
+    created_at    TEXT NOT NULL,
+    confirmed_by  TEXT,
+    confirmed_at  TEXT
+);
+
 -- Cada chamada ao modelo: base para a estimativa de custo e para depuração
 CREATE TABLE IF NOT EXISTS llm_calls (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,

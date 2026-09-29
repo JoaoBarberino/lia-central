@@ -190,6 +190,22 @@ a.tag.pending:hover { text-decoration: underline; }
 .check-actions { margin: .6rem 0 0; }
 .check-actions form { margin: 0; }
 .stale-line { margin-top: .3rem; }
+.tag.ai { color: var(--navy); background: var(--ice-soft); }
+.tag.ai::before { content: ""; display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .4rem;
+  vertical-align: .06rem; background: var(--cyan); }
+/* Transcrever com IA: original ao lado do texto */
+.transcribe { border: 1px solid #A9E3E8; background: var(--ice-soft); border-radius: 10px; padding: 1rem 1.2rem; margin: 1.25rem 0; }
+.transcribe h2 { margin: 0 0 .3rem; font-size: 1.15rem; }
+.transcribe > p { margin: 0 0 .6rem; max-width: 70ch; }
+.tr-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; margin-top: .8rem; align-items: start; }
+.tr-original { margin: 0; }
+.tr-original img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; object-position: top;
+  background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+.tr-form label { display: block; font-weight: 600; margin-bottom: .3rem; }
+.tr-form textarea { width: 100%; min-height: 16rem; font: inherit; font-size: .95rem; line-height: 1.5; padding: .7rem .8rem;
+  border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; resize: vertical; }
+.tr-note { color: var(--warn); margin: 0 0 .4rem; }
+@media (max-width: 700px) { .tr-grid { grid-template-columns: 1fr; } }
 td.num { white-space: nowrap; }
 .empty { padding: 2rem 0; color: var(--muted); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .empty strong { display: block; color: var(--navy); font-family: var(--display); font-weight: 600; font-size: 1.1rem; margin-bottom: .25rem; }

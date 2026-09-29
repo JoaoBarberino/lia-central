@@ -3,11 +3,46 @@
 {% block content %}
 <a class="back" href="/fontes">Documentos</a>
 <h1>{{ s.name }}</h1>
-<p class="meta-line">{{ ROLE_LABELS.get(s.role, 'Tipo não reconhecido') }}{% for m in doc_meta_items(meta) %}. {{ m | frase }}{% endfor %}.
+<p class="meta-line">{{ doc_kind(s) }}{% for m in doc_meta_items(meta) %}. {{ m | frase }}{% endfor %}.
   {% if s.sync_status == 'indisponivel' %}<span class="tag err">Indisponível: o conteúdo abaixo pode estar desatualizado</span>
   {% elif s.sync_status == 'erro' %}<span class="tag err">Erro na última leitura: mostrando a última versão boa</span>{% endif %}
   {% if s.web_url %}<a href="{{ s.web_url }}" target="_blank" rel="noopener">Abrir no Drive<span class="sr"> (nova aba)</span></a>{% endif %}</p>
 {% if s.status_message %}<div class="notice">{{ s.status_message | humano }}</div>{% endif %}
+
+{% if tr and tr.status == 'confirmada' and s.sync_status == 'ok' %}
+<div class="notice info" id="transcricao"><strong>Texto transcrito pela IA a partir de {{ 'um PDF escaneado' if s.mime_type == 'application/pdf' or s.name.lower().endswith('.pdf') else 'uma imagem' }}</strong> e conferido por {{ tr.confirmed_by_name }} em {{ fmt_ts(tr.confirmed_at) }}{% if tr.edited %}, com correções{% endif %}.
+  O conteúdo abaixo é essa transcrição. {% if s.web_url %}<a href="{{ s.web_url }}" target="_blank" rel="noopener">Ver o original no Drive<span class="sr"> (nova aba)</span></a>{% endif %}</div>
+{% elif can_transcribe %}
+<section class="transcribe" id="transcricao" aria-labelledby="tr-h">
+  {% if tr and tr.status == 'rascunho' %}
+  <h2 id="tr-h">Confira a transcrição</h2>
+  <p class="small">A IA leu o arquivo a pedido de {{ tr.by }}. <strong>Ela ainda não vale:</strong> compare com o original, corrija o que estiver diferente e confirme. Depois disso o texto entra na Central como qualquer documento, e sugestões continuam passando por revisão.</p>
+  <div class="tr-grid">
+    <figure class="tr-original">
+      <img src="/fontes/{{ s.file_id }}/original" alt="Original: {{ s.name }}{{ ' (primeira página)' if s.name.lower().endswith('.pdf') }}" loading="lazy">
+      <figcaption class="small muted">Original{{ ', primeira página' if s.name.lower().endswith('.pdf') }}.{% if s.web_url %} <a href="{{ s.web_url }}" target="_blank" rel="noopener">Abrir no Drive<span class="sr"> (nova aba)</span></a>{% endif %}</figcaption>
+    </figure>
+    <form method="post" action="/fontes/{{ s.file_id }}/transcricao/confirmar" class="tr-form">
+      <label for="tr-text">Transcrição da IA <span class="small muted">(pode editar)</span></label>
+      {% if tr.note %}<p class="small tr-note">⚠ {{ tr.note }}</p>{% endif %}
+      <textarea id="tr-text" name="text" rows="12" spellcheck="true">{{ tr.text }}</textarea>
+      <div class="actions">
+        <button class="btn small" type="submit" data-busy="Confirmando…">A transcrição confere</button>
+        <button class="btn secondary small" type="submit" formaction="/fontes/{{ s.file_id }}/transcricao/descartar">Descartar</button>
+      </div>
+    </form>
+  </div>
+  {% else %}
+  <h2 id="tr-h">Ler com ajuda da IA</h2>
+  <p class="small">A Central não lê texto dentro de {{ 'PDFs escaneados' if s.name.lower().endswith('.pdf') else 'imagens' }} sozinha, porque a leitura pode errar. Você pode pedir uma transcrição: ela aparece aqui, ao lado do original, e só passa a valer depois que uma pessoa conferir.</p>
+  {% if llm_on %}
+  <form method="post" action="/fontes/{{ s.file_id }}/transcrever" class="actions"><button class="btn small" type="submit" data-busy="Transcrevendo… (até 1 minuto)">Transcrever com IA</button></form>
+  {% else %}
+  <p class="small muted">A IA está desligada nesta instalação: para transcrever, coloque a <code>GEMINI_API_KEY</code> no <code>.env</code>.</p>
+  {% endif %}
+  {% endif %}
+</section>
+{% endif %}
 {% if s.role == 'ata' and s.sync_status == 'ok' %}
 <form method="post" action="/fontes/{{ s.file_id }}/reanalisar" class="actions">
   <button class="btn small secondary" type="submit">Pedir nova análise da IA</button>

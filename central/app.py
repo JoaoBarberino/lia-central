@@ -21,6 +21,7 @@ from . import ask
 from . import discord_bot
 from . import drive_auth
 from . import notify
+from . import transcribe
 from . import suggestions as sugg
 from . import views
 from .authority import ROLE_LABELS
@@ -53,7 +54,15 @@ templates.env.filters["humano_linhas"] = views.humano_linhas
 templates.env.filters["field_label"] = lambda k: acts.FIELD_LABELS.get(k, k).lower()
 templates.env.filters["juntar"] = lambda xs: (" e ".join(xs) if len(xs) <= 2 else ", ".join(xs[:-1]) + " e " + xs[-1])
 templates.env.filters["frase"] = lambda t: (t[:1].upper() + t[1:]) if t else t
+def _doc_kind(s) -> str:
+    """Tipo do documento na tela; arquivos não lidos dizem o que são ("Imagem", "PDF escaneado")."""
+    if s["sync_status"] == "nao_suportado":
+        return transcribe.kind_label(s) or "Formato não lido"
+    return ROLE_LABELS.get(s["role"], "Tipo não reconhecido")
+
+
 templates.env.globals.update(
+    doc_kind=_doc_kind,
     NAMES=_NAMES, date_parts=views.date_parts,
     humano=views.humano, sheet_ref=views.sheet_ref, doc_meta_items=views.doc_meta_items, doc_status=views.doc_status,
     fmt_date=views.fmt_date, fmt_ts=views.fmt_ts, fmt_when=views.fmt_when, due_info=views.due_info, ROLE_LABELS=ROLE_LABELS,
@@ -100,6 +109,15 @@ def make_qa_llm():
         from .ai import GeminiLLM
         models = [m.strip() for m in settings.gemini_qa_models.split(",") if m.strip()] or [settings.gemini_model]
         return GeminiLLM(settings.gemini_api_key, models[0], ",".join(models[1:]), timeout=20.0, attempts=1)
+    return None
+
+
+def make_vision_llm():
+    """IA da transcrição: modelos principais (qualidade de leitura), sem espera entre tentativas."""
+    if settings.llm_enabled:
+        from .ai import GeminiLLM
+        return GeminiLLM(settings.gemini_api_key, settings.gemini_model, settings.gemini_fallback_model,
+                         timeout=90.0, attempts=1)
     return None
 
 
@@ -569,7 +587,8 @@ def comece(request: Request, pergunta: str = "", conn=Depends(db)):
 def fontes(request: Request, conn=Depends(db)):
     rows = [dict(r) for r in conn.execute("SELECT * FROM sources ORDER BY path, name")]
     official = get_setting(conn, "register_file_id")
-    return render(request, conn, "fontes.html", rows=rows, official=official,
+    transcritos = {r["file_id"] for r in rows if r["sync_status"] == "ok" and transcribe.confirmed_info(conn, r["file_id"])}
+    return render(request, conn, "fontes.html", rows=rows, official=official, transcritos=transcritos,
                   bound_reason=get_setting(conn, "register_bound_reason"))
 
 
@@ -589,8 +608,71 @@ def fonte(request: Request, file_id: str, conn=Depends(db)):
     notes = conn.execute("SELECT * FROM extraction_notes WHERE file_id=? AND source_version=? ORDER BY id",
                          (file_id, s["content_hash"])).fetchall()
     sug = conn.execute("SELECT * FROM suggestions WHERE source_file_id=? ORDER BY suggestion_id DESC", (file_id,)).fetchall()
+    names = views.member_names(conn)
+    tr = transcribe.current(conn, file_id)
+    if tr:
+        tr["by"] = names.get(tr["created_by"], tr["created_by"])
+        tr["confirmed_by_name"] = names.get(tr["confirmed_by"], tr["confirmed_by"])
+        tr["edited"] = tr["text"].strip() != tr["ai_text"].strip()
     return render(request, conn, "fonte.html", s=dict(s), versions=versions, diff=diff, current=current, table=table,
-                  notes=notes, sug=sug, meta=json.loads(s["doc_meta"] or "{}"))
+                  notes=notes, sug=sug, meta=json.loads(s["doc_meta"] or "{}"), tr=tr,
+                  can_transcribe=transcribe.can_transcribe(s), llm_on=settings.llm_enabled)
+
+
+@app.get("/fontes/{file_id}/original")
+def fonte_original(file_id: str, conn=Depends(db)):
+    """Prévia do original (imagem ou 1ª página do PDF) para conferir a transcrição ao lado."""
+    from fastapi.responses import Response
+    s = conn.execute("SELECT * FROM sources WHERE file_id=?", (file_id,)).fetchone()
+    if not s or not transcribe.mime_for(s):
+        return Response(status_code=404)
+    try:
+        data = make_source(conn).fetch(transcribe.remote_file(s))
+        body, mime = transcribe.preview_png(s, data)
+    except Exception:
+        log.exception("Prévia do original falhou")
+        return Response(status_code=502)
+    return Response(body, media_type=mime, headers={"Cache-Control": "private, max-age=300"})
+
+
+@app.post("/fontes/{file_id}/transcrever")
+def transcrever(request: Request, file_id: str, conn=Depends(db)):
+    me = require_member(request)
+    if not me:
+        return to("/entrar")
+    try:
+        transcribe.transcribe(conn, make_source(conn), make_vision_llm(), file_id, me)
+        flash(request, "Transcrição pronta. Confira com o original antes de confirmar: ela ainda não vale.")
+    except (transcribe.TranscriptionError, SourceError, drive_auth.DriveNotConnected) as e:
+        flash(request, str(e), "erro")
+    return to(f"/fontes/{file_id}#transcricao")
+
+
+@app.post("/fontes/{file_id}/transcricao/confirmar")
+def transcricao_confirmar(request: Request, file_id: str, text: str = Form(""), conn=Depends(db)):
+    me = require_member(request)
+    if not me:
+        return to("/entrar")
+    try:
+        transcribe.confirm(conn, file_id, me, text)
+    except transcribe.TranscriptionError as e:
+        flash(request, str(e), "erro")
+        return to(f"/fontes/{file_id}#transcricao")
+    r = do_sync("manual")   # a transcrição conferida entra agora pelo caminho de qualquer documento
+    if r.get("status") in ("ok", "parcial"):
+        flash(request, "Transcrição confirmada. O texto passou a valer e o documento foi analisado como os demais.")
+    else:
+        flash(request, "Transcrição confirmada. Ela entra na próxima atualização com o Drive.", "aviso")
+    return to(f"/fontes/{file_id}")
+
+
+@app.post("/fontes/{file_id}/transcricao/descartar")
+def transcricao_descartar(request: Request, file_id: str, conn=Depends(db)):
+    if not require_member(request):
+        return to("/entrar")
+    transcribe.discard(conn, file_id)
+    flash(request, "Transcrição descartada. O arquivo continua como não processado.")
+    return to(f"/fontes/{file_id}")
 
 
 @app.post("/fontes/{file_id}/reanalisar")

@@ -90,7 +90,12 @@ def source_link(conn, file_id: str | None) -> dict | None:
     r = conn.execute("SELECT * FROM sources WHERE file_id=?", (file_id,)).fetchone()
     if not r:
         return {"name": file_id, "url": None, "status": "desconhecida"}
-    return {"file_id": file_id, "name": r["name"], "url": r["web_url"], "status": r["sync_status"], "role": r["role"]}
+    from . import transcribe
+    info = transcribe.confirmed_info(conn, file_id)
+    if info:
+        info["by"] = member_names(conn).get(info["by"], info["by"])
+    return {"file_id": file_id, "name": r["name"], "url": r["web_url"], "status": r["sync_status"], "role": r["role"],
+            "transcrita": info}
 
 
 # ---------------------------------------------------------------------------

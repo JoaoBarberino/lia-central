@@ -36,7 +36,7 @@ class LLMError(Exception):
 class LLM(Protocol):
     model: str
 
-    def complete_json(self, system: str, user: str) -> tuple[dict, dict]:
+    def complete_json(self, system: str, user: str, files=None) -> tuple[dict, dict]:
         """Retorna (json_da_resposta, uso={'input_tokens':..,'output_tokens':..})."""
         ...
 
@@ -66,11 +66,12 @@ class GeminiLLM:
         # tentativas por modelo; 1 = "falhar rápido" (sem espera, passa direto ao próximo modelo)
         self.attempts = max(1, attempts)
 
-    def complete_json(self, system: str, user: str) -> tuple[dict, dict]:
+    def complete_json(self, system: str, user: str, files: list[tuple[str, bytes]] | None = None) -> tuple[dict, dict]:
+        """`files`: [(mime, bytes)] anexados à pergunta (ex.: imagem para transcrever)."""
         errors = []
         for model in self.models:
             try:
-                result = self._call(model, system, user)
+                result = self._call(model, system, user, files)
                 self.model = model
                 return result
             except LLMError as e:
@@ -79,14 +80,17 @@ class GeminiLLM:
                     break  # erro de configuração/conteúdo: trocar de modelo não resolve
         raise LLMError(" | ".join(errors))
 
-    def _call(self, model: str, system: str, user: str) -> tuple[dict, dict]:
+    def _call(self, model: str, system: str, user: str, files=None) -> tuple[dict, dict]:
+        import base64
         import time
 
         import httpx
 
+        parts = [{"inlineData": {"mimeType": mime, "data": base64.b64encode(data).decode("ascii")}}
+                 for mime, data in (files or [])] + [{"text": user}]
         body = {
             "systemInstruction": {"parts": [{"text": system}]},
-            "contents": [{"role": "user", "parts": [{"text": user}]}],
+            "contents": [{"role": "user", "parts": parts}],
             "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
         }
         delay = 2.0
@@ -142,8 +146,9 @@ class FakeLLM:
         self.responder = responder
         self.calls: list[tuple[str, str]] = []
 
-    def complete_json(self, system: str, user: str) -> tuple[dict, dict]:
+    def complete_json(self, system: str, user: str, files=None) -> tuple[dict, dict]:
         self.calls.append((system, user))
+        self.files = files
         return self.responder(system, user), {"input_tokens": len(user) // 4, "output_tokens": 100, "raw": ""}
 
 

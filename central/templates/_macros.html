@@ -58,6 +58,7 @@
 {% macro source_ref(src) -%}
   {% if src %}
     {% if src.file_id %}<a href="/fontes/{{ src.file_id }}">{{ src.name }}</a>{% else %}{{ src.name }}{% endif %}
+    {% if src.transcrita %}<span class="tag ai" title="O arquivo é uma imagem: o texto foi transcrito pela IA e conferido por uma pessoa">transcrito pela IA, conferido por {{ src.transcrita.by }}</span>{% endif %}
     {% if src.status == 'indisponivel' %}<span class="tag err">(indisponível)</span>{% elif src.status == 'erro' %}<span class="tag soon">(erro na última leitura)</span>{% endif %}
     {% if src.url %}<a class="small drive-link" href="{{ src.url }}" target="_blank" rel="noopener">abrir no Drive<span class="sr"> (nova aba)</span></a>{% endif %}
   {% else %}—{% endif %}
