@@ -2,7 +2,7 @@
 
 Protótipo para o case técnico da Liga IA UFSCar. A aplicação acompanha uma pasta do Google Drive, organiza as atividades da Liga, sugere mudanças a partir de atas (com evidência e revisão humana) e mostra a cada membro o que mudou para ele.
 
-> **Status:** em desenvolvimento (entrega em 04/10/2026). Seções marcadas com _(a completar)_ serão fechadas com as medições reais.
+> **Avaliar em 3 minutos, sem conta Google:** seção 4, "Sem Drive". Três comandos rodam a Central com os dados fictícios do pacote.
 
 ---
 
@@ -12,7 +12,7 @@ Protótipo para o case técnico da Liga IA UFSCar. A aplicação acompanha uma p
 Google Drive (pasta de teste)            Aplicação (um processo Python)                    Pessoa
 ┌──────────────────────┐   a cada 3 min  ┌───────────────────────────────┐   navegador   ┌──────────┐
 │ INDEX.md, atas, .xlsx│ ──────────────► │ 1. Sincronização               │ ◄───────────► │ Ana, Bruno│
-│ Google Docs, PDF...  │   (só leitura)  │ 2. Extratores (md/xlsx/Docs/PDF)│               │ Carla,Davi│
+│ Google Docs, PDF...  │   (só leitura)  │ 2. Extratores (md, xlsx, Docs…) │               │ Carla,Davi│
 └──────────────────────┘                 │ 3. Regra de autoridade          │               └──────────┘
                                           │ 4. IA propõe → validação → fila │
                                           │ 5. Revisão humana → registro    │
@@ -82,9 +82,17 @@ uvicorn central.app:app --port 8000
 
 > **Sempre que abrir um terminal novo:** entre na pasta do projeto e ative o ambiente (`.venv\Scripts\activate` no Windows) antes de rodar o app.
 
-Abra http://localhost:8000, escolha uma pessoa de demonstração, clique no horário de atualização no topo (ou abra `/sincronizacao`), depois em **Conectar Google Drive**, e autorize.
+Abra http://localhost:8000, escolha uma pessoa de demonstração, abra **Estado da sincronização** no menu, clique em **Conectar Google Drive** e autorize. A página mostra a pasta conectada, o horário da última atualização e o resultado de cada verificação.
 
-**Sem Drive (avaliação rápida):** use `SOURCE_MODE=local` e `LOCAL_FOLDER=./amostra` com uma cópia de `tests/dados/01_CARGA_INICIAL`. A aplicação trata a pasta como se fosse o Drive. Arquivos `.gdoc` com texto simulam Google Docs nativos.
+**Sem Drive (avaliação rápida, sem conta Google e sem chave de IA):** não precisa de `.env`. Sem ele, a Central lê a pasta local `amostra/` e a IA fica desligada.
+
+```bash
+mkdir amostra
+cp tests/dados/01_CARGA_INICIAL/* amostra/          # Windows: copy tests\dados\01_CARGA_INICIAL\* amostra\
+uvicorn central.app:app --port 8000
+```
+
+A pasta `amostra/` faz o papel do Drive: copie para ela um arquivo de `tests/dados/02_ADICIONAR_DEPOIS_DA_CARGA` ou `03_CONFLITO` e clique em **Atualizar agora** (ou espere a verificação automática). Arquivos `.gdoc` com texto simulam Google Docs nativos. Sem a IA, as atas são lidas, mas não geram sugestões; a edição de uma planilha oficial gera sugestões mesmo assim, porque essa comparação não usa IA.
 
 **Testes automatizados:**
 
@@ -96,6 +104,7 @@ python -m pytest -q
 
 - **Automática:** uma thread em segundo plano roda a cada `SYNC_INTERVAL_SECONDS` (padrão: 180 s, bem abaixo da meta de 15 min). Em falha, espera mais a cada tentativa (até 10 min) e volta ao normal no primeiro sucesso.
 - **Manual:** botão "Atualizar agora", para demonstração e depuração.
+- **Onde ver:** a página **Estado da sincronização** mostra a pasta conectada (nome, link e ID), a restrição "só esta pasta e as subpastas", a última atualização bem-sucedida e, em cada verificação, quantos arquivos foram lidos, ficaram sem mudança, não foram processados (formato) ou deram erro.
 - **Listagem:** `files.list` com `'<pasta>' in parents and trashed = false`, percorrendo todas as páginas e subpastas (com conjunto de pastas visitadas).
 - **Detecção de mudanças:** compara o `version` do Drive. Quando muda, baixa e calcula o **hash do conteúdo extraído**. Mesmo hash significa nada a processar (idempotência: o mesmo evento duas vezes não gera sugestão nem tarefa duplicada).
 - **Renomeado:** mesmo `file_id`, novo nome. Atualiza o nome, não reprocessa e preserva a autoridade.
@@ -121,6 +130,7 @@ python -m pytest -q
 | PDF com texto | `pdfplumber` | — |
 | PDF escaneado, imagens (`.png`, `.jpg`, `.webp`, `.heic`) | não lidos automaticamente | "não processado", com o motivo (OCR fora do escopo). Nada é inventado. Opcional: **Transcrever com IA** (abaixo) |
 | `.doc`, `.ppt` (formatos antigos) e outros | não lidos | "não processado", com o motivo e como resolver (ex.: "salve como .docx") |
+| Vídeo, áudio, arquivo compactado, Formulários e Desenhos Google | não lidos e **nem baixados** | "não processado", com o motivo |
 
 Toda leitura acima é **determinística, sem IA**: o texto que entra é exatamente o do arquivo. Arquivo corrompido ou protegido por senha vira erro visível em **Pendências**, sem apagar a última versão boa.
 
@@ -133,18 +143,26 @@ Toda leitura acima é **determinística, sem IA**: o texto que entra é exatamen
   - a data precisa ser ISO válida **e estar escrita no documento** (datas inferidas viram incerteza);
   - os responsáveis precisam ser membros conhecidos citados no texto;
   - campos iguais ao valor oficial são descartados, o que evita sugestão vazia e duplicata.
-- **Hipóteses** ("talvez", sem dono nem decisão) viram `no_action`. Ficam registradas como "ideia sem decisão" e não entram no quadro.
-- **Tudo que foi barrado** aparece na tela de sugestões, por transparência.
-- **Resumo pessoal** ("O que mudou"): montado a partir dos registros, separando mudanças confirmadas de propostas pendentes, sempre com link para a fonte.
-- **Avisos no Discord** (opcional, `DISCORD_WEBHOOK_URL` no `.env`): a Central manda ao canal da Liga (1) nova sugestão para revisar, (2) sugestão aceita ou rejeitada, com o motivo, (3) prazo amanhã e prazo hoje e (4) atividade parada ("Isso ainda está valendo?", abaixo). Cada aviso tem chave única e sai uma vez só; ao ligar os avisos, o que já existia é marcado como visto sem mandar nada. Se o Discord estiver fora do ar, o aviso fica na fila e é tentado de novo na próxima sincronização. As mensagens desligam menções (`allowed_mentions`), porque o texto vem de documentos e não pode marcar `@everyone`. O envio acontece numa thread, então a tela não espera o Discord. Na página **Atualização com o Drive** há um botão para mandar uma mensagem de teste.
-- **"Isso ainda está valendo?"** (`DIAS_SEM_NOVIDADE` no `.env`, padrão 14; 0 desliga): atividade aberta sem nenhuma novidade nesse período (nenhuma mudança, sugestão aceita ou confirmação) ganha o selo "Sem novidade há N dias" e aparece no topo de **Minhas atividades** do responsável com três respostas: **Continua valendo** (registra no histórico e recomeça a contagem, sem mudar nada no quadro), **Atualizar** (abre a edição) e **Já terminou** (marca como concluída). Só os responsáveis ou quem aprova sugestões podem responder. Atividade com sugestão aguardando revisão não entra, porque já tem novidade chegando. Com os avisos ligados, o Discord recebe uma mensagem por atividade parada, uma vez por período. A ideia vem de bases de conhecimento como o Guru, em que cada conteúdo tem alguém que confirma de tempos em tempos que ele ainda vale: aqui, o quadro não morre desatualizado.
-- **Transcrever com IA** (PDF escaneado e imagem): o case pede que esses arquivos apareçam como "não processados", e eles continuam assim. Na página do documento, uma pessoa pode clicar em **Transcrever com IA**: o Gemini recebe o arquivo e devolve só o texto visível, copiado literalmente (sem resumir nem completar; o que não dá para ler vira `[ilegível]`). O resultado fica como **rascunho, ao lado do original**, e não vale nada até uma pessoa conferir, corrigir se precisar e clicar em **A transcrição confere**. Só então o texto entra na Central pelo mesmo caminho de qualquer documento: vira ata, a IA analisa, cada trecho citado é conferido na transcrição e a sugestão passa por revisão. Onde o documento aparece, ele leva a marca "transcrito pela IA, conferido por Carla". A transcrição vale só para aquela versão do arquivo: se ele mudar no Drive, volta a "não processado". Custo: uma chamada por arquivo transcrito (`llm_calls`, propósito `transcricao`).
-- **Bot no Discord** (opcional, `DISCORD_BOT_TOKEN` no `.env`): `/pergunta` responde no canal com o mesmo mecanismo do "Pergunte à Central" (trecho conferido, link do documento, sugestão pendente marcada como não oficial); `/prazos` lista o que venceu e o que vence nos próximos 7 dias; `/minhas` lista as atividades abertas de uma pessoa (escolhida no próprio comando, como no seletor do site). O bot usa só comandos de barra e **não pede a permissão de ler as mensagens do canal**: ele não vê as conversas da Liga. É só leitura (nada muda no quadro pelo Discord), responde sem menções e sem prévia de links, aceita uma pergunta a cada 10 s por pessoa e conecta por dentro (gateway), então funciona no computador local sem endereço público. Roda numa thread separada: se o Discord cair, o site segue normal. Com `DISCORD_GUILD_ID`, os comandos aparecem no servidor na hora. O estado do bot aparece na página **Atualização com o Drive**.
-- **Pergunte à Central** (no topo do "Comece aqui"): qualquer membro pergunta em português e recebe uma resposta curta **com o trecho e o link do documento de origem**. A IA recebe os documentos da pasta, o quadro de atividades (fonte oficial) e as sugestões pendentes (marcadas como não oficiais), sempre como dados entre marcas aleatórias. Cada trecho citado é conferido literalmente no documento: se nenhum confere, a resposta não aparece e a Central diz "não encontrei". Documentos substituídos só entram com aviso. Com a IA desligada ou fora do ar, cai numa busca simples por palavras (sem IA). Para responder rápido, as perguntas usam modelos sem raciocínio interno primeiro (`GEMINI_QA_MODELS`, padrão `gemini-3.1-flash-lite`), sem espera entre tentativas: se um modelo estiver sobrecarregado, passa direto ao próximo e, no fim, à busca simples. A mesma pergunta com os mesmos documentos é respondida da memória por até 1 hora; qualquer mudança nos documentos ou no quadro invalida a resposta guardada. As perguntas não ficam gravadas no banco; só o uso de tokens fica registrado (`llm_calls`, propósito `pergunta`).
+- **Hipóteses** ("talvez", sem dono nem decisão) viram `no_action`. Além do que o modelo diz, a própria Central barra qualquer proposta cujo trecho fale em possibilidade ("talvez", "poderíamos", "quem sabe"): hipótese nunca vira sugestão.
+- **Responsáveis:** quem já é responsável e continua na lista do modelo é mantido, mesmo sem ser citado no documento; se a proposta tira alguém, isso aparece como ponto para conferir.
+- **Reconhecimento de ata:** pelo cabeçalho `data_da_reuniao`, pelo nome ou título ("ata", "reunião", "minuta", "encontro"…) ou pelo corpo (quem participou + o que foi decidido). O nome do arquivo não precisa começar com "Ata".
+- **Tudo que foi deixado de fora** aparece em "O que a IA leu e deixou de fora": instrução para a IA ignorada, ideia sem decisão, nada novo, descartada na checagem.
+- **Novidades dos documentos** (o resumo pessoal, "o que mudou para mim"): montado a partir dos registros, **sem IA**, para que todo fato venha de um registro com link. Separa mudanças confirmadas, sugestões ainda não oficiais (com o selo "incerto" quando há pontos para conferir) e conflitos aguardando decisão. Se nada mudou, a página diz isso.
+
+### Recursos além do obrigatório
+
+O case lista como fora do escopo obrigatório perguntas livres, OCR e envio de mensagens. Os recursos abaixo são opcionais e seguem as regras do case: nada vale sem revisão humana, nada é inventado e nenhuma mensagem sai da Central.
+
+- **"Isso ainda está valendo?"** (`DIAS_SEM_NOVIDADE` no `.env`, padrão 14; 0 desliga): atividade aberta sem nenhuma novidade nesse período (nenhuma mudança, sugestão aceita ou confirmação) ganha o selo "Sem novidade há N dias" e aparece no topo de **Minhas atividades** do responsável com três respostas: **Continua valendo** (registra no histórico e recomeça a contagem, sem mudar nada no quadro), **Atualizar** (abre a edição) e **Já terminou** (marca como concluída). Só os responsáveis ou quem aprova sugestões podem responder. Atividade com sugestão aguardando revisão não entra, porque já tem novidade chegando.
+- **Transcrever com IA** (PDF escaneado e imagem): o case pede que esses arquivos apareçam como "não processados", e eles continuam assim. Na página do documento, uma pessoa pode clicar em **Transcrever com IA**: o Gemini recebe o arquivo e devolve só o texto visível, copiado literalmente (sem resumir nem completar; o que não dá para ler vira `[ilegível]`). O resultado fica como **rascunho, ao lado do original**, e não vale nada até uma pessoa conferir, corrigir se precisar e clicar em **A transcrição confere**. Só então o texto entra na Central pelo mesmo caminho de qualquer documento, e a sugestão passa por revisão. Onde o documento aparece, ele leva a marca "transcrito pela IA, conferido por Carla". A transcrição vale só para aquela versão do arquivo.
+- **Pergunte à Central** (no "Comece aqui", depois da primeira ação, do propósito e das frentes): resposta curta **com o trecho e o link do documento de origem**. A IA recebe os documentos lidos da pasta, o quadro de atividades (fonte oficial) e as sugestões pendentes (marcadas como não oficiais), sempre como dados entre marcas aleatórias. Cada trecho citado é conferido literalmente no documento: se nenhum confere, a resposta não aparece e a Central diz "não encontrei". Documentos substituídos só entram com aviso; documentos indisponíveis não entram. Com a IA desligada ou fora do ar, cai numa busca simples por palavras. A mesma pergunta com os mesmos documentos é respondida da memória por até 1 hora. As perguntas não ficam gravadas no banco; só o uso de tokens (`llm_calls`, propósito `pergunta`).
+- **Busca e filtros:** em Minhas atividades, Todas as atividades (responsável, frente, situação, prazo) e Documentos, onde a busca também procura **dentro do conteúdo** e mostra o trecho encontrado.
+
+**Retirado de propósito:** avisos e um bot no Discord chegaram a ser construídos (ramo `extra-discord` do repositório). Saíram da entrega porque a especificação põe "notificações a pessoas, envio de mensagens" fora do escopo (§7) e diz que a IA não envia mensagens (§1). As mensagens levariam trechos de atas a pessoas que talvez não tenham acesso ao arquivo no Drive. Para voltar, seria preciso respeitar as permissões de cada arquivo (seção 10).
 
 ## 8. Custo estimado por uso
 
-A IA só é chamada quando uma **ata nova ou editada** chega (e quando alguém pede nova análise). Planilhas, índice e demais documentos não passam pelo modelo. Cada chamada fica registrada na tabela `llm_calls` e os totais aparecem na página **Atualização com o Drive**.
+A IA é chamada em três situações: quando uma **ata nova ou editada** chega (ou alguém pede nova análise), quando alguém faz uma pergunta em **Pergunte à Central** e quando alguém pede **Transcrever com IA**. Planilhas, índice e demais documentos não passam pelo modelo. Cada chamada fica registrada na tabela `llm_calls` e os totais aparecem em **Estado da sincronização**.
 
 **Medição real (28/09/2026, 8 análises de atas com `gemini-3.6-flash`):** 10.544 tokens de entrada e 1.688 de saída, ou seja, **~1.300 de entrada e ~210 de saída por ata**. A entrada inclui as regras, a lista de membros, as atividades atuais e o texto da ata.
 
@@ -154,6 +172,15 @@ A IA só é chamada quando uma **ata nova ou editada** chega (e quando alguém p
 | `gemini-3.6-flash` pago (US$ 0,75 / 1M entrada, US$ 3,75 / 1M saída, até 31/12/2026) | ~US$ 0,0018 | ~US$ 0,04 |
 | O mesmo modelo com o preço de 2027 (o dobro) | ~US$ 0,0036 | ~US$ 0,07 |
 | `gemini-3.1-flash-lite` pago (US$ 0,25 / US$ 1,50) | ~US$ 0,0006 | ~US$ 0,01 |
+
+**Perguntas e transcrições (estimativa, não medida):**
+
+| Uso | Tokens por uso | Custo por uso | Mês típico |
+|---|---|---|---|
+| Pergunta (`gemini-3.1-flash-lite`) | ~2.400 de entrada (regras + todos os documentos da pasta de teste) e ~150 de saída | ~US$ 0,0008 | 100 perguntas: ~US$ 0,08 |
+| Transcrição de uma página ou foto (`gemini-3.6-flash`) | ~500 de entrada (imagem + regras) e ~200 de saída | ~US$ 0,001 | 10 páginas: ~US$ 0,01 |
+
+A entrada da pergunta cresce com o tamanho da pasta, porque todos os documentos lidos vão no pedido. Com dezenas de documentos longos, o próximo passo seria mandar só os trechos relevantes (busca antes da IA).
 
 Observações:
 - O custo cresce com o número de atividades, porque a lista atual vai no prompt: com 100 atividades, a entrada sobe para ~6.000 tokens, cerca de US$ 0,005 por ata no modelo principal. Para centenas de atividades, o próximo passo seria enviar só as atividades relacionadas à ata (por frente, IDs citados ou busca).
@@ -168,17 +195,34 @@ Observações:
 - O token OAuth fica no banco local (`data/`, fora do Git), sem criptografia em repouso.
 - A varredura completa a cada 3 min atende a uma pasta pequena. Pastas grandes pediriam `changes.list`.
 - A IA depende de um serviço externo. Se ele estiver fora, as atas ficam indexadas e são analisadas na próxima sincronização.
-- PDF escaneado e imagem não são lidos automaticamente (OCR fora do escopo do case).
+- PDF escaneado e imagem não são lidos automaticamente (OCR fora do escopo do case); a transcrição depende de uma pessoa conferir.
+- "Pergunte à Central" manda ao modelo todos os documentos lidos da pasta a cada pergunta nova.
+- No modo pasta local (testes), o identificador do arquivo é o número do arquivo no disco: se um arquivo for apagado e outro criado em seguida, o sistema pode confundir os dois. No Drive o ID é estável.
+- A primeira tela no computador tem o menu em duas linhas, para caber os nomes que o case pede ("Sugestões para revisar", "Novidades dos documentos", "Estado da sincronização").
 
 ## 10. Antes de usar dados reais
 
 - Autenticação real (Google Sign-In) e autorização por pessoa, respeitando as permissões de cada arquivo no Drive. Uma pessoa não pode ver trechos de um arquivo ao qual não tem acesso, nem por meio de resumos da IA.
 - Tokens em um gerenciador de segredos ou criptografados. HTTPS obrigatório.
 - Verificação do app OAuth pelo Google (`drive.readonly` é escopo restrito).
-- Política de retenção: guardar o mínimo de texto extraído e apagar o cache quando uma fonte for removida ou o acesso for revogado.
+- Política de retenção: apagar automaticamente o texto guardado quando uma fonte for removida ou o acesso for revogado (hoje ele fica marcado como indisponível; ver a seção 12).
+- "Pergunte à Central" e o resumo pessoal teriam de usar só os documentos que aquela pessoa pode abrir no Drive.
 - Revisar os termos do provedor de IA (uso de dados para treino) e preferir um plano pago, sem retenção.
 
 ## 11. Ferramentas de IA usadas
 
-- **No desenvolvimento:** Claude (Anthropic), como par de programação para arquitetura, código e testes. Todas as decisões foram revisadas e testadas.
-- **No produto:** Gemini API, para extrair sugestões de atas.
+- **No desenvolvimento:** Claude (Anthropic), como par de programação para arquitetura, código, testes e revisão de requisitos. Todas as decisões foram revisadas e testadas.
+- **No produto:** Gemini API, em três lugares, sempre com validação e revisão humana:
+  1. leitura assistida de atas (sugestões de criar ou alterar atividades);
+  2. Pergunte à Central (resposta com trecho conferido no documento);
+  3. Transcrever com IA (texto de PDF escaneado ou imagem, que só vale depois de conferido).
+
+  Não há agentes, embeddings nem MCP: não eram necessários para os critérios do case.
+
+## 12. Cache: o que fica guardado e como apagar
+
+- **Onde:** tudo fica em `data/central.db` (SQLite, fora do Git): metadados de cada arquivo, o texto extraído de cada versão lida, atividades, sugestões, histórico, pendências e o token OAuth.
+- **Apagar tudo:** pare o site e apague `data/central.db`. Na próxima execução, a Central lê a pasta de novo do zero (o Drive precisa ser conectado de novo).
+- **Revogar o acesso ao Drive:** em **Estado da sincronização**, **Desconectar e revogar acesso** apaga o token e revoga a autorização no Google.
+- **Arquivo removido do Drive ou sem acesso:** a fonte fica **indisponível**, abre uma pendência e suas sugestões pendentes ficam desatualizadas. O texto antigo não entra mais nas respostas do "Pergunte à Central" e, onde aparece, vem marcado como possivelmente desatualizado, nunca como confirmado.
+- **Respostas guardadas do "Pergunte à Central":** ficam só na memória, por até 1 hora, e deixam de valer assim que qualquer documento ou o quadro muda. Reiniciar o site apaga todas.
