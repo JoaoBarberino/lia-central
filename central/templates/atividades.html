@@ -14,14 +14,6 @@
   </form>
   <a class="btn small secondary" href="/atividades/nova">Nova atividade</a>
 </div>
-<div class="chips" role="group" aria-label="Atalhos">
-  <span class="label">Atalhos:</span>
-  <a class="chip" href="/atividades?{{ qs }}prazo=vencidas" {% if filtro.prazo == 'vencidas' %}aria-current="true"{% endif %}>Vencidas</a>
-  <a class="chip" href="/atividades?{{ qs }}prazo=7dias" {% if filtro.prazo == '7dias' %}aria-current="true"{% endif %}>Próximos 7 dias</a>
-  <a class="chip" href="/atividades?{{ qs }}situacao=Bloqueada" {% if filtro.situacao == 'Bloqueada' %}aria-current="true"{% endif %}>Bloqueadas</a>
-  <a class="chip" href="/atividades?{{ qs }}responsavel={{ SEM }}" {% if filtro.responsavel == SEM %}aria-current="true"{% endif %}>Sem responsável</a>
-  <a class="chip" href="/atividades?{{ qs }}novidade=1" {% if filtro.novidade %}aria-current="true"{% endif %}>Sem novidade</a>
-</div>
 <form method="get" action="/atividades">
   {% if filtro.q %}<input type="hidden" name="q" value="{{ filtro.q }}">{% endif %}
   <details class="filt" open>
