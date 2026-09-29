@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import secrets
 import sqlite3
@@ -24,6 +25,7 @@ from .authority import ROLE_LABELS
 from .db import now_iso
 from .extractors import normalize
 
+log = logging.getLogger("central.ask")
 DOC_ROLES = ("estado_atual", "guia", "indice", "ata", "historico")
 MAX_QUESTION = 300
 CACHE_TTL = 3600       # segundos; a chave inclui o conteúdo dos documentos, então dado novo nunca usa resposta velha
@@ -207,6 +209,7 @@ def _ask_model(conn, llm, question: str, docs: list[dict], by_id: dict) -> dict:
         _log(conn, llm, usage, True)
     except LLMError as e:
         _log(conn, llm, None, False, str(e))
+        log.warning("Pergunta respondida sem IA (busca simples). Motivo: %s", str(e)[:500])
         return {"status": "fallback", "question": question, "reason": "A IA não respondeu agora (serviço indisponível).",
                 "hits": keyword_search(question, docs)}
 
