@@ -48,6 +48,15 @@ Detalhes que sustentam a regra:
 - **Linhas removidas ou planilha esvaziada:** nada é apagado. Vira pendência para uma pessoa decidir.
 - **Planilha concorrente** (ex.: `Ata - copia vazia.xlsx`): tem as colunas de um registro, mas não é a fonte apontada. Vira pendência "Planilha concorrente" e as atividades continuam intactas. Ser mais recente não dá autoridade a um arquivo.
 
+### Mudanças feitas na interface
+
+- **Criar:** título, descrição, frente, responsáveis, próximo passo, situação e prazo opcional. A atividade ganha ID, autor e horário, e a página dela mostra "Criada por Ana em …" (as importadas mostram "Veio da planilha oficial", e as aprovadas, "Criada a partir de uma sugestão aprovada por …"). Campo vazio fica vazio ("a definir", "responsável a confirmar"): nada é preenchido pela IA.
+- **Editar:** só os campos que mudaram entram no histórico, com antes → depois, autor e horário.
+- **Concluir, bloquear e reabrir:** bloquear exige o motivo, que vai para o histórico e aparece no cartão ("Bloqueio: …") sem apagar as notas da atividade. Uma atividade concluída pode ser **reaberta** e volta para a situação que tinha antes.
+- **Campos que faltam:** quando uma atividade não tem responsável, frente ou próximo passo (por exemplo, porque a ata não trouxe), a página mostra "Faltam: … **Completar**", que leva à edição.
+- **"Perto do prazo"** tem um critério só em todo o site: vence hoje ou nos próximos 3 dias (o selo laranja, o resumo de Minhas atividades, o atalho e as Novidades).
+- As frentes oferecidas nos formulários vêm do quadro e do guia de entrada, não de uma lista fixa: uma frente nova nos documentos aparece sozinha.
+
 ## 3. Credenciais e pasta do Drive
 
 1. Crie um projeto no Google Cloud (não precisa de faturamento) e ative a **Google Drive API**.
@@ -68,7 +77,7 @@ Apps em modo *Testing* perdem a autorização após 7 dias. Se a sincronização
 
 ## 4. Instalação e execução
 
-Requisitos: Python 3.11+.
+Requisitos: Python 3.11 ou mais novo (testado no Linux com o 3.11 e no Windows). As versões das bibliotecas em `requirements.txt` são fixas, as mesmas com que os testes passaram.
 
 ```bash
 git clone https://github.com/JoaoBarberino/lia-central.git
@@ -146,6 +155,9 @@ Toda leitura acima é **determinística, sem IA**: o texto que entra é exatamen
 - **Hipóteses** ("talvez", sem dono nem decisão) viram `no_action`. Além do que o modelo diz, a própria Central barra a proposta cujo trecho só fala em possibilidade ("talvez", "poderíamos", "quem sabe") sem nenhuma decisão: hipótese nunca vira sugestão. Se o trecho tem uma decisão e um "talvez" no meio, a sugestão segue com um ponto para conferir.
 - **Responsáveis:** quem já é responsável e continua na lista do modelo é mantido, mesmo sem ser citado no documento; se a proposta tira alguém, isso aparece como ponto para conferir.
 - **Reconhecimento de ata:** pelo cabeçalho `data_da_reuniao`, pelo nome ou título ("ata", "minuta", ou "reunião" com data, como "Reunião Growth 10-10") ou pelo corpo (quem participou + o que foi decidido). O nome do arquivo não precisa começar com "Ata".
+- **Revisão humana:** só quem aprova sugestões (Bruno e Carla, na demonstração) pode **aceitar**, **ajustar antes de aceitar** ou **rejeitar com motivo**. Os demais acompanham as sugestões sem botão de decisão. Reabrir a página depois da decisão não repete a aprovação nem cria outra tarefa. Se o valor oficial mudou depois que a sugestão foi criada, a Central pede confirmação antes de aplicar por cima.
+- **Ajuste preserva a proposta original:** ao aceitar com ajuste, o que a ata sugeriu fica guardado à parte do que foi aplicado. A sugestão mostra "aceita com ajuste" e, em cada campo mudado, "Ajustado na revisão. A ata sugeriu: …"; o histórico da atividade registra "aceita com ajuste".
+- **Sugestão pendente nunca parece oficial:** na página da atividade, o valor oficial vem primeiro e o sugerido aparece embaixo, discreto, como "Sugerido, aguardando revisão".
 - **Tudo que foi deixado de fora** aparece em "O que a IA leu e deixou de fora": instrução para a IA ignorada, ideia sem decisão, nada novo, descartada na checagem.
 - **Novidades dos documentos** (o resumo pessoal, "o que mudou para mim"): montado a partir dos registros, **sem IA**, para que todo fato venha de um registro com link. Separa mudanças confirmadas, sugestões ainda não oficiais (com o selo "incerto" quando há pontos para conferir) e conflitos aguardando decisão. Se nada mudou, a página diz isso.
 
@@ -156,7 +168,7 @@ O case lista como fora do escopo obrigatório perguntas livres, OCR e envio de m
 - **"Isso ainda está valendo?"** (`DIAS_SEM_NOVIDADE` no `.env`, padrão 14; 0 desliga): atividade aberta sem nenhuma novidade nesse período (nenhuma mudança, sugestão aceita ou confirmação) ganha o selo "Sem novidade há N dias" e aparece no topo de **Minhas atividades** do responsável com três respostas: **Continua valendo** (registra no histórico e recomeça a contagem, sem mudar nada no quadro), **Atualizar** (abre a edição) e **Já terminou** (marca como concluída). Só os responsáveis ou quem aprova sugestões podem responder. Atividade com sugestão aguardando revisão não entra, porque já tem novidade chegando.
 - **Transcrever com IA** (PDF escaneado e imagem): o case pede que esses arquivos apareçam como "não processados", e eles continuam assim. Na página do documento, uma pessoa pode clicar em **Transcrever com IA**: o Gemini recebe o arquivo e devolve só o texto visível, copiado literalmente (sem resumir nem completar; o que não dá para ler vira `[ilegível]`). O resultado fica como **rascunho, ao lado do original**, e não vale nada até uma pessoa conferir, corrigir se precisar e clicar em **A transcrição confere**. Só então o texto entra na Central pelo mesmo caminho de qualquer documento, e a sugestão passa por revisão. Onde o documento aparece, ele leva a marca "transcrito pela IA, conferido por Carla". A transcrição vale só para aquela versão do arquivo.
 - **Pergunte à Central** (no "Comece aqui", depois da primeira ação, do propósito e das frentes): resposta curta **com o trecho e o link do documento de origem**. A IA recebe os documentos lidos da pasta, o quadro de atividades (fonte oficial) e as sugestões pendentes (marcadas como não oficiais), sempre como dados entre marcas aleatórias. Cada trecho citado é conferido literalmente no documento: se nenhum confere, a resposta não aparece e a Central diz "não encontrei". Documentos substituídos só entram com aviso; documentos indisponíveis não entram. Com a IA desligada ou fora do ar, cai numa busca simples por palavras. A mesma pergunta com os mesmos documentos é respondida da memória por até 1 hora. As perguntas não ficam gravadas no banco; só o uso de tokens (`llm_calls`, propósito `pergunta`).
-- **Busca e filtros:** em Minhas atividades, Todas as atividades (responsável, frente, situação, prazo) e Documentos, onde a busca também procura **dentro do conteúdo** e mostra o trecho encontrado.
+- **Busca e filtros:** em Minhas atividades (com atalhos: vencidas, vencem em até 3 dias, bloqueadas, sem novidade), Todas as atividades (responsável, frente, situação, prazo) e Documentos, onde a busca também procura **dentro do conteúdo** e mostra o trecho encontrado. Os filtros ficam no endereço da página, então dá para salvar ou mandar o link.
 
 **Retirado de propósito:** avisos e um bot no Discord chegaram a ser construídos (ramo `extra-discord` do repositório). Saíram da entrega porque a especificação põe "notificações a pessoas, envio de mensagens" fora do escopo (§7) e diz que a IA não envia mensagens (§1). As mensagens levariam trechos de atas a pessoas que talvez não tenham acesso ao arquivo no Drive. Para voltar, seria preciso respeitar as permissões de cada arquivo (seção 10).
 
@@ -197,6 +209,7 @@ Observações:
 - A IA depende de um serviço externo. Se ele estiver fora, as atas ficam indexadas e são analisadas na próxima sincronização.
 - PDF escaneado e imagem não são lidos automaticamente (OCR fora do escopo do case); a transcrição depende de uma pessoa conferir.
 - "Pergunte à Central" manda ao modelo todos os documentos lidos da pasta a cada pergunta nova.
+- O critério de "perto do prazo" (3 dias) é fixo no código.
 - No modo pasta local (testes), o identificador do arquivo é o número do arquivo no disco: se um arquivo for apagado e outro criado em seguida, o sistema pode confundir os dois. No Drive o ID é estável.
 
 ## 10. Antes de usar dados reais
@@ -225,3 +238,17 @@ Observações:
 - **Revogar o acesso ao Drive:** em **Estado da sincronização**, **Desconectar e revogar acesso** apaga o token e revoga a autorização no Google.
 - **Arquivo removido do Drive ou sem acesso:** a fonte fica **indisponível**, abre uma pendência e suas sugestões pendentes ficam desatualizadas. O texto antigo não entra mais nas respostas do "Pergunte à Central" e, onde aparece, vem marcado como possivelmente desatualizado, nunca como confirmado.
 - **Respostas guardadas do "Pergunte à Central":** ficam só na memória, por até 1 hora, e deixam de valer assim que qualquer documento ou o quadro muda. Reiniciar o site apaga todas.
+
+## 13. Experiência e acessibilidade
+
+- **Marca:** azul #1433BD no topo e nas datas, ciano #19DCE3 só como acento (item ativo, contadores, foco), texto azul-marinho sobre branco. Uma família de letra só (Sora).
+- **Contraste:** texto comum com pelo menos 4,5:1 (os pares de cor estão comentados no `style.css`); bordas de campos com 4:1 (o mínimo para componentes é 3:1). Um teste automático confere a cor das bordas.
+- **Estado nunca só pela cor:** toda situação tem texto ("Bloqueada", "Vence em 2 dias", "Aguardando revisão").
+- **Teclado:**
+  - link "Pular para o conteúdo" e foco sempre visível;
+  - filtros e troca de pessoa só são enviados pelo botão, para não recarregar a página enquanto a pessoa escolhe com as setas;
+  - os menus fecham com Esc e ao sair deles com Tab;
+  - revisar uma sugestão inteira funciona só pelo teclado.
+- **Erros e mensagens:** todo campo tem rótulo; o erro aparece escrito junto do campo, e o foco vai direto para o primeiro campo a corrigir. Confirmações são anunciadas ao leitor de tela sem interromper; erros interrompem.
+- **Celular:** conferido em 320, 390, 768 e 1280 px, sem rolagem lateral. Prazo, responsáveis e a ação de revisão continuam visíveis na tela estreita; alvos de toque com 44 px; o menu vira um botão "☰ Menu" em telas até 1000 px.
+- **Primeiro acesso:** quem nunca abriu o Comece aqui vê o aviso "Primeira vez aqui?" em Minhas atividades. O Comece aqui mostra a primeira ação da pessoa (com o motivo da escolha), o propósito, as frentes, os documentos de referência e o que ainda está "a confirmar".

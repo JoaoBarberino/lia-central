@@ -78,7 +78,7 @@
           {% elif r.field == 'status' %}
           <div><label for="adj-status">{{ r.label }}</label><select id="adj-status" name="status">{% for st in STATUSES %}<option {% if r.raw == st %}selected{% endif %}>{{ st }}</option>{% endfor %}</select></div>
           {% elif r.field == 'front' %}
-          <div><label for="adj-front">{{ r.label }}</label><select id="adj-front" name="front"><option value="">Sem frente</option>{% for f in ['Growth', 'Formação', 'Operações'] + ([r.raw] if r.raw and r.raw not in ['Growth', 'Formação', 'Operações'] else []) %}<option {% if r.raw == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+          <div><label for="adj-front">{{ r.label }}</label><select id="adj-front" name="front"><option value="">Sem frente</option>{% for f in FRONTS + ([r.raw] if r.raw and r.raw not in FRONTS else []) %}<option {% if r.raw == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
           {% elif r.field in ('title', 'next_step', 'notes', 'description') %}
           {# texto longo: caixa que cresce com o conteúdo, para ler tudo antes de aceitar #}
           <div><label for="adj-{{ r.field }}">{{ r.label }}</label><textarea class="grow" rows="1" autocomplete="off" id="adj-{{ r.field }}" name="{{ r.field }}"{% if r.field == 'title' %} data-one-line{% endif %}>{{ r.raw or '' }}</textarea></div>

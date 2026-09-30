@@ -267,3 +267,12 @@ def test_atualizar_agora_so_para_quem_entrou(client):  # noqa: F811
     login(client, "U-A")
     assert "Atualizar agora" in client.get("/").text
     assert "tokens" not in client.get("/sincronizacao").text.split("Detalhes técnicos")[0]
+
+
+def test_frente_nova_aparece_nos_formularios(client):  # noqa: F811
+    login(client, "U-A")
+    client.post("/atividades/nova", data={"title": "Mapear parceiros", "front": "Pesquisa", "status": "A fazer",
+                                          "owners": ["U-A"], "next_step": "Listar contatos"})
+    form = client.get("/atividades/nova").text
+    assert "<option >Pesquisa</option>" in form or ">Pesquisa</option>" in form
+    assert ">Growth</option>" in form and ">Operações</option>" in form

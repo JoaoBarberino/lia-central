@@ -1,14 +1,17 @@
-fastapi>=0.115
-uvicorn>=0.30
-jinja2>=3.1
-python-multipart>=0.0.9
-itsdangerous>=2.2
-openpyxl>=3.1
-pdfplumber>=0.11
-httpx>=0.27
-google-auth>=2.30
-google-auth-oauthlib>=1.2
-google-api-python-client>=2.130
-pytest>=8
+# Versões fixas: as mesmas com que os 107 testes passaram (instalação do zero em 30/09/2026).
+# Fixar evita que uma versão nova de alguma biblioteca mude o comportamento na máquina de quem avalia.
+fastapi==0.142.2
+starlette==1.7.0
+uvicorn==0.54.0
+jinja2==3.1.6
+python-multipart==0.0.32
+itsdangerous==2.2.0
+openpyxl==3.1.5
+pdfplumber==0.11.10
+httpx==0.28.1
+google-auth==2.59.0
+google-auth-oauthlib==1.5.0
+google-api-python-client==2.200.0
+pytest==9.1.1
 # Windows não traz a base de fusos horários (America/Sao_Paulo); este pacote a fornece
-tzdata>=2024.1
+tzdata==2026.4

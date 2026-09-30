@@ -205,6 +205,18 @@ GAP_PATTERNS = ["a confirmar", "por confirmar", "sera aprovad", "provisori", "na
                 "ainda nao", "incomplet"]
 
 
+def front_options(conn: sqlite3.Connection) -> list[str]:
+    """Frentes para os formulários: as do quadro de atividades e as do guia de entrada ("Growth: ..."),
+    sem lista fixa no código (uma frente nova nos documentos aparece sozinha)."""
+    names = {r[0] for r in conn.execute("SELECT DISTINCT front FROM activities WHERE front IS NOT NULL AND front <> ''")}
+    guia = _doc(conn, "guia")
+    for line in (section(guia["extracted_text"], "Frentes e pessoas") if guia else []):
+        m = re.match(r"^([^:]{2,30}):\s", line)
+        if m:
+            names.add(m.group(1).strip())
+    return sorted(names, key=normalize)
+
+
 def onboarding(conn: sqlite3.Connection, member_id: str | None) -> dict:
     estado = _doc(conn, "estado_atual")
     guia = _doc(conn, "guia")

@@ -217,7 +217,7 @@ def render(request: Request, conn, template: str, status_code: int = 200, **ctx)
         n_pending=conn.execute("SELECT COUNT(*) FROM suggestions WHERE review_status='pendente'").fetchone()[0]
         if member and member["can_review"] else 0,
         n_issues=conn.execute("SELECT COUNT(*) FROM issues WHERE status='aberta'").fetchone()[0],
-        source_mode=settings.source_mode, llm_enabled=settings.llm_enabled,
+        source_mode=settings.source_mode, llm_enabled=settings.llm_enabled, FRONTS=views.front_options(conn),
         sync_minutes=(str(round(settings.sync_interval / 60, 1)).replace(".", ",") if settings.sync_interval % 60
                       else settings.sync_interval // 60),
     )

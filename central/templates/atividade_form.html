@@ -17,7 +17,7 @@
     <label for="front">Frente</label>
     <select id="front" name="front">
       <option value="">—</option>
-      {% for f in ['Growth', 'Formação', 'Operações'] + ([values.front] if values.front and values.front not in ['Growth', 'Formação', 'Operações'] else []) %}<option {% if values.front == f %}selected{% endif %}>{{ f }}</option>{% endfor %}
+      {% for f in FRONTS + ([values.front] if values.front and values.front not in FRONTS else []) %}<option {% if values.front == f %}selected{% endif %}>{{ f }}</option>{% endfor %}
     </select>
   </div>
   <fieldset class="checks">
