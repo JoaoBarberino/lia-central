@@ -12,6 +12,7 @@
     {% endfor %}
   </div>
 </div>
+{% if atas_sem_ia %}<div class="notice warn" role="note"><strong>A IA está desligada.</strong> {{ atas_sem_ia }} {{ 'ata foi lida' if atas_sem_ia == 1 else 'atas foram lidas' }}, mas não {{ 'analisada' if atas_sem_ia == 1 else 'analisadas' }}: por isso não há sugestões delas aqui. Com a <code>GEMINI_API_KEY</code> no <code>.env</code>, as atas são analisadas na próxima atualização. Mudanças na planilha oficial aparecem mesmo assim, porque não usam IA.</div>{% endif %}
 {% if items %}
 <div class="rows">
 {% for s in items %}

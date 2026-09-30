@@ -26,7 +26,10 @@ def today() -> date:
 def fmt_date(iso: str | None) -> str:
     if not iso:
         return "a definir"
-    d = date.fromisoformat(iso[:10])
+    try:
+        d = date.fromisoformat(str(iso)[:10])
+    except ValueError:
+        return str(iso)   # valor que não é data (ex.: texto digitado na planilha): mostra como está, sem quebrar a página
     return f"{d.day:02d}/{d.month:02d}/{d.year}"
 
 
@@ -288,11 +291,13 @@ def plural(n: int, singular: str, plural_form: str) -> str:
     return f"{n} {singular if n == 1 else plural_form}"
 
 
-def analysis_summary(created: int, unchanged: int, hypotheses: int, rejected: int) -> str:
+def analysis_summary(created: int, unchanged: int, hypotheses: int, rejected: int, to_check: int = 0) -> str:
     """Resultado da leitura de uma ata em uma frase curta."""
     parts = []
     if created:
         parts.append(plural(created, "sugestão criada", "sugestões criadas"))
+    if to_check:
+        parts.append(plural(to_check, "mudança precisa de conferência", "mudanças precisam de conferência"))
     if unchanged:
         parts.append(plural(unchanged, "item já estava no quadro", "itens já estavam no quadro"))
     if hypotheses:
@@ -435,13 +440,18 @@ def sug_rows(s: dict, names: dict) -> list[dict]:
         if s["kind"] != "update" and k == "title":
             continue  # o título da atividade nova já é o título da sugestão
         old = before.get(k) if s["kind"] == "update" else None
+        if s["kind"] == "update" and old == v:
+            continue  # nada muda neste campo: não aparece como mudança ("A fazer → A fazer")
+        if s["kind"] != "update" and v in (None, "", []):
+            continue  # campo vazio de uma atividade nova
         rows.append({"field": k, "label": acts.FIELD_LABELS.get(k, k), "raw": v,
                      "new": describe_value(k, v, names),
                      "old": describe_value(k, old, names) if old not in (None, "", []) else None,
                      "short": k in SHORT_FIELDS,
                      # ajustado na revisão: guarda o que a ata tinha sugerido
                      "suggested": (describe_value(k, s["proposed"].get(k), names) if k in s["proposed"]
-                                   else "nada (a ata não trouxe)") if k in (s.get("adjusted") or []) else None})
+                                   else "nada (a ata não trouxe)") if k in (s.get("adjusted") or []) else None,
+                     "suggested_by": "A ata sugeriu" if s.get("model") else "A planilha dizia"})
     return rows
 
 
@@ -453,6 +463,9 @@ def sug_already(s: dict, names: dict) -> list[str]:
 # "O que a IA leu e deixou de fora": um rótulo certo e uma frase fixa para cada tipo
 # ---------------------------------------------------------------------------
 LEFT_OUT = {
+    "conferir": {"order": -1, "icon": "", "label": "Precisa de conferência",
+                 "explain": "A ata fala de uma mudança, mas um dado não se confirmou no texto, então nada foi sugerido. "
+                            "Se for o caso, ajuste a atividade."},
     "instrucao": {"order": 0, "icon": "🛡", "label": "Instrução para a IA, ignorada",
                   "explain": "O documento tentava dar ordens à IA. A Central trata documentos como informação, nunca como comando."},
     "ideia": {"order": 1, "icon": "", "label": "Ideia sem decisão",
@@ -474,6 +487,10 @@ def left_out_info(n: dict) -> dict:
             quote = (json.loads(text) or {}).get("evidence") or ""
         except (ValueError, AttributeError):
             quote = ""
+    if kind == "precisa_conferir":
+        info = dict(LEFT_OUT["conferir"], key="conferir", quote=quote)
+        info["explain"] += f" Motivo: {humano(reason).rstrip('.')}."
+        return info
     if kind == "instrucao_ignorada" or looks_like_injection(quote) or (kind == "barrada_validacao" and "injeção" in reason):
         key = "instrucao"
     elif kind == "sem_mudanca":

@@ -25,9 +25,9 @@
 {% if pend %}
 {# O valor oficial continua em primeiro plano; o sugerido aparece discreto, marcado como "aguardando revisão" #}
 <section id="sugestoes" class="pend-note" aria-labelledby="pend-h">
-  <p><strong id="pend-h">{{ 'Uma sugestão de ata aguarda revisão' if pend|length == 1 else pend|length ~ ' sugestões de ata aguardam revisão' }}</strong>{% if pend_labels %} e pode{{ 'm' if pend|length > 1 }} mudar: {{ pend_labels | join(', ') | lower }}{% endif %}.
+  <p><strong id="pend-h">{{ 'Uma sugestão aguarda revisão' if pend|length == 1 else pend|length ~ ' sugestões aguardam revisão' }}</strong>{% if pend_labels %} e pode{{ 'm' if pend|length > 1 }} mudar: {{ pend_labels | join(', ') | lower }}{% endif %}.
     Até a revisão, valem os valores oficiais desta página.
-    {% for s in pend %}<a href="/sugestoes/{{ s.suggestion_id }}">Ver sugestão #{{ s.suggestion_id }}</a>{{ ' · ' if not loop.last }}{% endfor %}</p>
+    {% for s in pend %}<a href="/sugestoes/{{ s.suggestion_id }}">Ver sugestão #{{ s.suggestion_id }}</a>{% if s.origin %} ({{ s.origin }}){% endif %}{{ ' · ' if not loop.last }}{% endfor %}</p>
   {% for k in ('title', 'status', 'front') %}{% for p in pend_fields.get(k, []) %}
   <p class="pend-val">{{ {'title': 'Título sugerido', 'status': 'Situação sugerida', 'front': 'Frente sugerida'}[k] }}, aguardando revisão: {{ p.value }}</p>
   {% endfor %}{% endfor %}
@@ -93,7 +93,7 @@
   <h2>De onde veio</h2>
   <ul class="sources-list">
   {% for r in refs %}
-    <li><span class="kind">{{ {'importada_de':'Veio da planilha','origem_declarada':'Ata citada na planilha','alterada_por':'Alterada por sugestão da ata','criada_por':'Criada por sugestão da ata'}.get(r.relation_type, r.relation_type) }}</span>
+    <li><span class="kind">{{ {'importada_de':'Veio da planilha','origem_declarada':'Ata citada na planilha','alterada_por':'Alterada por sugestão aprovada','criada_por':'Criada por sugestão aprovada'}.get(r.relation_type, r.relation_type) }}</span>
       {{ source_ref(r.source) }}
       {% if r.sheet_or_section %}<div class="small muted">{{ sheet_ref(r.sheet_or_section) }}</div>{% endif %}
       {% if r.quote_or_cell and r.relation_type != 'importada_de' %}<blockquote class="evidence small">{{ r.quote_or_cell }}</blockquote>{% endif %}

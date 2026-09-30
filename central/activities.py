@@ -231,6 +231,14 @@ def block_reason(conn: sqlite3.Connection, a: dict) -> str | None:
     return a.get("notes")
 
 
+def last_block_reason(conn: sqlite3.Connection, activity_id: str) -> str | None:
+    """Motivo do último bloqueio feito na Central (para reabrir uma atividade que estava bloqueada)."""
+    for r, _, after in _status_events(conn, activity_id):
+        if after["status"] == "Bloqueada" and (r["reason"] or "").startswith(BLOCK_PREFIX):
+            return r["reason"][len(BLOCK_PREFIX):]
+    return None
+
+
 def status_before_done(conn: sqlite3.Connection, activity_id: str) -> str:
     """Situação que a atividade tinha antes de ser concluída (para "Reabrir"). Sem registro: "A fazer"."""
     for _, before, after in _status_events(conn, activity_id):

@@ -35,7 +35,7 @@
 {% for s in d.suggestions %}
   <li class="row"><a href="/sugestoes/{{ s.id }}">{% if s.kind == 'update' %}{{ s.target_title or s.target }}{% else %}{{ s.proposed.get('title') or 'Atividade sem título' }}{% endif %}</a> <span class="small muted">{{ 'mudança sugerida' if s.kind == 'update' else 'atividade nova sugerida' }}</span>.
     <span class="tag {{ 'pending' if s.status == 'pendente' else 'neutral' }}">{{ SUG_STATUS.get(s.status, s.status) }}</span>
-    <div>{% for k, v in s.proposed.items() %}{{ FIELD_LABELS.get(k, k) }}: {{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}{{ '; ' if not loop.last }}{% endfor %}</div>
+    <div>{% set campos = s.proposed.items() | rejectattr(1, 'none') | rejectattr(1, 'equalto', '') | rejectattr(1, 'equalto', []) | list %}{% for k, v in campos %}{{ FIELD_LABELS.get(k, k) }}: {{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}{{ '; ' if not loop.last }}{% endfor %}</div>
     {% if s.status == 'pendente' %}<div class="small muted">Ainda não oficial: o quadro só muda depois da revisão.</div>{% endif %}
     {% if s.uncertainties %}<div class="uncert small"><span class="tag soon">incerto</span> {{ s.uncertainties | join('; ') }}</div>{% endif %}
     <div class="small muted">Documento: {{ source_ref(s.source) }}</div></li>

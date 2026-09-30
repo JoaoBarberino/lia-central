@@ -339,6 +339,7 @@ details.left-out > summary .muted { font-weight: 400; }
 .lo q { display: block; margin: .35rem 0 0; max-width: 70ch; quotes: "“" "”"; }
 .lo-why { margin: .3rem 0 0; font-size: .9rem; color: var(--muted); max-width: 70ch; }
 .lo-instrucao { border-color: #A9E3E8; background: var(--ice-soft); }
+.lo-conferir { border-color: #EBD3A2; background: var(--warn-soft); }
 .uncert { margin-top: 1rem; font-size: .93rem; background: var(--warn-soft); border: 1px solid #EBD3A2; color: var(--warn); border-radius: 10px; padding: .7rem 1rem; }
 .uncert ul { margin: .3rem 0 0; padding-left: 1.1rem; }
 .panel { border: 1px solid var(--line-strong); border-top: 4px solid var(--blue); border-radius: 12px; padding: 1.35rem 1.35rem 1.5rem; background: #fff; }

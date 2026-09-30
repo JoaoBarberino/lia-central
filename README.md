@@ -46,6 +46,8 @@ Detalhes que sustentam a regra:
 - **Momento da importação e vínculo com a fonte:** cada atividade importada tem um evento "Importação inicial" e uma referência à linha da planilha (`Atividades!linha N`), com o hash da versão lida.
 - **Edição posterior do .xlsx oficial:** comparamos a versão nova **com a versão anterior da planilha** (não com o banco). Só as células que mudaram viram sugestões, com a célula como evidência (`Atividades!D2: '2026-10-05' → '2026-10-07'`). Por isso uma planilha desatualizada não desfaz uma decisão aprovada na aplicação.
 - **Linhas removidas ou planilha esvaziada:** nada é apagado. Vira pendência para uma pessoa decidir.
+- **Células com problema não derrubam a importação:** prazo digitado como texto (`09/10/2026`) é convertido; o que não é data ("sexta") fica "a definir" e abre pendência; uma linha com erro vira pendência e as outras são importadas. Um nome que não é membro abre pendência "Responsável não reconhecido", e a evidência mostra o texto da célula.
+- **Código em conflito:** se a planilha ganhar uma linha com um código que já é de uma atividade criada na Central (ex.: ACT-105), nada é sobrescrito: vira pendência "Código em conflito".
 - **Planilha concorrente** (ex.: `Ata - copia vazia.xlsx`): tem as colunas de um registro, mas não é a fonte apontada. Vira pendência "Planilha concorrente" e as atividades continuam intactas. Ser mais recente não dá autoridade a um arquivo.
 
 ### Mudanças feitas na interface
@@ -77,7 +79,9 @@ Apps em modo *Testing* perdem a autorização após 7 dias. Se a sincronização
 
 ## 4. Instalação e execução
 
-Requisitos: Python 3.11 ou mais novo (testado no Linux com o 3.11 e no Windows). As versões das bibliotecas em `requirements.txt` são fixas, as mesmas com que os testes passaram.
+Requisitos: Python 3.11 ou mais novo (testado no Linux com o 3.11 e no Windows). As versões das bibliotecas em `requirements.txt` são fixas, as mesmas com que os testes passaram. Em alguns Linux o comando é `python3` em vez de `python`.
+
+**1. Instalar (uma vez):**
 
 ```bash
 git clone https://github.com/JoaoBarberino/lia-central.git
@@ -85,15 +89,13 @@ cd lia-central
 python -m venv .venv
 # Windows: .venv\Scripts\activate    |   macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env        # Windows: copy .env.example .env  → depois edite o .env
-uvicorn central.app:app --port 8000
 ```
 
 > **Sempre que abrir um terminal novo:** entre na pasta do projeto e ative o ambiente (`.venv\Scripts\activate` no Windows) antes de rodar o app.
 
-Abra http://localhost:8000, escolha uma pessoa de demonstração, abra **Estado da sincronização** no menu, clique em **Conectar Google Drive** e autorize. A página mostra a pasta conectada, o horário da última atualização e o resultado de cada verificação.
+Depois escolha **um** dos dois jeitos de rodar:
 
-**Sem Drive (avaliação rápida, sem conta Google e sem chave de IA):** não precisa de `.env`. Sem ele, a Central lê a pasta local `amostra/` e a IA fica desligada.
+**2A. Sem Drive (avaliação rápida, sem conta Google e sem chave de IA).** **Não crie o `.env`**: sem ele, a Central lê a pasta local `amostra/` e a IA fica desligada. (Se já criou o `.env` a partir do exemplo, ele pede o Drive: apague-o, ou troque `SOURCE_MODE=drive` por `SOURCE_MODE=local`.)
 
 ```bash
 mkdir amostra
@@ -101,12 +103,29 @@ cp tests/dados/01_CARGA_INICIAL/* amostra/          # Windows: copy tests\dados\
 uvicorn central.app:app --port 8000
 ```
 
-A pasta `amostra/` faz o papel do Drive: copie para ela um arquivo de `tests/dados/02_ADICIONAR_DEPOIS_DA_CARGA` ou `03_CONFLITO` e clique em **Atualizar agora** (ou espere a verificação automática). Arquivos `.gdoc` com texto simulam Google Docs nativos. Sem a IA, as atas são lidas, mas não geram sugestões; a edição de uma planilha oficial gera sugestões mesmo assim, porque essa comparação não usa IA.
+Abra http://localhost:8000 e escolha uma pessoa de demonstração. A pasta `amostra/` faz o papel do Drive: copie para ela um arquivo de `tests/dados/02_ADICIONAR_DEPOIS_DA_CARGA` ou `03_CONFLITO` e clique em **Atualizar agora** (ou espere a verificação automática). Arquivos `.gdoc` com texto simulam Google Docs nativos. Sem a IA, as atas são lidas, mas não geram sugestões (a tela de sugestões avisa); a edição da planilha oficial gera sugestões mesmo assim, porque essa comparação não usa IA. Neste modo, os links "abrir no Drive" apontam para arquivos do computador, que o navegador pode bloquear: use a página do documento na Central.
+
+Para testar a IA sem o Drive, crie o `.env` a partir do exemplo com `SOURCE_MODE=local` e a sua `GEMINI_API_KEY`.
+
+**2B. Com o Google Drive.** Siga a seção 3 e depois:
+
+```bash
+cp .env.example .env        # Windows: copy .env.example .env  → depois preencha o .env
+uvicorn central.app:app --port 8000
+```
+
+Abra http://localhost:8000, escolha uma pessoa de demonstração, abra **Estado da sincronização** no menu, clique em **Conectar Google Drive** e autorize. A página mostra a pasta conectada, o horário da última atualização e o resultado de cada verificação.
 
 **Testes automatizados:**
 
 ```bash
 python -m pytest -q
+```
+
+**Avaliação da IA com atas novas** (precisa da `GEMINI_API_KEY` no `.env`): 18 atas difíceis em `tests/dados/05_AVALIACAO_IA`, escritas por um agente independente só a partir do case e da especificação, cada uma com o resultado esperado. O script roda cada ata pelo mesmo caminho do site, numa Central temporária, e compara com o gabarito (uns 3 a 5 minutos, 18 chamadas à IA):
+
+```bash
+python scripts/avaliar_ia.py
 ```
 
 ## 5. Processo de sincronização
@@ -149,8 +168,9 @@ Toda leitura acima é **determinística, sem IA**: o texto que entra é exatamen
 - **Validação determinística antes de mostrar qualquer coisa:**
   - a evidência precisa existir **literalmente** no documento;
   - o ID da atividade precisa existir;
-  - a data precisa ser ISO válida **e estar escrita no documento** (datas inferidas viram incerteza);
-  - os responsáveis precisam ser membros conhecidos citados no texto;
+  - a data precisa **estar escrita no documento**, em qualquer formato comum (2026-10-07, 07/10/2026, 7/10, "7 de outubro"). Uma data calculada pela IA ("até sexta que vem") não é apresentada como fato: o item aparece em "O que a IA leu e deixou de fora" como **"Precisa de conferência"**, com o trecho e o motivo;
+  - os responsáveis precisam ser membros conhecidos citados no texto (como palavra inteira: "Ana" não conta dentro de "semana");
+  - uma atividade nova com título parecido com uma existente vem com um ponto para conferir ("Parecida com ACT-101");
   - campos iguais ao valor oficial são descartados, o que evita sugestão vazia e duplicata.
 - **Hipóteses** ("talvez", sem dono nem decisão) viram `no_action`. Além do que o modelo diz, a própria Central barra a proposta cujo trecho só fala em possibilidade ("talvez", "poderíamos", "quem sabe") sem nenhuma decisão: hipótese nunca vira sugestão. Se o trecho tem uma decisão e um "talvez" no meio, a sugestão segue com um ponto para conferir.
 - **Responsáveis:** quem já é responsável e continua na lista do modelo é mantido, mesmo sem ser citado no documento; se a proposta tira alguém, isso aparece como ponto para conferir.

@@ -1,4 +1,4 @@
-# Versões fixas: as mesmas com que os 107 testes passaram (instalação do zero em 30/09/2026).
+# Versões fixas: as mesmas com que todos os testes passaram (instalação do zero em 30/09/2026).
 # Fixar evita que uma versão nova de alguma biblioteca mude o comportamento na máquina de quem avalia.
 fastapi==0.142.2
 starlette==1.7.0

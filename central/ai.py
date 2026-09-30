@@ -233,14 +233,51 @@ def evidence_in_text(evidence: str, text: str) -> bool:
     return len(parts) > 1 and all(len(p) >= 8 and p in flat_text for p in parts)
 
 
+def views_date(iso: str) -> str:
+    d = date.fromisoformat(iso)
+    return f"{d.day:02d}/{d.month:02d}/{d.year}"
+
+
+MESES = ["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro",
+         "novembro", "dezembro"]
+
+
 def date_in_text(iso: str, text: str) -> bool:
+    """A data está escrita no documento? Aceita 2026-10-07, 07/10/2026, 7/10, 07.10 e "7 de outubro" (de 2026).
+    Uma data calculada pela IA ("sexta que vem") não conta: não é apresentada como fato."""
     try:
         d = date.fromisoformat(iso)
     except ValueError:
         return False
-    variants = {iso, f"{d.day:02d}/{d.month:02d}/{d.year}", f"{d.day}/{d.month}/{d.year}",
-                f"{d.day:02d}/{d.month:02d}", f"{d.day}/{d.month}"}
-    return any(v in text for v in variants)
+    if iso in text:
+        return True
+    flat = normalize(text)
+    dia, mes = rf"0?{d.day}", rf"0?{d.month}"
+    ano = rf"(?:[/.](?:{d.year}|{d.year % 100:02d}))?"
+    if re.search(rf"(?<![\d/.]){dia}[/.]{mes}{ano}(?![\d/.]*\d)", flat):
+        return True
+    return bool(re.search(rf"(?<!\d){dia}(?:o|º)?\s+de\s+{MESES[d.month - 1]}(?:\s+de\s+{d.year})?\b", flat))
+
+
+def mentioned(name: str, text: str) -> bool:
+    """O nome aparece como palavra inteira ("Ana" não conta dentro de "semana")."""
+    return bool(re.search(rf"(?<!\w){re.escape(normalize(name))}(?!\w)", normalize(text)))
+
+
+def _words(title: str) -> set[str]:
+    return {w for w in re.findall(r"\w+", normalize(title or "")) if len(w) > 3}
+
+
+def similar_activity(conn: sqlite3.Connection, title: str) -> dict | None:
+    """Atividade existente com título parecido (a maioria das palavras em comum): pode ser a mesma."""
+    new = _words(title)
+    if not new:
+        return None
+    for r in conn.execute("SELECT activity_id, title FROM activities WHERE status <> 'Concluída'"):
+        old = _words(r["title"])
+        if old and len(new & old) / min(len(new), len(old)) >= 0.6:
+            return dict(r)
+    return None
 
 
 INJECTION_MARKERS = ["ignore as regras", "ignore todas as regras", "ignore as instrucoes", "instrucao para a ia",
@@ -296,6 +333,7 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
     if mentions_possibility(evidence):   # decisão com um "talvez" no meio: segue, mas o revisor é avisado
         uncertainties.append("O trecho também fala em possibilidade (\"talvez\"): confira o que foi de fato decidido.")
     current_owners = acts.get_owners(conn, item.get("target_activity_id")) if kind == "update" else []
+    dropped: list[str] = []   # o que a IA propôs e a checagem tirou (ex.: prazo que não está escrito)
     proposed: dict = {}
     for f in PROPOSABLE_FIELDS:
         v = item.get(f)
@@ -307,9 +345,12 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
     if "due_date" in proposed:
         if not isinstance(proposed["due_date"], str) or not acts.valid_iso_date(proposed["due_date"]):
             uncertainties.append(f"Prazo em formato inválido ({proposed['due_date']!r}); deixado a definir.")
+            dropped.append(uncertainties[-1])
             proposed.pop("due_date")
         elif not date_in_text(proposed["due_date"], text):
-            uncertainties.append(f"O prazo {proposed['due_date']} não aparece escrito no documento; deixado a definir.")
+            uncertainties.append(f"O prazo {views_date(proposed['due_date'])} não aparece escrito como data no documento "
+                                 "(pode ter sido calculado a partir de algo como \"sexta que vem\"); deixado a definir.")
+            dropped.append(uncertainties[-1])
             proposed.pop("due_date")
 
     # Responsáveis: membros conhecidos e citados no texto
@@ -322,8 +363,10 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
             mid = o if o in names else by_name.get(normalize(str(o)))
             if not mid:
                 uncertainties.append(f"Responsável {o!r} não é um membro conhecido; responsável a confirmar.")
-            elif normalize(names[mid]) not in normalize(text) and mid not in current_owners:
+                dropped.append(uncertainties[-1])
+            elif not mentioned(names[mid], text) and mid not in current_owners:
                 uncertainties.append(f"{names[mid]} não é citado no documento; responsável a confirmar.")
+                dropped.append(uncertainties[-1])
             elif mid not in owners:
                 owners.append(mid)   # quem já é responsável e a IA manteve na lista continua, mesmo sem ser citado
         if owners:
@@ -338,6 +381,7 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
         proposed["status"] = acts.normalize_status(proposed["status"])
         if proposed["status"] not in acts.STATUSES:
             uncertainties.append(f"Estado desconhecido {proposed['status']!r} ignorado.")
+            dropped.append(uncertainties[-1])
             proposed.pop("status")
 
     if kind == "update":
@@ -351,6 +395,9 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
         clean["already"] = {k: v for k, v in proposed.items() if current.get(k) == v}
         proposed = {k: v for k, v in proposed.items() if current.get(k) != v}
         if not proposed:
+            if dropped:   # havia mudança, mas nada dela se confirmou no texto: pede conferência, não "nada novo"
+                clean["target_activity_id"] = target
+                return clean | {"dropped": dropped}, "precisa_conferir"
             return None, "sem_mudanca"
         clean["target_activity_id"] = target
     else:  # create
@@ -363,10 +410,14 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
         for d in dup:
             if normalize(d["title"]) == normalize(proposed["title"]):
                 return None, f"já existe atividade com o mesmo título ({d['activity_id']})"
-        mentioned = normalize(" ".join(uncertainties))
-        if "owners" not in proposed and "responsavel" not in mentioned:
+        near = similar_activity(conn, proposed["title"])
+        if near:
+            uncertainties.append(f"Parecida com a atividade {near['activity_id']} (“{near['title']}”): "
+                                 "confira se não é a mesma antes de criar outra.")
+        noted = normalize(" ".join(uncertainties))
+        if "owners" not in proposed and "responsavel" not in noted:
             uncertainties.append("Responsável não definido no documento: responsável a confirmar.")
-        if "due_date" not in proposed and "prazo" not in mentioned:
+        if "due_date" not in proposed and "prazo" not in noted:
             uncertainties.append("Prazo não definido no documento: a definir.")
         clean["target_activity_id"] = None
     clean["proposed"] = {k: proposed[k] for k in PROPOSABLE_FIELDS if k in proposed}
@@ -405,10 +456,16 @@ def analyze_minutes(conn: sqlite3.Connection, llm: LLM, file_id: str) -> str:
     items = result.get("items") if isinstance(result, dict) else None
     if not isinstance(items, list):
         raise LLMError("Resposta do modelo fora do contrato (sem lista 'items').")
-    created = hypotheses = rejected = unchanged = 0
+    created = hypotheses = rejected = unchanged = to_check = 0
     doc_date = meta.get("data_da_reuniao")
     for item in items:
         clean, problem = validate_item(conn, item, text)
+        if problem == "precisa_conferir":
+            to_check += 1
+            _note(conn, file_id, version, "precisa_conferir", clean["evidence"],
+                  (f"{clean['target_activity_id']}: " if clean.get("target_activity_id") else "")
+                  + " ".join(clean["dropped"]))
+            continue
         if problem == "sem_mudanca":
             unchanged += 1
             _note(conn, file_id, version, "sem_mudanca", (item or {}).get("evidence"),
@@ -439,4 +496,4 @@ def analyze_minutes(conn: sqlite3.Connection, llm: LLM, file_id: str) -> str:
         if sid:
             created += 1
     from .views import analysis_summary
-    return analysis_summary(created, unchanged, hypotheses, rejected)
+    return analysis_summary(created, unchanged, hypotheses, rejected, to_check)

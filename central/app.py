@@ -404,6 +404,9 @@ def detalhe(request: Request, activity_id: str, conn=Depends(db)):
     refs = [dict(r) | {"source": views.source_link(conn, r["file_id"])} for r in conn.execute(
         "SELECT * FROM activity_refs WHERE activity_id=? ORDER BY id", (activity_id,))]
     pend = [s for s in sugg.list_suggestions(conn) if s["target_activity_id"] == activity_id]
+    for s in pend:   # de onde veio a sugestão: "pela ata de 03/10" ou "pela planilha oficial"
+        s["source"] = views.source_link(conn, s["source_file_id"])
+        s["origin"] = views.sug_origin(s)
     back = _back_link(request, activity_id)
     row["pending_suggestions"] = len(pend)
     last = history[0] if history else None
@@ -533,7 +536,11 @@ def mudar_estado(request: Request, activity_id: str, status: str = Form(...), re
         return to(f"/atividades/{activity_id}")
     before = acts.snapshot(conn, activity_id)["status"]
     reason = reason.strip()
-    if status == "Bloqueada":
+    if status == "Bloqueada" and before == "Concluída" and not reason:
+        # Reabrir uma atividade que estava bloqueada: volta bloqueada, com o motivo de antes
+        previous = acts.last_block_reason(conn, activity_id)
+        why = acts.BLOCK_PREFIX + previous if previous else "Reaberta (voltou para Bloqueada)"
+    elif status == "Bloqueada":
         # o motivo é obrigatório e vai para o histórico; as notas da atividade não são apagadas
         if not reason:   # o erro aparece escrito junto do campo, que já abre com o foco
             return to(f"/atividades/{activity_id}?bloquear=1#bloquear")
@@ -568,9 +575,11 @@ def sugestoes(request: Request, estado: str = "pendente", conn=Depends(db)):
         s["already_txt"] = views.sug_already(s, names)
     notes = [dict(r) | {"source": views.source_link(conn, r["file_id"])} for r in conn.execute(
         "SELECT n.* FROM extraction_notes n JOIN sources s ON s.file_id = n.file_id AND s.content_hash = n.source_version "
-        "WHERE n.kind IN ('hipotese','barrada_validacao','sem_mudanca','instrucao_ignorada') ORDER BY n.id DESC")]
+        "WHERE n.kind IN ('hipotese','barrada_validacao','sem_mudanca','instrucao_ignorada','precisa_conferir') ORDER BY n.id DESC")]
     notes = views.left_out(notes)
-    return render(request, conn, "sugestoes.html", items=items, estado=estado, names=names, notes=notes)
+    atas_sem_ia = 0 if settings.llm_enabled else conn.execute(
+        "SELECT COUNT(*) FROM sources WHERE role='ata' AND sync_status='ok'").fetchone()[0]
+    return render(request, conn, "sugestoes.html", atas_sem_ia=atas_sem_ia, items=items, estado=estado, names=names, notes=notes)
 
 
 @app.get("/sugestoes/{sid}", response_class=HTMLResponse)

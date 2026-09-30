@@ -15,7 +15,9 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
+from datetime import date
 
 from . import activities as acts
 from . import suggestions as sugg
@@ -40,18 +42,49 @@ def _col_letter(idx: int) -> str:
     return s
 
 
-def row_to_fields(conn, sheet: dict, row: dict) -> tuple[dict, list[str]]:
-    """Converte uma linha da planilha em campos da atividade. Devolve também nomes não reconhecidos."""
+BLANK_DATES = {"", "-", "—", "a definir", "sem prazo", "indefinido", "tbd", "n/a"}
+
+
+def parse_due(value) -> tuple[str | None, bool]:
+    """Prazo de uma célula: (data ISO ou None, ok). Aceita data do Excel, AAAA-MM-DD e dd/mm/aaaa (ou dd/mm/aa).
+    Texto que não é data (ex.: "sexta") volta como (None, False): vira "a definir" e uma pendência."""
+    if value is None:
+        return None, True
+    text = str(value).strip()
+    if normalize(text) in BLANK_DATES:
+        return None, True
+    if acts.valid_iso_date(text[:10]) and (len(text) == 10 or text[10] in " T"):
+        return text[:10], True
+    m = re.fullmatch(r"(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})", text)
+    if m:
+        day, month, year = int(m[1]), int(m[2]), int(m[3]) + (2000 if len(m[3]) == 2 else 0)
+        try:
+            return date(year, month, day).isoformat(), True
+        except ValueError:
+            pass
+    return None, False
+
+
+def row_to_fields(conn, sheet: dict, row: dict, raw: dict | None = None,
+                  bad: dict | None = None) -> tuple[dict, list[str]]:
+    """Converte uma linha da planilha em campos da atividade. Devolve também nomes não reconhecidos.
+    `raw` recebe o texto original de cada campo (para a evidência); `bad`, os campos com valor ilegível."""
     fields: dict = {}
     unknown: list[str] = []
     for header, value in row["cells"].items():
         key = COLUMN_TO_FIELD.get(normalize(header))
         if not key:
             continue
+        if raw is not None:
+            raw[key] = value
         if key == "owners":
             fields["owners"], unknown = acts.parse_owner_names(conn, value)
         elif key == "status":
             fields["status"] = acts.normalize_status(value)
+        elif key == "due_date":
+            fields["due_date"], ok = parse_due(value)
+            if not ok and bad is not None:
+                bad["due_date"] = value
         else:
             fields[key] = str(value) if value is not None else None
     return fields, unknown
@@ -147,44 +180,66 @@ def process_official_register(conn: sqlite3.Connection, file_id: str) -> str:
     return summary
 
 
+def _bad_date_issue(conn, file_id, sheet, row, act_id, value) -> None:
+    open_issue(conn, "registro_alterado", f"Prazo ilegível na planilha oficial ({act_id})",
+               f"{cell_ref(sheet, row, 'due_date')} tem {value!r}, que não é uma data. "
+               "O prazo ficou 'a definir'; corrija a célula ou edite a atividade.",
+               dedupe_key=f"prazo_ilegivel:{act_id}:{value}", file_id=file_id)
+
+
 def _initial_import(conn, file_id, content_hash, sheet) -> str:
     count = 0
     for row in sheet["rows"]:
-        fields, unknown = row_to_fields(conn, sheet, row)
-        act_id = fields.pop("activity_id", None)
-        if not act_id or not fields.get("title"):
-            continue
-        origin = fields.pop("origin_label", None)
-        if acts.snapshot(conn, act_id):
-            continue  # idempotente
-        if unknown:
-            open_issue(conn, "responsavel_desconhecido", f"Responsável não reconhecido em {act_id}",
-                       f"Nomes não encontrados entre os membros: {', '.join(unknown)}. Mostrando 'responsável a confirmar'.",
-                       dedupe_key=f"resp:{act_id}", file_id=file_id)
-        acts.create_activity(conn, fields, actor_id="sistema", creation_kind="importacao", activity_id=act_id,
-                             origin_label=origin, reason=f"Importação inicial do registro oficial ({sheet['name']}, linha {row['row']})",
-                             source_file_id=file_id, source_version=content_hash)
-        acts.add_ref(conn, act_id, file_id, content_hash, f"{sheet['name']}!linha {row['row']}",
-                     " | ".join(f"{k}: {v}" for k, v in row["cells"].items() if v is not None), "importada_de")
-        if origin:
-            src = conn.execute("SELECT file_id FROM sources WHERE name = ?", (origin,)).fetchone()
-            if src:
-                acts.add_ref(conn, act_id, src["file_id"], None, None, None, "origem_declarada")
-        count += 1
+        try:   # uma linha com problema não impede as outras (falha isolada nunca vira ausência)
+            count += _import_row(conn, file_id, content_hash, sheet, row)
+        except Exception as e:
+            open_issue(conn, "registro_alterado", f"Linha {row['row']} da planilha oficial não foi importada",
+                       f"{sheet['name']}!linha {row['row']}: {e}. As demais linhas foram importadas.",
+                       dedupe_key=f"linha_nao_importada:{file_id}:{row['row']}", file_id=file_id)
     set_setting(conn, "register_baseline_hash", content_hash)
     return f"{count} atividades importadas"
 
 
+def _import_row(conn, file_id, content_hash, sheet, row) -> int:
+    bad: dict = {}
+    fields, unknown = row_to_fields(conn, sheet, row, bad=bad)
+    act_id = fields.pop("activity_id", None)
+    if not act_id or not fields.get("title"):
+        return 0
+    origin = fields.pop("origin_label", None)
+    if acts.snapshot(conn, act_id):
+        return 0  # idempotente
+    if unknown:
+        open_issue(conn, "responsavel_desconhecido", f"Responsável não reconhecido em {act_id}",
+                   f"Nomes não encontrados entre os membros: {', '.join(unknown)}. Mostrando 'responsável a confirmar'.",
+                   dedupe_key=f"resp:{act_id}", file_id=file_id)
+    if "due_date" in bad:
+        _bad_date_issue(conn, file_id, sheet, row, act_id, bad["due_date"])
+    acts.create_activity(conn, fields, actor_id="sistema", creation_kind="importacao", activity_id=act_id,
+                         origin_label=origin, reason=f"Importação inicial do registro oficial ({sheet['name']}, linha {row['row']})",
+                         source_file_id=file_id, source_version=content_hash)
+    acts.add_ref(conn, act_id, file_id, content_hash, f"{sheet['name']}!linha {row['row']}",
+                 " | ".join(f"{k}: {v}" for k, v in row["cells"].items() if v is not None), "importada_de")
+    if origin:
+        src = conn.execute("SELECT file_id FROM sources WHERE name = ?", (origin,)).fetchone()
+        if src:
+            acts.add_ref(conn, act_id, src["file_id"], None, None, None, "origem_declarada")
+    return 1
+
+
 def _diff_to_suggestions(conn, file_id, new_hash, old_sheet, new_sheet) -> str:
-    old_rows = {}
+    old_rows, old_raw = {}, {}
     for r in old_sheet["rows"]:
-        f, _ = row_to_fields(conn, old_sheet, r)
+        raw: dict = {}
+        f, _ = row_to_fields(conn, old_sheet, r, raw=raw)
         if f.get("activity_id"):
             old_rows[f["activity_id"]] = f
+            old_raw[f["activity_id"]] = raw
     created = removed = 0
     new_ids = set()
     for row in new_sheet["rows"]:
-        fields, _ = row_to_fields(conn, new_sheet, row)
+        raw, bad = {}, {}
+        fields, unknown = row_to_fields(conn, new_sheet, row, raw=raw, bad=bad)
         act_id = fields.pop("activity_id", None)
         fields.pop("origin_label", None)
         if not act_id:
@@ -193,19 +248,44 @@ def _diff_to_suggestions(conn, file_id, new_hash, old_sheet, new_sheet) -> str:
         old = dict(old_rows.get(act_id) or {})
         old.pop("activity_id", None)
         old.pop("origin_label", None)
-        if act_id not in old_rows and not acts.snapshot(conn, act_id):
+        existing = acts.snapshot(conn, act_id)
+        if act_id not in old_rows and existing:
+            kind = conn.execute("SELECT creation_kind FROM activities WHERE activity_id=?", (act_id,)).fetchone()[0]
+            if kind != "importacao":
+                # O mesmo código já é de uma atividade criada na Central: não sobrescreve, pede decisão
+                open_issue(conn, "registro_alterado", f"Código {act_id} em conflito",
+                           f"A planilha oficial ganhou uma linha {act_id} (\"{fields.get('title') or ''}\"), "
+                           f"mas {act_id} já é a atividade \"{existing['title']}\", criada na Central. "
+                           "Nada foi alterado; use outro código na planilha ou crie a atividade pela Central.",
+                           dedupe_key=f"id_conflito:{act_id}:{new_hash}", file_id=file_id)
+                continue
+        if "due_date" in bad:   # prazo ilegível: não apaga o prazo atual, pede correção
+            fields.pop("due_date", None)
+            _bad_date_issue(conn, file_id, new_sheet, row, act_id, bad["due_date"])
+        uncert = []
+        if unknown:
+            uncert.append(f"Nome não reconhecido entre os membros: {', '.join(unknown)}. Responsável a confirmar.")
+            open_issue(conn, "responsavel_desconhecido", f"Responsável não reconhecido em {act_id}",
+                       f"{cell_ref(new_sheet, row, 'owners')} tem {raw.get('owners')!r}; "
+                       f"não são membros: {', '.join(unknown)}.",
+                       dedupe_key=f"resp:{act_id}:{new_hash}", file_id=file_id)
+        if act_id not in old_rows and not existing:
             if sugg.create_suggestion(conn, kind="create", target_activity_id=None, proposed=fields,
                                       evidence=f"{new_sheet['name']}!linha {row['row']}",
                                       reason="Nova linha no registro oficial", source_file_id=file_id,
-                                      source_version=new_hash):
+                                      source_version=new_hash, uncertainties=uncert or None):
                 created += 1
             continue
         changed = {k: v for k, v in fields.items() if old.get(k) != v}
         if changed:
-            evidence = "; ".join(f"{cell_ref(new_sheet, row, k)}: {old.get(k)!r} → {v!r}" for k, v in changed.items())
+            # evidência = o texto das células, como está na planilha (não os códigos internos)
+            prev = old_raw.get(act_id, {})
+            evidence = "; ".join(f"{cell_ref(new_sheet, row, k)}: {_cell_text(prev.get(k))} → {_cell_text(raw.get(k))}"
+                                 for k in changed)
             if sugg.create_suggestion(conn, kind="update", target_activity_id=act_id, proposed=changed,
                                       evidence=evidence, reason="Célula alterada no registro oficial",
-                                      source_file_id=file_id, source_version=new_hash):
+                                      source_file_id=file_id, source_version=new_hash,
+                                      uncertainties=uncert or None):
                 created += 1
     missing = sorted(set(old_rows) - new_ids)
     if missing:
@@ -218,6 +298,10 @@ def _diff_to_suggestions(conn, file_id, new_hash, old_sheet, new_sheet) -> str:
     if removed:
         msg += f"; {removed} {'linha sumiu e virou pendência' if removed == 1 else 'linhas sumiram e viraram pendência'}"
     return msg
+
+
+def _cell_text(v) -> str:
+    return "(vazia)" if v in (None, "") else repr(str(v))
 
 
 def process_register_candidate(conn: sqlite3.Connection, file_id: str) -> str:
