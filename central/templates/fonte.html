@@ -21,8 +21,8 @@
   <p class="small">A IA leu o arquivo a pedido de {{ tr.by }}. <strong>Ela ainda não vale:</strong> compare com o original, corrija o que estiver diferente e confirme. Depois disso o texto entra na Central como qualquer documento, e sugestões continuam passando por revisão.</p>
   <div class="tr-grid">
     <figure class="tr-original">
-      <img src="/fontes/{{ s.file_id }}/original" alt="Original: {{ s.name }}{{ ' (primeira página)' if s.name.lower().endswith('.pdf') }}" loading="lazy">
-      <figcaption class="small muted">Original{{ ', primeira página' if s.name.lower().endswith('.pdf') }}.{% if s.web_url %} <a href="{{ s.web_url }}" target="_blank" rel="noopener">Abrir no Drive<span class="sr"> (nova aba)</span></a>{% endif %}</figcaption>
+      <a href="/fontes/{{ s.file_id }}/original" target="_blank" rel="noopener" class="tr-zoom"><img src="/fontes/{{ s.file_id }}/original" alt="Original: {{ s.name }}{{ ' (primeira página)' if s.name.lower().endswith('.pdf') }}" loading="lazy"></a>
+      <figcaption class="small muted">Original{{ ', primeira página' if s.name.lower().endswith('.pdf') }}. <a href="/fontes/{{ s.file_id }}/original" target="_blank" rel="noopener">Ver em tamanho real<span class="sr"> (nova aba)</span></a>.{% if s.web_url %} <a href="{{ s.web_url }}" target="_blank" rel="noopener">Abrir no Drive<span class="sr"> (nova aba)</span></a>{% endif %}</figcaption>
     </figure>
     <form method="post" action="/fontes/{{ s.file_id }}/transcricao/confirmar" class="tr-form">
       <label for="tr-text">Transcrição da IA <span class="small muted">(pode editar)</span></label>

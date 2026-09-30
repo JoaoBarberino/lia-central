@@ -127,8 +127,8 @@ def test_pela_interface(client, monkeypatch):  # noqa: F811
     import central.app as app_module
     folder = os.environ["LOCAL_FOLDER"]
     shutil.copy(DATA / "04_EXTRAS" / SCAN, folder)
-    client.post("/sincronizar")
     login(client, "U-C")
+    client.post("/sincronizar")
     fid = next(r for r in __import__("re").findall(r'href="/fontes/([^"]+)">' + SCAN, client.get("/fontes").text))
     pagina = client.get(f"/fontes/{fid}").text
     assert "PDF escaneado" in pagina and "Ler com ajuda da IA" in pagina

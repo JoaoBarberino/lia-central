@@ -185,3 +185,85 @@ def test_mensagens_para_leitor_de_tela(client):  # noqa: F811
     assert 'role="alert"' in r.text or 'aria-invalid="true"' in r.text
     base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
     assert "querySelector('[aria-invalid=\"true\"]')" in base          # foco no primeiro campo com erro
+
+
+# ===========================================================================
+# Correções dos prints e Pacote 3
+# ===========================================================================
+def _sid(client, titulo):  # noqa: F811
+    return re.search(r'href="/sugestoes/(\d+)">' + re.escape(titulo), client.get("/sugestoes").text).group(1)
+
+
+def test_ajuste_preserva_o_que_a_ata_sugeriu(client):  # noqa: F811
+    login(client, "U-B")
+    sid = _sid(client, "Propor exercício prático")
+    client.post(f"/sugestoes/{sid}/aceitar", data={"ajustar": "1", "title": "Propor exercício prático da primeira oficina",
+                                                   "owners": ["U-C"], "due_date": "2026-10-12",
+                                                   "next_step": "Escolher um problema real simples"})
+    from central import suggestions as sugg
+    s = sugg.get(_db(), int(sid))
+    assert s["review_status"] == "aceita_com_ajuste"
+    assert s["proposed"]["due_date"] == "2026-10-10"             # a proposta original continua guardada
+    assert s["applied"]["due_date"] == "2026-10-12" and s["adjusted"] == ["due_date"]
+    pagina = client.get(f"/sugestoes/{sid}").text
+    assert "Sugestão aceita com ajuste" in pagina and "A ata sugeriu: 10/10/2026" in pagina
+    assert re.search(r'class="btn secondary" href="/atividades/ACT-\d+">Ver a atividade', pagina)  # há outra pendente
+    client.post(f"/sugestoes/{_sid(client, 'Preparar carrossel')}/rejeitar", data={"reason": "teste"})
+    pagina = client.get(f"/sugestoes/{sid}").text
+    assert re.search(r'class="btn" href="/atividades/ACT-\d+">Ver a atividade', pagina)   # sem próxima: é a principal
+
+
+def test_campos_longos_em_varias_linhas(client):  # noqa: F811
+    login(client, "U-B")
+    pagina = client.get(f"/sugestoes/{_sid(client, 'Preparar carrossel')}").text
+    assert re.search(r'<textarea class="grow"[^>]*name="next_step"', pagina)
+    assert 'textarea class="grow" rows="1" autocomplete="off" id="next_step"' in client.get("/atividades/ACT-101/editar").text
+
+
+def test_atividade_criada_por_sugestao_mostra_origem_e_o_que_falta(client):  # noqa: F811
+    login(client, "U-B")
+    sid = _sid(client, "Propor exercício prático")
+    client.post(f"/sugestoes/{sid}/aceitar", data={})
+    act = sugg_target = __import__("central.suggestions", fromlist=["get"]).get(_db(), int(sid))["target_activity_id"]
+    pagina = client.get(f"/atividades/{act}", headers={"referer": f"http://testserver/sugestoes/{sid}"}).text
+    assert f"aprovada por Bruno" in pagina and f'href="/sugestoes/{sid}"' in pagina
+    assert "Falta: frente." in pagina and f'href="/atividades/{act}/editar">Completar' in pagina
+    assert f'<a class="back" href="/sugestoes/{sid}">Sugestão #{sid}</a>' in pagina
+    assert sugg_target
+
+
+def test_voltar_mantem_a_lista_de_origem(client):  # noqa: F811
+    login(client, "U-A")
+    pagina = client.get("/atividades/ACT-101", headers={"referer": "http://testserver/atividades?prazo=vencidas"}).text
+    assert '<a class="back" href="/atividades?prazo=vencidas">Todas as atividades</a>' in pagina
+    # depois de mudar a situação a página volta para si mesma, mas o "voltar" continua o mesmo
+    pagina = client.get("/atividades/ACT-101", headers={"referer": "http://testserver/atividades/ACT-101"}).text
+    assert '<a class="back" href="/atividades?prazo=vencidas">' in pagina
+
+
+def test_titulo_da_aba_e_data_de_concluida(client):  # noqa: F811
+    login(client, "U-A")
+    assert "<title>Preparar carrossel sobre ferramentas | Central da Liga</title>" in client.get("/atividades/ACT-101").text
+    client.post("/atividades/ACT-101/estado", data={"status": "Concluída"})
+    assert 'class="date done"' in client.get("/atividades/ACT-101").text
+
+
+def test_ordenar_mantem_filtros(client):  # noqa: F811
+    login(client, "U-D")
+    pagina = client.get("/?q=checklist&prazo=perto").text
+    assert 'href="/?q=checklist&amp;prazo=perto&amp;ordem=estado"' in pagina
+    assert 'href="/?q=checklist#resultados" aria-current="true">Vencem' in pagina         # clicar de novo tira o atalho
+
+
+def test_busca_de_documentos_ignora_cabecalho_tecnico(client):  # noqa: F811
+    login(client, "U-A")
+    pagina = client.get("/fontes?q=ativo").text
+    assert "status: ativo" not in pagina and "data_da_reuniao" not in pagina
+
+
+def test_atualizar_agora_so_para_quem_entrou(client):  # noqa: F811
+    assert "Atualizar agora" not in client.get("/entrar").text
+    assert client.post("/sincronizar", follow_redirects=False).headers["location"] == "/entrar"
+    login(client, "U-A")
+    assert "Atualizar agora" in client.get("/").text
+    assert "tokens" not in client.get("/sincronizacao").text.split("Detalhes técnicos")[0]

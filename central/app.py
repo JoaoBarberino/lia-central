@@ -68,6 +68,8 @@ def _com_links(text: str, docs: dict) -> Markup:
 
 
 templates.env.filters["com_links"] = _com_links
+templates.env.filters["combine"] = lambda a, b: {**a, **b}
+templates.env.filters["lower_label"] = lambda k: acts.FIELD_LABELS.get(k, k).lower()
 templates.env.filters["frase"] = lambda t: (t[:1].upper() + t[1:]) if t else t
 def _doc_kind(s) -> str:
     """Tipo do documento na tela; arquivos não lidos dizem o que são ("Imagem", "PDF escaneado")."""
@@ -216,7 +218,8 @@ def render(request: Request, conn, template: str, status_code: int = 200, **ctx)
         if member and member["can_review"] else 0,
         n_issues=conn.execute("SELECT COUNT(*) FROM issues WHERE status='aberta'").fetchone()[0],
         source_mode=settings.source_mode, llm_enabled=settings.llm_enabled,
-        sync_minutes=round(settings.sync_interval / 60, 1) if settings.sync_interval % 60 else settings.sync_interval // 60,
+        sync_minutes=(str(round(settings.sync_interval / 60, 1)).replace(".", ",") if settings.sync_interval % 60
+                      else settings.sync_interval // 60),
     )
     return templates.TemplateResponse(request, template, ctx, status_code=status_code)
 
@@ -298,8 +301,19 @@ def home(request: Request, ordem: str = "prazo", q: str = "", prazo: str = "", s
             stale.append(a | {"stale_days": n})
     stale.sort(key=lambda a: -a["stale_days"])
     return render(request, conn, "minhas.html", items=items, ordem=ordem, mine_pending=mine_pending, stats=stats,
-                  stale=stale, filtro=filtro, filtering=filtering, recent=recent,
+                  stale=stale, filtro=filtro, filtering=filtering, recent=recent, link=_home_link(filtro),
                   welcome=not get_setting(conn, f"comece_visto:{me}"))
+
+
+def _home_link(filtro: dict):
+    """Links de Minhas atividades que mudam uma coisa e mantêm o resto (busca, filtro e ordem)."""
+    from urllib.parse import urlencode
+
+    def link(**changes) -> str:
+        d = {k: filtro.get(k) for k in ("q", "prazo", "situacao", "novidade", "ordem")} | changes
+        d = {k: v for k, v in d.items() if v and not (k == "ordem" and v == "prazo")}
+        return "/?" + urlencode(d) if d else "/"
+    return link
 
 
 @app.post("/comece-aqui/depois")
@@ -390,9 +404,7 @@ def detalhe(request: Request, activity_id: str, conn=Depends(db)):
     refs = [dict(r) | {"source": views.source_link(conn, r["file_id"])} for r in conn.execute(
         "SELECT * FROM activity_refs WHERE activity_id=? ORDER BY id", (activity_id,))]
     pend = [s for s in sugg.list_suggestions(conn) if s["target_activity_id"] == activity_id]
-    # "voltar" leva para a lista de onde a pessoa veio
-    ref = request.headers.get("referer") or ""
-    back = ("/atividades", "Todas as atividades") if "/atividades" in ref and "/atividades/" not in ref else ("/", "Minhas atividades")
+    back = _back_link(request, activity_id)
     row["pending_suggestions"] = len(pend)
     last = history[0] if history else None
     row["last_update"] = {"ts": last["ts"], "by": last["actor"]} if last else None
@@ -406,12 +418,45 @@ def detalhe(request: Request, activity_id: str, conn=Depends(db)):
             if (new or None) != (cur or None):
                 pend_fields.setdefault(k, []).append({"value": views.describe_value(k, v, names), "id": s["suggestion_id"]})
     row["block_reason"] = acts.block_reason(conn, row) if row["status"] == "Bloqueada" else None
+    first = history[-1] if history else None
+    row["origin_sug"] = first["suggestion_id"] if first else None
+    row["origin_by"] = first["actor"] if first and first["actor"] != "sistema" else None
+    # Campos que o formulário de criação pede e ficaram vazios (a ata não trouxe; ninguém inventa): convite a completar
+    row["missing"] = [] if row["status"] == "Concluída" else [
+        label for k, label in (("owners", "responsáveis"), ("front", "frente"), ("next_step", "próximo passo"))
+        if not (row["owners"] if k == "owners" else row.get(k))]
     return render(request, conn, "atividade.html", a=row, history=history, refs=refs, pend=pend, names=names,
                   back_href=back[0], back_label=back[1], stale_days=stale_days,
                   pend_fields=pend_fields, pend_labels=[acts.FIELD_LABELS.get(k, k) for k in pend_fields],
                   reopen_to=acts.status_before_done(conn, activity_id) if row["status"] == "Concluída" else None,
                   block_open=request.query_params.get("bloquear") == "1",
                   can_confirm=can_confirm(conn, require_member(request), row["owners"]))
+
+
+BACK_LABELS = [("/sugestoes/", "Sugestão"), ("/sugestoes", "Sugestões para revisar"), ("/atividades", "Todas as atividades"),
+               ("/novidades", "Novidades dos documentos"), ("/fontes/", "Documento"), ("/fontes", "Documentos"),
+               ("/pendencias", "Pendências"), ("/comece-aqui", "Comece aqui")]
+
+
+def _back_link(request: Request, activity_id: str) -> tuple[str, str]:
+    """"Voltar" leva para a página de onde a pessoa veio (lista com os mesmos filtros, sugestão, documento…).
+    Depois de editar ou mudar a situação, a página volta a si mesma: o destino anterior fica guardado na sessão."""
+    from urllib.parse import urlsplit
+    ref = urlsplit(request.headers.get("referer") or "")
+    same_host = not ref.netloc or ref.netloc == request.url.netloc
+    path = ref.path or ""
+    if same_host and path and not path.startswith(f"/atividades/{activity_id}") and path != "/entrar":
+        target = path + (f"?{ref.query}" if ref.query else "")
+        label = "Minhas atividades" if path == "/" else next((l for p, l in BACK_LABELS if path.startswith(p)), None)
+        if label == "Sugestão":
+            label = f"Sugestão #{path.rstrip('/').rsplit('/', 1)[-1]}"
+        if label == "Todas as atividades" and path != "/atividades":
+            label = None   # outra atividade: volta para a lista
+        if label:
+            request.session["voltar"] = [activity_id, target, label]   # só o último (a sessão é um cookie)
+            return target, label
+    saved = request.session.get("voltar")
+    return (saved[1], saved[2]) if saved and saved[0] == activity_id else ("/", "Minhas atividades")
 
 
 def can_confirm(conn, member_id: str | None, owners: list[str]) -> bool:
@@ -590,7 +635,8 @@ async def aceitar(request: Request, sid: int, conn=Depends(db)):
             if k == "owners":
                 adjusted[k] = form.getlist("owners")
             elif k in form:
-                adjusted[k] = (form.get(k) or "").strip() or None
+                v = (form.get(k) or "").strip()
+                adjusted[k] = (" ".join(v.split()) if k == "title" else v) or None   # título numa linha só
         # campo que a ata não trouxe e o revisor deixou em branco (ou no padrão "A fazer") não conta como ajuste
         adjusted = {k: v for k, v in adjusted.items()
                     if k in s["proposed"] or (v not in (None, "", []) and not (k == "status" and v == "A fazer"))}
@@ -821,6 +867,8 @@ def sincronizacao(request: Request, conn=Depends(db)):
 
 @app.post("/sincronizar")
 def sincronizar(request: Request):
+    if not require_member(request):
+        return to("/entrar")
     r = do_sync("manual")
     if r.get("status") in ("ok", "parcial"):
         changed = (f"{r['processed']} {'lido agora' if r['processed'] == 1 else 'lidos agora'}" if r["processed"]

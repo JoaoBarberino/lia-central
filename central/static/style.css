@@ -116,6 +116,7 @@ h3 { font-size: 1.05rem; line-height: 1.35; font-weight: 600; margin: 0; }
 .item-title { margin: 0; color: var(--navy); font-size: 1.1rem; font-weight: 600; letter-spacing: -.01em; line-height: 1.35; }
 p { margin: 0 0 1rem; }
 .meta-line { color: var(--muted); margin: 0 0 1rem; }
+main p { max-width: 75ch; }   /* linhas de até ~75 caracteres: leitura confortável */
 .lead { color: var(--muted); max-width: 64ch; margin: 0 0 1.5rem; }
 .summary { font-size: 1.15rem; line-height: 1.5; max-width: 60ch; margin: .25rem 0 0; }
 .summary strong { font-weight: 600; color: var(--blue); }
@@ -157,6 +158,7 @@ code { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: .86
 .date .m { display: block; font-size: .9rem; font-weight: 600; margin-top: .3rem; letter-spacing: -.005em; }
 .date.soon { border-color: var(--warn); color: var(--warn); }
 .date.overdue { border-color: var(--danger); color: var(--danger); }
+.date.done { border-color: var(--line-strong); color: var(--muted); }   /* concluída: o prazo não pede mais atenção */
 .date.none { border: 1.5px dashed var(--line-strong); color: var(--muted); font-size: .85rem; font-weight: 600; line-height: 1.3; padding: 1rem .4rem; }
 .act .item-title { font-family: var(--display); font-size: 1.2rem; font-weight: 600; letter-spacing: -.015em; line-height: 1.3; margin: 0 0 .25rem; }
 .act .item-title a { color: var(--navy); text-decoration: none; }
@@ -171,6 +173,9 @@ code { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: .86
 .pend-note { margin: 1.5rem 0 0; padding: .7rem 1rem; border: 1px dashed var(--field); border-radius: 10px; font-size: .95rem; max-width: 75ch; }
 .pend-note p { margin: 0; }
 .pend-note p + p { margin-top: .35rem; }
+.missing { margin: 1.25rem 0 0; padding: .6rem .9rem; border-left: 3px solid var(--warn); background: var(--warn-soft); color: var(--navy);
+  border-radius: 0 8px 8px 0; font-size: .95rem; max-width: 75ch; }
+.missing a { font-weight: 600; margin-left: .3rem; }
 .pend-val { display: block; margin-top: .3rem; font-size: .88rem; font-weight: 400; color: var(--muted); }
 .proposal { display: inline-block; margin: .75rem 0 0; padding: .5rem .8rem; border-radius: 8px; background: var(--ice-soft); font-size: .95rem; }
 .proposal strong { color: var(--blue); font-weight: 600; }
@@ -256,7 +261,8 @@ details.filt > summary { font-weight: 600; color: var(--navy); font-size: .93rem
 .transcribe > p { margin: 0 0 .6rem; max-width: 70ch; }
 .tr-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; margin-top: .8rem; align-items: start; }
 .tr-original { margin: 0; }
-.tr-original img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; object-position: top;
+.tr-zoom { display: block; cursor: zoom-in; }
+.tr-original img { display: block; width: 100%; height: auto; max-height: 80vh; object-fit: contain; object-position: top;
   background: #fff; border: 1px solid var(--line); border-radius: 8px; }
 .tr-form label { display: block; font-weight: 600; margin-bottom: .3rem; }
 .tr-form textarea { width: 100%; min-height: 16rem; font: inherit; font-size: .95rem; line-height: 1.5; padding: .7rem .8rem;
@@ -309,6 +315,7 @@ blockquote.evidence.small { font-size: .93rem; margin-top: .4rem; }
 .delta-row { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: .2rem 1rem; align-items: baseline; }
 .delta dt { font-weight: 600; color: var(--muted); font-size: .93rem; }
 .delta dd { margin: 0; line-height: 1.55; }
+.delta .adj { display: block; margin-top: .15rem; font-size: .88rem; color: var(--muted); }
 .delta .was { color: var(--muted); }
 .delta .arrow { color: var(--muted); margin: 0 .15rem; }
 .delta ins { text-decoration: none; background: var(--ice); color: var(--navy); font-weight: 600; padding: .05rem .4rem;
@@ -381,6 +388,7 @@ input[type=text], input[type=date], select, textarea { width: 100%; padding: .55
   border-radius: 8px; background: #fff; color: var(--navy); }
 input:hover, select:hover, textarea:hover { border-color: var(--navy); }
 textarea { min-height: 4.5rem; }
+textarea.grow { min-height: 2.75rem; resize: vertical; overflow: hidden; line-height: 1.45; }
 ::placeholder { color: #6A7398; }
 .hint { font-size: .88rem; color: var(--muted); margin: .3rem 0 0; }
 .error { color: var(--danger); font-weight: 600; font-size: .92rem; margin: .3rem 0 0; }

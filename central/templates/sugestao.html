@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import source_ref, delta %}
-{% block title %}Sugestão #{{ s.suggestion_id }}{% endblock %}
+{% block title %}Sugestão: {{ current.title if (s.kind == 'update' and current) else (s.proposed.get('title') or 'atividade nova') }}{% endblock %}
 {% block content %}
 <a class="back" href="/sugestoes">Sugestões para revisar</a>
 <h1>{% if s.kind == 'update' and current %}{{ current.title }}{% else %}{{ s.proposed.get('title') or 'Atividade nova' }}{% endif %}</h1>
@@ -79,6 +79,9 @@
           <div><label for="adj-status">{{ r.label }}</label><select id="adj-status" name="status">{% for st in STATUSES %}<option {% if r.raw == st %}selected{% endif %}>{{ st }}</option>{% endfor %}</select></div>
           {% elif r.field == 'front' %}
           <div><label for="adj-front">{{ r.label }}</label><select id="adj-front" name="front"><option value="">Sem frente</option>{% for f in ['Growth', 'Formação', 'Operações'] + ([r.raw] if r.raw and r.raw not in ['Growth', 'Formação', 'Operações'] else []) %}<option {% if r.raw == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+          {% elif r.field in ('title', 'next_step', 'notes', 'description') %}
+          {# texto longo: caixa que cresce com o conteúdo, para ler tudo antes de aceitar #}
+          <div><label for="adj-{{ r.field }}">{{ r.label }}</label><textarea class="grow" rows="1" autocomplete="off" id="adj-{{ r.field }}" name="{{ r.field }}"{% if r.field == 'title' %} data-one-line{% endif %}>{{ r.raw or '' }}</textarea></div>
           {% else %}
           <div><label for="adj-{{ r.field }}">{{ r.label }}</label><input type="text" autocomplete="off" id="adj-{{ r.field }}" name="{{ r.field }}" value="{{ r.raw }}"></div>
           {% endif %}
@@ -103,15 +106,16 @@
     <p class="small">Quem aceita ou rejeita sugestões é {{ members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') }}. {{ 'Até a revisão, a atividade continua com os valores atuais.' if s.kind == 'update' else 'Até a revisão, esta atividade não entra no quadro.' }}</p>
     {% endif %}
   {% else %}
-    <h2>{% if s.review_status.startswith('aceita') %}Sugestão aceita{% elif s.review_status == 'rejeitada' %}Sugestão rejeitada{% else %}Sugestão substituída{% endif %}</h2>
+    <h2>{% if s.review_status == 'aceita_com_ajuste' %}Sugestão aceita com ajuste{% elif s.review_status.startswith('aceita') %}Sugestão aceita{% elif s.review_status == 'rejeitada' %}Sugestão rejeitada{% else %}Sugestão substituída{% endif %}</h2>
     <p class="small">
       {% if s.reviewer_id %}Decisão de {{ names.get(s.reviewer_id) }} em {{ fmt_ts(s.reviewed_at) }}{% if s.review_note %}: “{{ s.review_note }}”{% endif %}.{% endif %}
+      {% if s.adjusted %}Ajustado antes de aceitar: {{ s.adjusted | map('lower_label') | join(', ') }}. O que a ata tinha sugerido continua registrado em cada campo.{% endif %}
       {% if s.review_status.startswith('aceita') %}O quadro de atividades já mostra a mudança.{% elif s.review_status == 'rejeitada' %}O quadro de atividades não mudou.{% endif %}
     </p>
     <div class="stack-actions">
       {% if next_pending %}<a class="btn" href="/sugestoes/{{ next_pending }}">Próxima sugestão ({{ n_left }} {{ 'pendente' if n_left == 1 else 'pendentes' }})</a>
       {% else %}<p class="small muted" style="margin:0">Não há mais sugestões pendentes.</p>{% endif %}
-      {% if s.target_activity_id %}<a class="btn secondary" href="/atividades/{{ s.target_activity_id }}">Ver a atividade</a>{% endif %}
+      {% if s.target_activity_id %}<a class="btn{{ ' secondary' if next_pending }}" href="/atividades/{{ s.target_activity_id }}">Ver a atividade</a>{% endif %}
       <a class="btn secondary" href="/sugestoes">Voltar para a lista</a>
     </div>
   {% endif %}

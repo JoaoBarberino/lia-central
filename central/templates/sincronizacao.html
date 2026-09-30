@@ -45,7 +45,7 @@
     {% endif %}
   {% else %}
     <p><span class="tag neutral">Pasta local (só para testes)</span></p>
-    <p>Pasta conectada: <code>{{ settings.local_folder }}</code></p>
+    <p>Pasta conectada: <code title="{{ settings.local_folder }}">{{ (settings.local_folder | string).replace('\\', '/').rstrip('/').rsplit('/', 1)[-1] }}</code></p>
     <p class="small">A Central lê <strong>só esta pasta e as subpastas dela</strong>, sem alterar nada. Modo para testar sem conta Google.</p>
   {% endif %}
   <h2>IA</h2>
@@ -54,7 +54,8 @@
   {% else %}
     <p><span class="tag neutral">desligada</span> As atas são lidas, mas sem sugestões. Para ligar, coloque a <code>GEMINI_API_KEY</code> no <code>.env</code>.</p>
   {% endif %}
-  <p class="small">Uso até agora: {{ calls.n or 0 }} {{ 'chamada' if (calls.n or 0) == 1 else 'chamadas' }}, {{ calls.i or 0 }} tokens de entrada e {{ calls.o or 0 }} de saída.</p>
+  <p class="small">A IA foi usada {{ calls.n or 0 }} {{ 'vez' if (calls.n or 0) == 1 else 'vezes' }} até agora.</p>
+  <details class="tech small"><summary>Detalhes técnicos</summary><p>{{ calls.i or 0 }} tokens de entrada e {{ calls.o or 0 }} de saída (a base do custo; veja o README).</p></details>
 </aside>
 </div>
 {% endblock %}

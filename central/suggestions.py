@@ -78,6 +78,14 @@ def get(conn: sqlite3.Connection, suggestion_id: int) -> dict | None:
     d["current"] = json.loads(r["current_fields"]) if r["current_fields"] else None
     d["uncertainties_list"] = json.loads(r["uncertainties"] or "[]")
     d["already"] = json.loads(r["already_fields"]) if r["already_fields"] else {}
+    # Aceita: o que entrou no quadro. A proposta original continua em "proposed" (auditoria: o que a ata sugeriu
+    # e o que a pessoa revisora decidiu ficam lado a lado)
+    applied = json.loads(r["applied_fields"]) if r["applied_fields"] else None
+    d["applied"] = ({k: applied[k] for k in order if k in applied} | {k: v for k, v in applied.items() if k not in order}
+                    if applied is not None else None)
+    d["adjusted"] = ([k for k, v in d["applied"].items() if v != d["proposed"].get(k)
+                      and not (k not in d["proposed"] and (v in (None, "", []) or (k == "status" and v == "A fazer")))]
+                     if d["applied"] else [])   # campo vazio ou situação padrão de atividade nova não é ajuste
     return d
 
 
@@ -112,7 +120,8 @@ def accept(conn: sqlite3.Connection, suggestion_id: int, reviewer_id: str, adjus
         if adjusted:
             fields.update({k: v for k, v in adjusted.items() if k in acts.EDITABLE_FIELDS})
         final_status = "aceita_com_ajuste" if adjusted and fields != s["proposed"] else "aceita"
-        reason = f"Sugestão #{suggestion_id} aceita por revisão" + (f": {note}" if note else "")
+        reason = (f"Sugestão #{suggestion_id} aceita {'com ajuste ' if final_status == 'aceita_com_ajuste' else ''}por revisão"
+                  + (f": {note}" if note else ""))
 
         if s["kind"] == "update":
             target = s["target_activity_id"]
@@ -140,10 +149,9 @@ def accept(conn: sqlite3.Connection, suggestion_id: int, reviewer_id: str, adjus
             raise ReviewError(f"Tipo de sugestão desconhecido: {s['kind']}")
 
         conn.execute(
-            "UPDATE suggestions SET review_status=?, reviewer_id=?, reviewed_at=?, review_note=?, proposed_fields=? "
+            "UPDATE suggestions SET review_status=?, reviewer_id=?, reviewed_at=?, review_note=?, applied_fields=? "
             "WHERE suggestion_id=? AND review_status='pendente'",
-            (final_status, reviewer_id, now_iso(), note, dumps(fields) if final_status == "aceita_com_ajuste"
-             else s["proposed_fields"], suggestion_id))
+            (final_status, reviewer_id, now_iso(), note, dumps(fields), suggestion_id))
         return target
 
 

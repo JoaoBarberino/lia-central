@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import status_tag, due_tag, source_ref, date_block, people, check_actions %}
 {% macro sugerido(k) %}{% for p in pend_fields.get(k, []) %}<span class="pend-val">Sugerido, aguardando revisão: {{ p.value }}</span>{% endfor %}{% endmacro %}
-{% block title %}{{ a.activity_id }}{% endblock %}
+{% block title %}{{ a.title }}{% endblock %}
 {% block content %}
 <a class="back" href="{{ back_href or '/' }}">{{ back_label or 'Minhas atividades' }}</a>
 <div class="detail-head">
@@ -9,7 +9,7 @@
   <div>
     <h1>{{ a.title }}</h1>
     <p class="meta-line">{{ a.front or 'Sem frente' }}, <span class="id">código {{ a.activity_id }}</span>. {{ status_tag(a.status) }} {% if a.due_date %}{{ due_tag(a.due_date, a.status) }}{% endif %}</p>
-    <p class="small muted">{% if a.creation_kind == 'importacao' %}Veio da planilha oficial em {{ fmt_ts(a.created_at) }}.{% elif a.creation_kind == 'sugestao' %}Criada a partir de uma sugestão aprovada em {{ fmt_ts(a.created_at) }}.{% else %}Criada por {{ names.get(a.created_by, a.created_by) }} em {{ fmt_ts(a.created_at) }}.{% endif %}
+    <p class="small muted">{% if a.creation_kind == 'importacao' %}Veio da planilha oficial em {{ fmt_ts(a.created_at) }}.{% elif a.creation_kind == 'sugestao' %}Criada a partir de uma sugestão aprovada{% if a.origin_by %} por {{ a.origin_by }}{% endif %} em {{ fmt_ts(a.created_at) }}{% if a.origin_sug %} (<a href="/sugestoes/{{ a.origin_sug }}">ver sugestão #{{ a.origin_sug }}</a>){% endif %}.{% else %}Criada por {{ names.get(a.created_by, a.created_by) }} em {{ fmt_ts(a.created_at) }}.{% endif %}
       {% if a.last_update %}<strong>Última atualização: {{ fmt_ts(a.last_update.ts) }}</strong>{% if a.last_update.by != 'sistema' %}, por {{ a.last_update.by }}{% endif %}.{% endif %}</p>
   </div>
 </div>
@@ -32,6 +32,11 @@
   <p class="pend-val">{{ {'title': 'Título sugerido', 'status': 'Situação sugerida', 'front': 'Frente sugerida'}[k] }}, aguardando revisão: {{ p.value }}</p>
   {% endfor %}{% endfor %}
 </section>
+{% endif %}
+
+{% if a.missing %}
+<p class="missing">Falta{{ 'm' if a.missing|length > 1 }}: {{ (a.missing[:-1] | join(', ') ~ ' e ' ~ a.missing[-1]) if a.missing|length > 1 else a.missing[0] }}. {% if a.creation_kind == 'sugestao' %}A ata não trouxe essa informação.{% endif %}
+  <a href="/atividades/{{ a.activity_id }}/editar">Completar</a></p>
 {% endif %}
 
 <div class="grid2" style="margin-top:2rem">
@@ -78,7 +83,7 @@
       {% if h.changes %}
       <ul class="change">{% for label, old, new in h.changes %}<li><span class="f">{{ label }}</span><del>{{ old }}</del> <span class="sr">passa a ser</span><ins>{{ new }}</ins></li>{% endfor %}</ul>
       {% endif %}
-      {% if h.source or h.suggestion_id %}<div class="small muted">{% if h.source %}Documento: {{ source_ref(h.source) }}{% endif %}{% if h.suggestion_id %}{{ '. ' if h.source }}<a href="/sugestoes/{{ h.suggestion_id }}">Ver sugestão #{{ h.suggestion_id }}</a>{% endif %}</div>{% endif %}
+      {% if h.source or h.suggestion_id %}<div class="small muted">{% if h.source %}Documento: {{ source_ref(h.source) }}{% endif %}{% if h.suggestion_id %}{{ ' · ' if h.source }}<a href="/sugestoes/{{ h.suggestion_id }}">Ver sugestão #{{ h.suggestion_id }}</a>{% endif %}</div>{% endif %}
     </li>
   {% endfor %}
   </ol>

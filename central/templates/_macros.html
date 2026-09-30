@@ -71,7 +71,7 @@
   {% for r in rows %}
   <div class="delta-row{{ ' long' if not r.short }}">
     <dt>{{ r.label }}</dt>
-    <dd>{% if r.old %}<span class="was">{% if r.short %}<span class="sr">{{ 'antes' if decided else 'hoje' }}: </span>{% else %}<b>{{ 'Antes' if decided else 'Hoje' }}:</b> {% endif %}{{ r.old }}</span> <span class="arrow" aria-hidden="true">→</span> <span class="sr">{{ 'ficou' if decided else 'passa a ser' }}: </span>{% endif %}<ins>{{ r.new }}</ins></dd>
+    <dd>{% if r.old %}<span class="was">{% if r.short %}<span class="sr">{{ 'antes' if decided else 'hoje' }}: </span>{% else %}<b>{{ 'Antes' if decided else 'Hoje' }}:</b> {% endif %}{{ r.old }}</span> <span class="arrow" aria-hidden="true">→</span> <span class="sr">{{ 'ficou' if decided else 'passa a ser' }}: </span>{% endif %}<ins>{{ r.new }}</ins>{% if r.suggested %}<span class="adj">Ajustado na revisão. A ata sugeriu: {{ r.suggested }}</span>{% endif %}</dd>
   </div>
   {% endfor %}
 </dl>

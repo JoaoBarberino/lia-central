@@ -136,7 +136,8 @@ CREATE TABLE IF NOT EXISTS suggestions (
     model              TEXT,
     created_at         TEXT NOT NULL,
     dedupe_key         TEXT NOT NULL UNIQUE,
-    already_fields     TEXT                 -- JSON: o que o documento também diz, mas o quadro já tem
+    already_fields     TEXT,                -- JSON: o que o documento também diz, mas o quadro já tem
+    applied_fields     TEXT                 -- JSON: o que foi aplicado ao aceitar (com ajuste, difere do sugerido)
 );
 
 -- O que a extração viu mas NÃO virou sugestão (hipóteses, itens barrados pela validação)
@@ -246,6 +247,8 @@ def init_db(conn: sqlite3.Connection) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(suggestions)")}
     if "already_fields" not in cols:
         conn.execute("ALTER TABLE suggestions ADD COLUMN already_fields TEXT")
+    if "applied_fields" not in cols:
+        conn.execute("ALTER TABLE suggestions ADD COLUMN applied_fields TEXT")
     conn.executemany(
         "INSERT OR IGNORE INTO members (member_id, display_name, front, role, can_review) VALUES (?,?,?,?,?)",
         DEMO_MEMBERS,

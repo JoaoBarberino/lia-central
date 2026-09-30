@@ -108,6 +108,15 @@ def _doc_text(v) -> str:
     return ""
 
 
+META_LINE = re.compile(r"^[ \t]*[a-z_]{2,40}:[ \t].*$", re.M)   # "status: ativo", "data_da_reuniao: 2026-10-01"
+
+
+def strip_meta(text: str) -> str:
+    """Tira as linhas de cabeçalho técnico dos documentos (status, datas, responsável por confirmar):
+    elas aparecem no documento, mas não são o que a pessoa procura na busca."""
+    return META_LINE.sub("", text or "")
+
+
 def snippet(text: str, ts: list[str], width: int = 90) -> dict | None:
     """Trecho em volta da primeira palavra encontrada: {'before','match','after'} (destaque sem HTML cru)."""
     if not ts or not text:
@@ -151,7 +160,7 @@ def filter_sources(conn: sqlite3.Connection, rows: list[dict], *, q: str = "", t
             in_name = matches(r["name"], ts)
             v = conn.execute("SELECT extracted_text, extracted_json FROM source_versions WHERE file_id=? AND content_hash=?",
                              (r["file_id"], r["content_hash"])).fetchone() if r.get("content_hash") else None
-            text = _doc_text(v)
+            text = strip_meta(_doc_text(v))
             in_text = matches(text, ts)
             if not (in_name or in_text):
                 continue

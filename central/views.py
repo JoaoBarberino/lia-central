@@ -67,7 +67,7 @@ def date_parts(iso: str | None, status: str | None = None) -> dict | None:
         return None
     d = date.fromisoformat(iso[:10])
     kind = due_info(iso, status)["kind"]
-    return {"d": str(d.day), "m": MONTHS_FULL[d.month - 1], "kind": kind if kind in ("overdue", "soon") else ""}
+    return {"d": str(d.day), "m": MONTHS_FULL[d.month - 1], "kind": kind if kind in ("overdue", "soon", "done") else ""}
 
 
 def member_names(conn) -> dict[str, str]:
@@ -129,7 +129,8 @@ def changes_for_member(conn: sqlite3.Connection, member_id: str, since_iso: str)
     def affects(s):
         if s["target_activity_id"] and s["target_activity_id"] in mine_now:
             return True
-        return member_id in (json.loads(s["proposed_fields"]).get("owners") or [])
+        applied = json.loads(s["applied_fields"]) if s["applied_fields"] else {}
+        return member_id in ((json.loads(s["proposed_fields"]).get("owners") or []) + (applied.get("owners") or []))
 
     suggestions = []
     for s in conn.execute("SELECT * FROM suggestions WHERE (review_status='pendente' OR reviewed_at > ?) "
@@ -139,7 +140,7 @@ def changes_for_member(conn: sqlite3.Connection, member_id: str, since_iso: str)
             suggestions.append({"id": s["suggestion_id"], "kind": s["kind"], "target": s["target_activity_id"],
                                 "target_title": t["title"] if t else None,
                                 "uncertainties": json.loads(s["uncertainties"] or "[]"),
-                                "status": s["review_status"], "proposed": json.loads(s["proposed_fields"]),
+                                "status": s["review_status"], "proposed": json.loads(s["applied_fields"] or s["proposed_fields"]),
                                 "source": source_link(conn, s["source_file_id"]), "evidence": s["evidence"]})
 
     attention = []
@@ -417,14 +418,18 @@ def sug_rows(s: dict, names: dict) -> list[dict]:
     """Uma linha por campo: rótulo, valor de antes (quando havia) e valor sugerido."""
     before = s.get("current") or {}
     rows = []
-    for k, v in s["proposed"].items():
+    shown = s.get("applied") or s["proposed"]   # decidida: o que entrou no quadro
+    for k, v in shown.items():
         if s["kind"] != "update" and k == "title":
             continue  # o título da atividade nova já é o título da sugestão
         old = before.get(k) if s["kind"] == "update" else None
         rows.append({"field": k, "label": acts.FIELD_LABELS.get(k, k), "raw": v,
                      "new": describe_value(k, v, names),
                      "old": describe_value(k, old, names) if old not in (None, "", []) else None,
-                     "short": k in SHORT_FIELDS})
+                     "short": k in SHORT_FIELDS,
+                     # ajustado na revisão: guarda o que a ata tinha sugerido
+                     "suggested": (describe_value(k, s["proposed"].get(k), names) if k in s["proposed"]
+                                   else "nada (a ata não trouxe)") if k in (s.get("adjusted") or []) else None})
     return rows
 
 

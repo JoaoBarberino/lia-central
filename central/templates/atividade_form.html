@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Editar ' ~ a.activity_id if a else 'Nova atividade' }}{% endblock %}
+{% block title %}{{ 'Editar: ' ~ (values.title or a.activity_id) if a else 'Nova atividade' }}{% endblock %}
 {% block content %}
 <h1>{{ 'Editar ' ~ a.activity_id if a else 'Nova atividade' }}</h1>
 {% if errors %}<div class="flash erro" role="alert">Corrija {{ errors|length }} campo{{ 's' if errors|length > 1 }} destacado{{ 's' if errors|length > 1 }} abaixo.</div>{% endif %}
@@ -29,7 +29,7 @@
   </fieldset>
   <div>
     <label for="next_step">Próximo passo</label>
-    <input type="text" autocomplete="off" id="next_step" name="next_step" value="{{ values.next_step or '' }}">
+    <textarea class="grow" rows="1" autocomplete="off" id="next_step" name="next_step">{{ values.next_step or '' }}</textarea>
   </div>
   <div>
     <label for="status">Situação</label>

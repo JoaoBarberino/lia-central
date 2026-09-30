@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import source_ref, delta, left_out %}
-{% block title %}Sugestões{% endblock %}
+{% block title %}Sugestões para revisar{% endblock %}
 {% block content %}
 <h1>Sugestões para revisar</h1>
 {% set revisores = members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') %}

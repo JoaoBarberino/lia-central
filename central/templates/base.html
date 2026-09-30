@@ -56,7 +56,7 @@
       {%- else -%}ainda não atualizado{%- endif -%}
       {%- if not llm_enabled %}<span class="wide">. IA desligada</span>{% endif -%}
       </span>
-      <form method="post" action="/sincronizar"><button class="linkish" type="submit" data-busy="Atualizando…">Atualizar agora</button></form>
+      {% if me %}<form method="post" action="/sincronizar"><button class="linkish" type="submit" data-busy="Atualizando…">Atualizar agora</button></form>{% endif %}
     </div>
     <form class="who" method="post" action="/entrar">
       <label class="sr" for="member-switch">Ver o site como</label>
@@ -120,6 +120,18 @@
     var bad = document.querySelector('[aria-invalid="true"]');
     if (bad) { bad.focus(); bad.scrollIntoView({ block: 'center' }); }
   });
+  /* Caixas de texto longo crescem com o conteúdo (nada fica escondido); título não aceita quebra de linha */
+  (function () {
+    function fit(t) { t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; }
+    document.addEventListener('input', function (e) { if (e.target.matches('textarea.grow')) fit(e.target); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && e.target.matches('textarea[data-one-line]')) e.preventDefault();
+    });
+    document.addEventListener('toggle', function (e) {
+      if (e.target.open) e.target.querySelectorAll('textarea.grow').forEach(fit);
+    }, true);
+    document.addEventListener('DOMContentLoaded', function () { document.querySelectorAll('textarea.grow').forEach(fit); });
+  })();
   /* Menus "Mais" e "☰ Menu": fecham com Esc ou ao clicar fora */
   (function () {
     var menus = document.querySelectorAll('details.more, details.mmenu');
