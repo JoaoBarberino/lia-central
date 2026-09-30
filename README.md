@@ -209,6 +209,8 @@ Observações:
 - A IA depende de um serviço externo. Se ele estiver fora, as atas ficam indexadas e são analisadas na próxima sincronização.
 - PDF escaneado e imagem não são lidos automaticamente (OCR fora do escopo do case); a transcrição depende de uma pessoa conferir.
 - "Pergunte à Central" manda ao modelo todos os documentos lidos da pasta a cada pergunta nova.
+- Trocar a planilha oficial não tem botão: o vínculo é feito uma vez, pelo ID do arquivo. Se o `INDEX.md` passar a apontar outra planilha, ela aparece como pendência "Planilha concorrente" e nada muda no quadro; trocar o vínculo hoje exige apagar o banco e importar de novo.
+- Duas pessoas editando a mesma atividade ao mesmo tempo: vale a última gravação, e as duas ficam no histórico. O formulário de edição não avisa que alguém mudou a atividade enquanto você editava (a revisão de sugestões avisa).
 - O critério de "perto do prazo" (3 dias) é fixo no código.
 - No modo pasta local (testes), o identificador do arquivo é o número do arquivo no disco: se um arquivo for apagado e outro criado em seguida, o sistema pode confundir os dois. No Drive o ID é estável.
 
