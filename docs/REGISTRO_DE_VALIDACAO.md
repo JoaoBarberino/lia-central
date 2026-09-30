@@ -1,6 +1,6 @@
 # Registro de validação
 
-Testes feitos com o **Google Drive real** (pasta `LIA case teste`) e o **Gemini real**, além dos testes automatizados (`python -m pytest -q`: 131 testes com pasta local e modelo simulado, todos passando).
+Testes feitos com o **Google Drive real** (pasta `LIA case teste`) e o **Gemini real**, além dos testes automatizados (`python -m pytest -q`: 132 testes com pasta local e modelo simulado, todos passando).
 
 Datas dos testes manuais: 28/09/2026 (casos 1 a 16) e 29/09/2026 (casos 17 a 20 e 25). Os casos 21 a 24 vieram de uma auditoria dos requisitos em 29/09 e são cobertos por testes automatizados (`tests/test_auditoria.py`). Os casos 26 a 30 vieram de uma "banca simulada" em 30/09 (um agente que instalou do zero pelo README e aplicou cenários novos) e são cobertos por `tests/test_banca.py`. Fuso: America/Sao_Paulo.
 

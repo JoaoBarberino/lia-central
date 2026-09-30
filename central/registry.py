@@ -139,7 +139,17 @@ def ensure_register_bound(conn: sqlite3.Connection) -> str | None:
         return None
     name, sheet = pointer
     candidates = conn.execute(
-        "SELECT file_id FROM sources WHERE name = ? AND sync_status = 'ok'", (name,)).fetchall()
+        "SELECT file_id, name FROM sources WHERE name = ? AND sync_status = 'ok'", (name,)).fetchall()
+    found_as = name
+    if not candidates:
+        # Mesmo nome com outra extensão de planilha (ex.: o INDEX diz Ata_registro.xlsx e a planilha foi salva
+        # como Ata_registro.xlsm, ou convertida para Planilhas Google, sem extensão): aceita se houver só uma.
+        stem = re.sub(r"\.xls[xm]$", "", name, flags=re.IGNORECASE)
+        candidates = [r for r in conn.execute(
+            "SELECT file_id, name FROM sources WHERE sync_status = 'ok' AND (name = ? OR name = ? OR name = ?)",
+            (f"{stem}.xlsx", f"{stem}.xlsm", stem)).fetchall()]
+        if len(candidates) == 1:
+            found_as = candidates[0]["name"]
     if len(candidates) != 1:
         detail = (f"O INDEX.md aponta '{name}', mas "
                   + ("nenhum arquivo com esse nome foi encontrado." if not candidates
@@ -150,7 +160,8 @@ def ensure_register_bound(conn: sqlite3.Connection) -> str | None:
     file_id = candidates[0]["file_id"]
     set_setting(conn, "register_file_id", file_id)
     set_setting(conn, "register_sheet", sheet or "")
-    set_setting(conn, "register_bound_reason", f"Apontado pelo INDEX.md como '{name}'" + (f", aba '{sheet}'" if sheet else ""))
+    set_setting(conn, "register_bound_reason", f"Apontado pelo INDEX.md como '{name}'" + (f", aba '{sheet}'" if sheet else "")
+                + (f"; na pasta ela está como '{found_as}' (mesmo nome, outra extensão de planilha)" if found_as != name else ""))
     resolve_issue(conn, "registro_nao_definido", resolution="Registro vinculado pelo INDEX.md")
     return file_id
 

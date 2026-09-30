@@ -290,3 +290,22 @@ def test_formato_nao_lido_e_relido_quando_a_central_passa_a_ler(conn, sync, fold
                  "WHERE name='Ata_registro.xlsm'")
     sync()
     assert conn.execute("SELECT sync_status FROM sources WHERE name='Ata_registro.xlsm'").fetchone()[0] == "ok"
+
+
+def test_planilha_oficial_salva_como_xlsm_continua_valendo(conn, folder):
+    """INDEX aponta Ata_registro.xlsx; na pasta ela está como Ata_registro.xlsm (salva assim no Excel)."""
+    from central.db import get_setting
+    from central.sources import LocalSource
+    from central.sync import run_sync
+    (folder / "Ata_registro.xlsx").rename(folder / "Ata_registro.xlsm")
+    run_sync(conn, LocalSource(folder), llm=None)
+    assert len(acts.list_activities(conn, include_done=True)) == 4
+    assert "Ata_registro.xlsm" in get_setting(conn, "register_bound_reason")
+    _xlsm = folder / "Ata_registro.xlsm"
+    wb = openpyxl.load_workbook(_xlsm)
+    ws = wb.active
+    ws.cell(row=3, column=[c.value for c in ws[1]].index("Prazo") + 1).value = "09/10/2026"
+    wb.save(_xlsm)
+    run_sync(conn, LocalSource(folder), llm=None)
+    s = conn.execute("SELECT proposed_fields FROM suggestions WHERE target_activity_id='ACT-102'").fetchone()
+    assert json.loads(s["proposed_fields"]) == {"due_date": "2026-10-09"}

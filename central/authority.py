@@ -78,7 +78,7 @@ def classify(name: str, ext: Extracted | None, is_official_register: bool) -> st
     return "outro"
 
 
-_POINTER = re.compile(r"`([^`]+\.xlsx)`(?:[^`\n]*?aba\s+`([^`]+)`)?", re.IGNORECASE)
+_POINTER = re.compile(r"`([^`]+\.xls[xm])`(?:[^`\n]*?aba\s+`([^`]+)`)?", re.IGNORECASE)
 
 
 def find_register_pointer(index_text: str) -> tuple[str, str | None] | None:
