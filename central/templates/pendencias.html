@@ -13,7 +13,7 @@
     {% if me %}
     <form method="post" action="/pendencias/{{ i.issue_id }}/resolver" class="stack">
       <div><label for="res-{{ i.issue_id }}">O que foi decidido?</label>
-        <input type="text" id="res-{{ i.issue_id }}" name="resolution" placeholder="Ex.: é uma cópia antiga; manter a planilha oficial…" autocomplete="off" required></div>
+        <input type="text" id="res-{{ i.issue_id }}" name="resolution" placeholder="{{ {'registro_homonimo': 'Ex.: é uma cópia antiga; manter a planilha oficial…', 'responsavel_desconhecido': 'Ex.: era o Davi; corrigi o nome na planilha…', 'registro_alterado': 'Ex.: corrigi a célula na planilha…', 'fonte_indisponivel': 'Ex.: o arquivo foi apagado de propósito…', 'erro_leitura': 'Ex.: o arquivo estava corrompido; enviei de novo…', 'registro_nao_definido': 'Ex.: corrigi o INDEX.md…'}.get(i.kind, 'Ex.: o que foi combinado e por quem…') }}" autocomplete="off" required></div>
       <div><button class="btn small secondary" type="submit">Marcar como resolvida</button></div>
     </form>
     {% endif %}

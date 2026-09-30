@@ -191,10 +191,20 @@ def process_official_register(conn: sqlite3.Connection, file_id: str) -> str:
     return summary
 
 
-def _bad_date_issue(conn, file_id, sheet, row, act_id, value) -> None:
+def cell_human(sheet: dict, row: dict, field: str) -> str:
+    """ "aba Atividades, célula D5" (para textos que uma pessoa lê)."""
+    ref = cell_ref(sheet, row, field)
+    aba, _, cel = ref.partition("!")
+    return f"aba {aba}, {cel}" if cel.startswith("linha") else f"aba {aba}, célula {cel}"
+
+
+def _bad_date_issue(conn, file_id, sheet, row, act_id, value, initial: bool = False) -> None:
     open_issue(conn, "registro_alterado", f"Prazo ilegível na planilha oficial ({act_id})",
-               f"{cell_ref(sheet, row, 'due_date')} tem {value!r}, que não é uma data. "
-               "O prazo ficou 'a definir'; corrija a célula ou edite a atividade.",
+               f"Na planilha oficial ({cell_human(sheet, row, 'due_date')}), o prazo da {act_id} está como "
+               f"“{value}”, que não é uma data. "
+               + ("A atividade foi importada com o prazo a definir. " if initial
+                  else "O prazo da atividade continua o de antes. ")
+               + "Corrija a célula na planilha ou edite a atividade na Central.",
                dedupe_key=f"prazo_ilegivel:{act_id}:{value}", file_id=file_id)
 
 
@@ -205,7 +215,8 @@ def _initial_import(conn, file_id, content_hash, sheet) -> str:
             count += _import_row(conn, file_id, content_hash, sheet, row)
         except Exception as e:
             open_issue(conn, "registro_alterado", f"Linha {row['row']} da planilha oficial não foi importada",
-                       f"{sheet['name']}!linha {row['row']}: {e}. As demais linhas foram importadas.",
+                       f"A linha {row['row']} da aba {sheet['name']} não pôde ser importada ({e}). "
+                       "As outras linhas foram importadas normalmente.",
                        dedupe_key=f"linha_nao_importada:{file_id}:{row['row']}", file_id=file_id)
     set_setting(conn, "register_baseline_hash", content_hash)
     return f"{count} atividades importadas"
@@ -225,7 +236,7 @@ def _import_row(conn, file_id, content_hash, sheet, row) -> int:
                    f"Nomes não encontrados entre os membros: {', '.join(unknown)}. Mostrando 'responsável a confirmar'.",
                    dedupe_key=f"resp:{act_id}", file_id=file_id)
     if "due_date" in bad:
-        _bad_date_issue(conn, file_id, sheet, row, act_id, bad["due_date"])
+        _bad_date_issue(conn, file_id, sheet, row, act_id, bad["due_date"], initial=True)
     acts.create_activity(conn, fields, actor_id="sistema", creation_kind="importacao", activity_id=act_id,
                          origin_label=origin, reason=f"Importação inicial do registro oficial ({sheet['name']}, linha {row['row']})",
                          source_file_id=file_id, source_version=content_hash)
@@ -277,8 +288,11 @@ def _diff_to_suggestions(conn, file_id, new_hash, old_sheet, new_sheet) -> str:
         if unknown:
             uncert.append(f"Nome não reconhecido entre os membros: {', '.join(unknown)}. Responsável a confirmar.")
             open_issue(conn, "responsavel_desconhecido", f"Responsável não reconhecido em {act_id}",
-                       f"{cell_ref(new_sheet, row, 'owners')} tem {raw.get('owners')!r}; "
-                       f"não são membros: {', '.join(unknown)}.",
+                       f"Na planilha oficial ({cell_human(new_sheet, row, 'owners')}), os responsáveis da {act_id} "
+                       f"estão como “{raw.get('owners')}”. "
+                       + (f"{unknown[0]} não é membro" if len(unknown) == 1 else f"{', '.join(unknown)} não são membros")
+                       + " da Liga cadastrado na Central, então esse nome não entra na atividade. "
+                       "Confira como ele está escrito na planilha.",
                        dedupe_key=f"resp:{act_id}:{new_hash}", file_id=file_id)
         if act_id not in old_rows and not existing:
             if sugg.create_suggestion(conn, kind="create", target_activity_id=None, proposed=fields,
@@ -288,11 +302,26 @@ def _diff_to_suggestions(conn, file_id, new_hash, old_sheet, new_sheet) -> str:
                 created += 1
             continue
         changed = {k: v for k, v in fields.items() if old.get(k) != v}
+        carried_evidence = []
         if changed:
+            # A planilha mudou de novo um campo que já tinha sugestão pendente (ex.: prazo 31/10 e depois 27/10):
+            # a sugestão antiga é substituída; os campos dela que a versão nova não tocou vêm junto para a nova.
+            for prev in conn.execute(
+                    "SELECT suggestion_id, proposed_fields, evidence FROM suggestions WHERE source_file_id=? "
+                    "AND target_activity_id=? AND review_status='pendente' AND source_version<>?",
+                    (file_id, act_id, new_hash)).fetchall():
+                prev_fields = json.loads(prev["proposed_fields"])
+                if set(prev_fields) & set(changed):
+                    carry = {k: v for k, v in prev_fields.items() if k not in changed}
+                    if carry:
+                        changed.update(carry)
+                        carried_evidence.append(prev["evidence"])
+                    sugg.supersede(conn, prev["suggestion_id"],
+                                   "A planilha oficial mudou de novo neste ponto; vale a sugestão da versão mais nova.")
             # evidência = o texto das células, como está na planilha (não os códigos internos)
             prev = old_raw.get(act_id, {})
-            evidence = "; ".join(f"{cell_ref(new_sheet, row, k)}: {_cell_text(prev.get(k))} → {_cell_text(raw.get(k))}"
-                                 for k in changed)
+            evidence = "; ".join([f"{cell_ref(new_sheet, row, k)}: {_cell_text(prev.get(k))} → {_cell_text(raw.get(k))}"
+                                  for k in changed if k in raw and old.get(k) != fields.get(k)] + carried_evidence)
             if sugg.create_suggestion(conn, kind="update", target_activity_id=act_id, proposed=changed,
                                       evidence=evidence, reason="Célula alterada no registro oficial",
                                       source_file_id=file_id, source_version=new_hash,

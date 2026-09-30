@@ -477,6 +477,31 @@ LEFT_OUT = {
 }
 
 
+_CELL_ROW = re.compile(r"^(?P<aba>[^;!]+)!linha (?P<n>\d+)$")
+_CELL_CHANGE = re.compile(r"(?P<sp>\s*)(?P<aba>[^;!\s][^;!]*?)!(?P<cel>[A-Z]+\d+): (?P<a>'[^']*'|\(vazia\)|None) → (?P<b>'[^']*'|\(vazia\)|None)")
+
+
+def _cell_value(v: str) -> str:
+    if v in ("(vazia)", "None", "''"):
+        return "vazia"
+    v = v.strip("'")
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
+        return fmt_date(v)
+    return f"“{v}”"
+
+
+def planilha_humana(text: str | None) -> str:
+    """Evidência de célula da planilha em português: "Atividades!D5: '2026-10-31' → '2026-10-27'" vira
+    "Célula D5 (aba Atividades): de 31/10/2026 para 27/10/2026". Texto que não é de célula passa igual."""
+    if not text:
+        return text or ""
+    row = _CELL_ROW.match(text.strip())
+    if row:
+        return f"Linha {row['n']} (aba {row['aba']})"
+    return _CELL_CHANGE.sub(lambda m: f"{m['sp']}Célula {m['cel']} (aba {m['aba'].strip()}): de {_cell_value(m['a'])} "
+                                      f"para {_cell_value(m['b'])}", text)
+
+
 def left_out_info(n: dict) -> dict:
     """Classifica uma nota da extração. Notas antigas também: instrução é reconhecida pelo próprio texto."""
     from .ai import looks_like_injection

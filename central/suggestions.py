@@ -67,6 +67,12 @@ def mark_stale_for_file(conn: sqlite3.Connection, file_id: str, keep_version: st
     return cur.rowcount
 
 
+def supersede(conn: sqlite3.Connection, suggestion_id: int, note: str) -> None:
+    """Uma sugestão pendente deixa de valer porque o documento mudou de novo no mesmo ponto."""
+    conn.execute("UPDATE suggestions SET review_status='desatualizada', review_note=?, reviewed_at=? "
+                 "WHERE suggestion_id=? AND review_status='pendente'", (note, now_iso(), suggestion_id))
+
+
 def get(conn: sqlite3.Connection, suggestion_id: int) -> dict | None:
     r = conn.execute("SELECT * FROM suggestions WHERE suggestion_id = ?", (suggestion_id,)).fetchone()
     if not r:

@@ -110,7 +110,7 @@
     <li><span class="kind">{{ {'importada_de':'Veio da planilha','origem_declarada':'Ata citada na planilha','alterada_por':'Alterada por sugestão aprovada','criada_por':'Criada por sugestão aprovada'}.get(r.relation_type, r.relation_type) }}</span>
       {{ source_ref(r.source) }}
       {% if r.sheet_or_section %}<div class="small muted">{{ sheet_ref(r.sheet_or_section) }}</div>{% endif %}
-      {% if r.quote_or_cell and r.relation_type != 'importada_de' %}<blockquote class="evidence small">{{ r.quote_or_cell }}</blockquote>{% endif %}
+      {% if r.quote_or_cell and r.relation_type != 'importada_de' %}<blockquote class="evidence small">{{ r.quote_or_cell | planilha }}</blockquote>{% endif %}
     </li>
   {% else %}<li class="muted">Criada aqui na Central, sem documento de origem.</li>{% endfor %}
   </ul>

@@ -309,3 +309,35 @@ def test_planilha_oficial_salva_como_xlsm_continua_valendo(conn, folder):
     run_sync(conn, LocalSource(folder), llm=None)
     s = conn.execute("SELECT proposed_fields FROM suggestions WHERE target_activity_id='ACT-102'").fetchone()
     assert json.loads(s["proposed_fields"]) == {"due_date": "2026-10-09"}
+
+
+def test_evidencia_da_planilha_em_portugues():
+    from central.views import planilha_humana
+    assert planilha_humana("Atividades!D5: '2026-10-31' → '2026-10-27'") == \
+        "Célula D5 (aba Atividades): de 31/10/2026 para 27/10/2026"
+    assert planilha_humana("Atividades!C5: 'Ana; Davi' → 'Ana; Eduardo'") == \
+        "Célula C5 (aba Atividades): de “Ana; Davi” para “Ana; Eduardo”"
+    assert planilha_humana("Atividades!linha 7") == "Linha 7 (aba Atividades)"
+    assert planilha_humana("O prazo mudou para 2026-10-07.") == "O prazo mudou para 2026-10-07."   # ata: igual
+
+
+def test_planilha_mudada_duas_vezes_no_mesmo_campo_deixa_so_a_sugestao_nova(conn, sync, folder):
+    sync()
+    _editar_planilha(folder, lambda ws, h: setattr(ws.cell(row=5, column=_col(h, "Prazo")), "value", "31/10/2026"))
+    sync()
+    _editar_planilha(folder, lambda ws, h: setattr(ws.cell(row=5, column=_col(h, "Prazo")), "value", "27/10/2026"))
+    sync()
+    pend = conn.execute("SELECT proposed_fields FROM suggestions WHERE target_activity_id='ACT-104' "
+                        "AND review_status='pendente'").fetchall()
+    assert [json.loads(p["proposed_fields"]) for p in pend] == [{"due_date": "2026-10-27"}]
+    assert conn.execute("SELECT 1 FROM suggestions WHERE target_activity_id='ACT-104' "
+                        "AND review_status='desatualizada'").fetchone()
+
+
+def test_pendencia_de_responsavel_escrita_para_pessoas(conn, sync, folder):
+    sync()
+    _editar_planilha(folder, lambda ws, h: setattr(ws.cell(row=5, column=_col(h, "Responsáveis")), "value", "Ana; Eduardo"))
+    sync()
+    detalhe = conn.execute("SELECT detail FROM issues WHERE kind='responsavel_desconhecido'").fetchone()[0]
+    assert "aba Atividades, célula C5" in detalhe and "“Ana; Eduardo”" in detalhe and "Eduardo não é membro" in detalhe
+    assert "!" not in detalhe                                                      # nada de "Atividades!C5"

@@ -69,6 +69,7 @@ def _com_links(text: str, docs: dict) -> Markup:
 
 templates.env.filters["com_links"] = _com_links
 templates.env.filters["combine"] = lambda a, b: {**a, **b}
+templates.env.filters["planilha"] = views.planilha_humana
 templates.env.filters["lower_label"] = lambda k: acts.FIELD_LABELS.get(k, k).lower()
 templates.env.filters["frase"] = lambda t: (t[:1].upper() + t[1:]) if t else t
 def _doc_kind(s) -> str:

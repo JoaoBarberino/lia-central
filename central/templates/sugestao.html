@@ -25,7 +25,7 @@
 
   <h2>De onde veio</h2>
   <p class="label">{% if not s.model %}Célula da planilha oficial{% elif s.doc_date %}Trecho da ata de {{ fmt_date(s.doc_date) }}{% else %}Trecho do documento{% endif %}</p>
-  <blockquote class="evidence">{{ s.evidence }}</blockquote>
+  <blockquote class="evidence">{{ s.evidence if s.model else (s.evidence | planilha) }}</blockquote>
   <p class="srcline"><span>{{ source_ref(s.source) }}</span></p>
   {% if s.reason %}<p class="why"><strong>{{ 'Explicação da IA:' if s.model else 'Motivo:' }}</strong> {{ s.reason | humano }}</p>{% endif %}
   {% if s.uncertainties_list %}
