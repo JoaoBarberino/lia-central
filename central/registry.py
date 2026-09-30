@@ -311,7 +311,10 @@ def process_register_candidate(conn: sqlite3.Connection, file_id: str) -> str:
     official_id = official_register_id(conn)
     official = conn.execute("SELECT name FROM sources WHERE file_id = ?", (official_id,)).fetchone() if official_id else None
     detail = ("Tem o formato do quadro de atividades, mas não é a planilha indicada no INDEX.md"
-              + (f" ({official['name']})" if official else "") + ". Nada foi alterado.")
+              + (f" ({official['name']})" if official else "") + ". Nada foi alterado."
+              + (f" Para mudar o quadro, edite o próprio {official['name']} (no Drive: botão direito → Gerenciar "
+                 "versões → Enviar nova versão mantém o mesmo arquivo); um arquivo novo, mesmo com nome parecido, "
+                 "não herda a autoridade." if official else ""))
     key = f"homonimo:{file_id}:{version['content_hash']}"
     # Pendência de versão anterior do mesmo arquivo é substituída pela atual
     conn.execute("UPDATE issues SET status='resolvida', resolution='Substituída pela análise da versão nova' "

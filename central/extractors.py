@@ -11,7 +11,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from .sources import CSV, DOCX, GDOC, GSHEET, GSLIDES, MARKDOWN, PDF, PPTX, TEXT, XLSX
+from .sources import CSV, DOCX, GDOC, GSHEET, GSLIDES, MARKDOWN, PDF, PPTX, TEXT, XLSM, XLSX
 
 REGISTER_HEADERS = ["ID", "Atividade", "Responsáveis", "Prazo", "Frente", "Prioridade", "Status",
                     "Próximo passo", "Origem", "Notas e bloqueios"]
@@ -264,6 +264,17 @@ def skip_before_download(mime_type: str, name: str) -> None:
         raise Unsupported("Arquivo compactado: coloque os arquivos soltos na pasta para a Central ler.")
 
 
+READABLE_EXTS = (".md", ".markdown", ".txt", ".xlsx", ".xlsm", ".csv", ".docx", ".pptx")
+
+
+def readable_by_type(mime_type: str, name: str) -> bool:
+    """O formato é lido pela Central só pelo tipo (sem depender do conteúdo, como um PDF escaneado).
+    Serve para reler um arquivo marcado como "formato não lido" quando uma versão nova da Central passa a lê-lo."""
+    m = (mime_type or "").lower()
+    return (name or "").lower().endswith(READABLE_EXTS) or m in {x.lower() for x in (
+        MARKDOWN, TEXT, XLSX, XLSM, CSV, DOCX, PPTX, GDOC, GSHEET, GSLIDES)}
+
+
 IMAGE_MIMES = ("image/png", "image/jpeg", "image/webp", "image/heic", "image/heif", "image/gif")
 
 
@@ -271,8 +282,8 @@ def extract(mime_type: str, name: str, data: bytes) -> Extracted:
     low = name.lower()
     if mime_type in (MARKDOWN, GDOC, GSLIDES, TEXT) or low.endswith((".md", ".markdown", ".txt")):
         return parse_text_document(_decode(data))
-    if mime_type in (XLSX, GSHEET) or low.endswith(".xlsx"):
-        return parse_xlsx(data)
+    if (mime_type or "").lower() in (XLSX.lower(), XLSM.lower(), GSHEET) or low.endswith((".xlsx", ".xlsm")):
+        return parse_xlsx(data)   # .xlsm (Excel com macros) é lido igual; as macros nunca são executadas
     if mime_type == CSV or low.endswith(".csv"):
         return parse_csv(data, name)
     if mime_type == PDF or low.endswith(".pdf"):
@@ -283,6 +294,8 @@ def extract(mime_type: str, name: str, data: bytes) -> Extracted:
         return parse_pptx(data)
     if mime_type in IMAGE_MIMES or low.endswith((".png", ".jpg", ".jpeg", ".webp", ".heic")):
         raise Unsupported("Imagem: o protótipo não lê texto dentro de imagens automaticamente.")
+    if low.endswith(".xls"):
+        raise Unsupported("Arquivo .xls (Excel antigo) não é lido. Salve como .xlsx ou como Planilhas Google.")
     if low.endswith(".doc"):
         raise Unsupported("Arquivo .doc (Word antigo) não é lido. Salve como .docx ou como Documentos Google.")
     if low.endswith(".ppt"):
@@ -290,5 +303,5 @@ def extract(mime_type: str, name: str, data: bytes) -> Extracted:
     raise Unsupported(f"O protótipo ainda não lê este formato ({mime_type}).")
 
 
-SUPPORTED_HINT = (".md, .txt, .docx, .pptx, .xlsx, .csv, PDF com texto, Google Docs, Google Sheets "
+SUPPORTED_HINT = (".md, .txt, .docx, .pptx, .xlsx, .xlsm, .csv, PDF com texto, Google Docs, Google Sheets "
                   "e Google Slides")

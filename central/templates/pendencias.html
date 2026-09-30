@@ -8,7 +8,7 @@
 {% for i in items %}
   <article class="row" id="pendencia-{{ i.issue_id }}" tabindex="-1">
     <h2 class="item-title">{% if i.source and i.source.file_id %}{{ (i.title.split(':')[0] if ':' in i.title else i.title) | humano }}: <a href="/fontes/{{ i.source.file_id }}">{{ i.source.name }}</a>{% else %}{{ i.title | humano }}{% endif %}</h2>
-    <p style="margin:.35rem 0 .2rem">{% if i.kind == 'registro_homonimo' %}Tem o formato do quadro de atividades, mas não é a planilha indicada no INDEX.md. Nada foi alterado.{% else %}{{ i.detail | humano }}{% endif %}</p>
+    <p style="margin:.35rem 0 .2rem">{{ i.detail | humano }}</p>
     <p class="small muted">Aberta em {{ fmt_ts(i.created_at) }}</p>
     {% if me %}
     <form method="post" action="/pendencias/{{ i.issue_id }}/resolver" class="stack">

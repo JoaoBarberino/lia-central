@@ -18,6 +18,7 @@ GDOC = "application/vnd.google-apps.document"
 GSHEET = "application/vnd.google-apps.spreadsheet"
 FOLDER = "application/vnd.google-apps.folder"
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+XLSM = "application/vnd.ms-excel.sheet.macroEnabled.12"   # Excel com macros: mesmo formato por dentro
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 GSLIDES = "application/vnd.google-apps.presentation"
 PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -91,7 +92,7 @@ class LocalSource:
                 name = p.stem
             else:
                 name = p.name
-                mime = {".md": MARKDOWN, ".xlsx": XLSX, ".docx": DOCX, ".pdf": PDF, ".pptx": PPTX, ".csv": CSV,
+                mime = {".md": MARKDOWN, ".xlsx": XLSX, ".xlsm": XLSM, ".docx": DOCX, ".pdf": PDF, ".pptx": PPTX, ".csv": CSV,
                         ".txt": TEXT}.get(
                     p.suffix.lower(), mimetypes.guess_type(p.name)[0] or "application/octet-stream"
                 )

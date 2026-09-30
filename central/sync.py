@@ -23,7 +23,7 @@ from . import suggestions as sugg
 from .authority import classify
 from .db import dumps, get_setting, now_iso, set_setting
 from . import transcribe
-from .extractors import Extracted, ExtractionError, Unsupported, extract, skip_before_download
+from .extractors import Extracted, ExtractionError, Unsupported, extract, readable_by_type, skip_before_download
 from .issues import open_issue, resolve_issue
 from .sources import Source, SourceError, sha256
 
@@ -109,7 +109,9 @@ def run_sync(conn: sqlite3.Connection, source: Source, *, trigger: str = "auto",
                 resolve_issue(conn, f"indisponivel:{f.file_id}", resolution="A fonte voltou a aparecer na pasta")
             same_version = row["drive_version"] == f.version
             if same_version and row["sync_status"] == "nao_suportado" and \
-                    transcribe.confirmed_text(conn, f.file_id, f.version) is None:
+                    transcribe.confirmed_text(conn, f.file_id, f.version) is None and \
+                    not (readable_by_type(f.mime_type, f.name) and "formato" in (row["status_message"] or "").lower()):
+                # (um "formato não lido" que esta versão da Central já sabe ler é relido, mesmo sem o arquivo mudar)
                 stats["ignored"] += 1
                 continue
             if same_version and row["sync_status"] in ("ok", "indisponivel") and row["content_hash"]:

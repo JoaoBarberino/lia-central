@@ -148,7 +148,7 @@ python scripts/avaliar_ia.py
 | Formato | Como é lido | Observação |
 |---|---|---|
 | `.md` | download (`alt=media`) + leitura do cabeçalho | títulos e metadados preservados |
-| `.xlsx` | download + `openpyxl` (todas as abas) | prazo guardado como data ISO |
+| `.xlsx` e `.xlsm` | download + `openpyxl` (todas as abas) | prazo guardado como data ISO; no `.xlsm` (Excel com macros) as macros nunca são executadas |
 | Google Docs | `files.export` em `text/plain` | limite de 10 MB por exportação da API |
 | Google Sheets | `files.export` em `.xlsx` | mesmo leitor da planilha |
 | Google Slides | `files.export` em `text/plain` | texto dos slides |
@@ -158,7 +158,7 @@ python scripts/avaliar_ia.py
 | `.txt` | download | como o `.md` |
 | PDF com texto | `pdfplumber` | — |
 | PDF escaneado, imagens (`.png`, `.jpg`, `.webp`, `.heic`) | não lidos automaticamente | "não processado", com o motivo (OCR fora do escopo). Nada é inventado. Opcional: **Transcrever com IA** (abaixo) |
-| `.doc`, `.ppt` (formatos antigos) e outros | não lidos | "não processado", com o motivo e como resolver (ex.: "salve como .docx") |
+| `.doc`, `.ppt`, `.xls` (formatos antigos) e outros | não lidos | "não processado", com o motivo e como resolver (ex.: "salve como .docx") |
 | Vídeo, áudio, arquivo compactado, Formulários e Desenhos Google | não lidos e **nem baixados** | "não processado", com o motivo |
 
 Toda leitura acima é **determinística, sem IA**: o texto que entra é exatamente o do arquivo. Arquivo corrompido ou protegido por senha vira erro visível em **Pendências**, sem apagar a última versão boa.

@@ -260,3 +260,33 @@ def test_cancelar_pela_interface(client):  # noqa: F811
     valor = re.search(r'name="status" value="([^"]+)"><button[^>]*>Reabrir', pagina).group(1)
     client.post("/atividades/ACT-104/estado", data={"status": valor})
     assert acts.snapshot(_db(), "ACT-104")["status"] == "A fazer"
+
+
+def test_planilha_salva_como_xlsm_e_lida_e_vira_concorrente(conn, sync, folder):
+    """O caso real de 30/09: a edição da planilha foi salva como Ata_registro.xlsm (arquivo novo, outro ID)."""
+    import shutil
+    sync()
+    shutil.copy(folder / "Ata_registro.xlsx", folder / "Ata_registro.xlsm")
+    wb = openpyxl.load_workbook(folder / "Ata_registro.xlsm")
+    ws = wb.active
+    ws.cell(row=3, column=[c.value for c in ws[1]].index("Prazo") + 1).value = "09/10/2026"
+    wb.save(folder / "Ata_registro.xlsm")
+    sync()
+    s = conn.execute("SELECT sync_status, role FROM sources WHERE name='Ata_registro.xlsm'").fetchone()
+    assert s["sync_status"] == "ok" and s["role"] == "registro_candidato"           # lida, mas não é a oficial
+    assert conn.execute("SELECT 1 FROM issues WHERE title='Planilha concorrente: Ata_registro.xlsm'").fetchone()
+    assert acts.snapshot(conn, "ACT-102")["due_date"] == "2026-10-06"               # o quadro não muda
+
+
+def test_formato_nao_lido_e_relido_quando_a_central_passa_a_ler(conn, sync, folder):
+    """Arquivo marcado 'formato não lido' por uma versão antiga da Central é relido sem precisar mudar."""
+    import shutil
+    sync()
+    shutil.copy(folder / "Ata_registro.xlsx", folder / "Ata_registro.xlsm")
+    sync()
+    # simula o que a versão antiga gravou: não lido, com a mesma versão do arquivo
+    conn.execute("UPDATE sources SET sync_status='nao_suportado', content_hash=NULL, "
+                 "status_message='Formato ainda não processado (application/vnd.ms-excel.sheet.macroenabled.12).' "
+                 "WHERE name='Ata_registro.xlsm'")
+    sync()
+    assert conn.execute("SELECT sync_status FROM sources WHERE name='Ata_registro.xlsm'").fetchone()[0] == "ok"
