@@ -3,9 +3,10 @@
 {% block title %}Pendências{% endblock %}
 {% block content %}
 <h1>Pendências</h1>
+<p class="lead">O que a Central não decide sozinha: planilhas em conflito, arquivos que não puderam ser lidos, nomes que ela não reconheceu. Nada disso muda o quadro de atividades até alguém registrar o que foi decidido.</p>
 <div class="rows">
 {% for i in items %}
-  <article class="row">
+  <article class="row" id="pendencia-{{ i.issue_id }}" tabindex="-1">
     <h2 class="item-title">{% if i.source and i.source.file_id %}{{ (i.title.split(':')[0] if ':' in i.title else i.title) | humano }}: <a href="/fontes/{{ i.source.file_id }}">{{ i.source.name }}</a>{% else %}{{ i.title | humano }}{% endif %}</h2>
     <p style="margin:.35rem 0 .2rem">{% if i.kind == 'registro_homonimo' %}Tem o formato do quadro de atividades, mas não é a planilha indicada no INDEX.md. Nada foi alterado.{% else %}{{ i.detail | humano }}{% endif %}</p>
     <p class="small muted">Aberta em {{ fmt_ts(i.created_at) }}</p>

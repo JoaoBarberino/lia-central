@@ -56,7 +56,7 @@ def due_info(iso: str | None, status: str | None = None) -> dict:
         return {"label": f"Vencida há {-days} dia{'s' if -days > 1 else ''}", "kind": "overdue"}
     if days == 0:
         return {"label": "Vence hoje", "kind": "soon"}
-    if days <= 3:
+    if days <= acts.SOON_DAYS:
         return {"label": f"Vence em {days} dia{'s' if days > 1 else ''}", "kind": "soon"}
     return {"label": f"Vence em {days} dias", "kind": "ok"}
 

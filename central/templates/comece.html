@@ -6,10 +6,13 @@
 
 
 {% if o.first_action %}
+{% set fa = o.first_action %}
 <section class="first-action" aria-labelledby="primeira">
-  <h2 id="primeira" style="margin:0">Sua primeira ação{% if me %}, {{ me.display_name }}{% endif %}</h2>
-  <p class="big">{{ o.first_action.next_step or 'Próximo passo não definido' }}</p>
-  <p style="margin:0">Faz parte de <a href="/atividades/{{ o.first_action.activity_id }}">{{ o.first_action.title }}</a> (<span class="id">código {{ o.first_action.activity_id }}</span>). {{ status_tag(o.first_action.status) }} {{ due_tag(o.first_action.due_date, o.first_action.status) }}</p>
+  <h2 id="primeira">Sua primeira ação{% if me %}, {{ me.display_name }}{% endif %}</h2>
+  <p class="big">{{ (fa.next_step or 'Combinar o próximo passo com a pessoa líder da frente').rstrip('.') }}.</p>
+  <p class="fa-meta">Faz parte de <strong>{{ fa.title }}</strong>. {{ status_tag(fa.status) }} {{ due_tag(fa.due_date, fa.status) }}</p>
+  <p class="small muted fa-why">{% if fa.due_date %}Escolhida por ser a sua atividade não bloqueada com o prazo mais próximo.{% else %}Nenhuma das suas atividades tem prazo ainda; esta é a primeira da sua lista.{% endif %}</p>
+  <p class="fa-actions"><a class="btn" href="/atividades/{{ fa.activity_id }}">Abrir a atividade</a> <a class="btn secondary" href="/">Ver todas as minhas atividades</a></p>
 </section>
 {% elif me %}
 <div class="empty"><strong>Você ainda não tem atividades atribuídas.</strong>Fale com a pessoa líder da sua frente.</div>
@@ -94,24 +97,25 @@
 <h2>Onde estão suas tarefas</h2>
 <p class="prose">Em <a href="/">Minhas atividades</a>. O que as atas novas propõem aparece antes em <a href="/sugestoes">Sugestões para revisar</a>.</p>
 {% if o.steps %}
-<ol class="steps">{% for s in o.steps %}<li><span>{{ s }}</span></li>{% endfor %}</ol>
+<p class="small muted" style="margin:1rem 0 0">O que o guia de entrada recomenda{% if o.guia %} (<a href="/fontes/{{ o.guia.file_id }}">{{ o.guia.name }}</a>){% endif %}:</p>
+<ol class="steps">{% for s in o.steps %}<li><span>{{ s | com_links(doc_links) }}</span></li>{% endfor %}</ol>
 {% endif %}
 
 <h2>Documentos de referência</h2>
 <table class="stack">
-  <thead><tr><th>Documento</th><th>Tipo</th><th>Situação</th></tr></thead>
+  <thead><tr><th>Documento</th><th>Arquivo</th><th>Situação</th></tr></thead>
   <tbody>
   {% for r in o.references %}
   <tr>
-    <td><a href="/fontes/{{ r.file_id }}">{{ r.name }}</a></td>
-    <td data-label="Tipo">{{ ROLE_LABELS.get(r.role) }}</td>
+    <td><a href="/fontes/{{ r.file_id }}">{{ ROLE_LABELS.get(r.role) or r.name }}</a></td>
+    <td class="secondary" data-label="Arquivo">{{ r.name }}</td>
     <td class="secondary" data-label="Situação">{% if r.sync_status == 'indisponivel' %}<span class="tag err">indisponível</span>{% elif r.doc_status %}<span class="tag {{ 'soon' if r.doc_status == 'parcial' else 'neutral' }}">{{ doc_status(r.doc_status) }}</span>{% else %}—{% endif %}</td>
   </tr>
   {% else %}<tr><td colspan="3">Nenhum documento de referência lido ainda.</td></tr>{% endfor %}
   {% for h in o.historic %}
   <tr>
-    <td>{{ h.name }}</td>
-    <td data-label="Tipo">Histórico, não vale como regra atual</td>
+    <td>Documento antigo<div class="small muted">histórico, não vale como regra atual</div></td>
+    <td class="secondary" data-label="Arquivo">{{ h.name }}</td>
     <td class="secondary" data-label="Situação">{% if h.meta.substituido_por %}{{ doc_meta_items({'substituido_por': h.meta.substituido_por})[0] | frase }}{% else %}<span class="tag neutral">histórico</span>{% endif %}</td>
   </tr>
   {% endfor %}

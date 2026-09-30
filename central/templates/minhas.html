@@ -6,11 +6,13 @@
 <p class="summary">
   {% if stats.open == 0 %}{{ me.display_name }}, você não tem atividades abertas.
   {% else %}{{ me.display_name }}, você tem <strong>{{ stats.open }} {{ 'atividade aberta' if stats.open == 1 else 'atividades abertas' }}</strong>{% if stats.open > 1 %}, contando as compartilhadas{% endif %}.
-    {% if not stats.soon and not stats.blocked %}Nenhuma está vencida, perto do prazo ou bloqueada.
+    {% if not stats.overdue and not stats.soon and not stats.blocked %}Nenhuma está vencida, perto do prazo ou bloqueada.
     {% else %}
-      {%- if stats.soon %} <strong>{{ stats.soon }}</strong> {{ 'vence' if stats.soon == 1 else 'vencem' }} em até 3 dias ou já {{ 'venceu' if stats.soon == 1 else 'venceram' }}{% endif %}
-      {%- if stats.soon and stats.blocked %} e{% endif %}
-      {%- if stats.blocked %} <strong>{{ stats.blocked }}</strong> {{ 'está bloqueada' if stats.blocked == 1 else 'estão bloqueadas' }}{% endif %}.
+      Pedem atenção: {% if stats.overdue %}<a href="/?prazo=vencidas#resultados"><strong>{{ stats.overdue }}</strong> {{ 'vencida' if stats.overdue == 1 else 'vencidas' }}</a>{% endif -%}
+      {%- if stats.overdue and stats.soon %}{{ ', ' if stats.blocked else ' e ' }}{% endif -%}
+      {%- if stats.soon %}<a href="/?prazo=perto#resultados"><strong>{{ stats.soon }}</strong> {{ 'vence' if stats.soon == 1 else 'vencem' }} em até {{ SOON_DAYS }} dias</a>{% endif -%}
+      {%- if (stats.overdue or stats.soon) and stats.blocked %} e {% endif -%}
+      {%- if stats.blocked %}<a href="/?situacao=Bloqueada#resultados"><strong>{{ stats.blocked }}</strong> {{ 'bloqueada' if stats.blocked == 1 else 'bloqueadas' }}</a>{% endif %}.
     {% endif %}
   {% endif %}
   {% if me.can_review %}
@@ -19,6 +21,13 @@
     {{ stats.pending_me }} {{ 'sugestão envolvendo você aguarda' if stats.pending_me == 1 else 'sugestões envolvendo você aguardam' }} revisão de {{ members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') }}. <a href="/sugestoes">Ver sugestões</a>
   {% endif %}
 </p>
+{% if welcome %}
+<div class="notice info welcome" role="note">
+  <p><strong>Primeira vez aqui?</strong> O Comece aqui mostra o propósito da Liga, as frentes, os documentos de referência e a sua primeira ação.</p>
+  <a class="btn small" href="/comece-aqui">Abrir o Comece aqui</a>
+  <form method="post" action="/comece-aqui/depois"><button class="linkish dark" type="submit">Agora não</button></form>
+</div>
+{% endif %}
 {% if not filtering %}
 <p class="recent">{% if recent.first %}Nos últimos 7 dias{% else %}Desde sua última visita ({{ fmt_ts(recent.since) }}){% endif %}:
   {% if recent.confirmed or recent.suggestions or recent.docs %}
@@ -59,7 +68,7 @@
 <div class="toolbar finder-row">
   <div class="chips" role="group" aria-label="Atalhos">
     <a class="chip" href="/?{{ qs }}prazo=vencidas" {% if filtro.prazo == 'vencidas' %}aria-current="true"{% endif %}>Vencidas</a>
-    <a class="chip" href="/?{{ qs }}prazo=7dias" {% if filtro.prazo == '7dias' %}aria-current="true"{% endif %}>Próximos 7 dias</a>
+    <a class="chip" href="/?{{ qs }}prazo=perto" {% if filtro.prazo == 'perto' %}aria-current="true"{% endif %}>Vencem em até {{ SOON_DAYS }} dias</a>
     <a class="chip" href="/?{{ qs }}situacao=Bloqueada" {% if filtro.situacao == 'Bloqueada' %}aria-current="true"{% endif %}>Bloqueadas</a>
     <a class="chip" href="/?{{ qs }}novidade=1" {% if filtro.novidade %}aria-current="true"{% endif %}>Sem novidade</a>
   </div>

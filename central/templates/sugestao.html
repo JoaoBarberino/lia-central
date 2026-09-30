@@ -56,14 +56,15 @@
       <ul>{% for c in changed_since %}<li>{{ c.label }}: era {{ c.then }}, agora é {{ c.now }}</li>{% endfor %}</ul>
     </div>
     {% endif %}
-    <form method="post" action="/sugestoes/{{ s.suggestion_id }}/aceitar" class="stack">
+    <form method="post" action="/sugestoes/{{ s.suggestion_id }}/aceitar" class="stack accept-plain">
       <div><label for="note">Comentário (opcional)</label><input type="text" autocomplete="off" id="note" name="note"></div>
       {% if changed_since %}<label class="checks small"><input type="checkbox" name="confirmar" value="1" required> Aplicar mesmo assim, por cima do valor atual</label>{% endif %}
       <button class="btn" type="submit" data-busy="Aceitando…">Aceitar como está</button>
     </form>
 
-    <details class="panel-more">
+    <details class="panel-more adjust">
       <summary>Ajustar antes de aceitar</summary>
+      <p class="small muted" style="margin:.6rem 0 0">Mude o que precisar; o resto fica como a ata sugeriu. O ajuste fica registrado no histórico.</p>
       <form method="post" action="/sugestoes/{{ s.suggestion_id }}/aceitar" class="stack">
         <input type="hidden" name="ajustar" value="1">
         {% if s.kind == 'create' and rows | selectattr('missing') | list %}<p class="small muted" style="margin:0">Campos que a ata não trouxe ficam em branco: preencha se souber, ou deixe a definir.</p>{% endif %}
@@ -85,6 +86,7 @@
         <div><label for="note2">Por que ajustou?</label><input type="text" autocomplete="off" id="note2" name="note"></div>
         {% if changed_since %}<label class="checks small"><input type="checkbox" name="confirmar" value="1" required> Aplicar mesmo assim, por cima do valor atual</label>{% endif %}
         <button class="btn" type="submit" data-busy="Aceitando…">Aceitar com ajuste</button>
+        <button class="btn secondary" type="button" onclick="this.closest('details').open = false; this.closest('details').querySelector('summary').focus()">Cancelar ajuste</button>
       </form>
     </details>
 

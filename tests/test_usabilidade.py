@@ -112,3 +112,76 @@ def test_sugestoes_para_quem_nao_aprova(client):  # noqa: F811
     login(client, "U-B")                                   # Bruno aprova
     lista = client.get("/sugestoes").text
     assert ">Revisar</a>" in lista and 'pendentes</span>' in lista
+
+
+# ===========================================================================
+# Pacote 2: Comece aqui, painel de ajuste, "perto do prazo", pendências, erros
+# ===========================================================================
+def test_comece_aqui_primeira_acao_e_documentos(client):  # noqa: F811
+    login(client, "U-A")
+    pagina = client.get("/comece-aqui").text
+    acao = pagina[pagina.index('class="first-action"'):pagina.index("</section>", pagina.index('class="first-action"'))]
+    assert "Abrir a atividade" in acao and 'href="/atividades/ACT-101"' in acao and "prazo mais próximo" in acao
+    # passos do guia: o texto é do documento, mas os nomes de arquivo viram links
+    passos = pagina[pagina.index('class="steps"'):]
+    assert re.search(r'<a href="/fontes/[^"]+">Ata_registro\.xlsx</a>', passos)
+    assert "O que o guia de entrada recomenda" in pagina
+    # tabela de referência: título legível primeiro, nome do arquivo ao lado
+    assert re.search(r'<a href="/fontes/[^"]+">Resumo da Liga</a>', pagina)
+
+
+def test_links_de_documento_escapam_o_texto():
+    from central.app import _com_links
+    html = str(_com_links("Leia <b>INDEX.md</b> e INDEX.md.bak", {"INDEX.md": "f1"}))
+    assert "&lt;b&gt;" in html and html.count('<a href="/fontes/f1">INDEX.md</a>') == 2
+
+
+def test_aviso_de_primeira_visita(client):  # noqa: F811
+    login(client, "U-D")
+    assert "Primeira vez aqui?" in client.get("/").text
+    client.get("/comece-aqui")
+    assert "Primeira vez aqui?" not in client.get("/").text
+    login(client, "U-A")
+    client.post("/comece-aqui/depois")
+    assert "Primeira vez aqui?" not in client.get("/").text
+
+
+def test_perto_do_prazo_tem_um_criterio_so(client):  # noqa: F811
+    assert acts.SOON_DAYS == 3
+    for t in ("minhas.html", "novidades.html"):
+        texto = (TEMPLATES / t).read_text(encoding="utf-8")
+        assert "3 dias" not in texto and "7dias" not in texto          # o número vem de SOON_DAYS
+    login(client, "U-A")
+    home = client.get("/").text
+    assert "Vencem em até 3 dias" in home                               # atalho igual ao resumo e ao selo
+
+
+def test_ajuste_mostra_um_botao_e_mensagem_certa_ao_criar(client):  # noqa: F811
+    pagina = (TEMPLATES / "sugestao.html").read_text(encoding="utf-8")
+    assert "accept-plain" in pagina and "Cancelar ajuste" in pagina
+    assert ".review-panel:has(details.adjust[open]) .accept-plain { display: none; }" in CSS
+    login(client, "U-B")
+    lista = client.get("/sugestoes").text
+    sid = re.search(r'href="/sugestoes/(\d+)">Propor exercício prático', lista).group(1)
+    r = client.post(f"/sugestoes/{sid}/aceitar", data={}, follow_redirects=True)
+    assert "entrou no quadro como atividade nova" in r.text and "foi atualizada" not in r.text
+
+
+def test_documento_leva_a_pendencia(client):  # noqa: F811
+    login(client, "U-A")
+    c = _db()
+    issue = c.execute("SELECT issue_id, file_id FROM issues WHERE status='aberta' AND file_id IS NOT NULL").fetchone()
+    assert issue
+    assert f'href="/pendencias#pendencia-{issue["issue_id"]}"' in client.get("/fontes").text
+    assert "Este documento tem uma pendência aberta" in client.get(f"/fontes/{issue['file_id']}").text
+    assert f'id="pendencia-{issue["issue_id"]}"' in client.get("/pendencias").text
+
+
+def test_mensagens_para_leitor_de_tela(client):  # noqa: F811
+    login(client, "U-A")
+    r = client.post("/atividades/ACT-101/estado", data={"status": "Concluída"})
+    assert 'class="flash ok" role="status"' in r.text
+    r = client.post("/atividades/nova", data={"title": ""})
+    assert 'role="alert"' in r.text or 'aria-invalid="true"' in r.text
+    base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
+    assert "querySelector('[aria-invalid=\"true\"]')" in base          # foco no primeiro campo com erro

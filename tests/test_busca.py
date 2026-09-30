@@ -22,7 +22,7 @@ def test_filtros_do_case(conn, sync):
     assert _f(conn, frente="Formação") == ["ACT-103"]
     assert _f(conn, situacao="Bloqueada") == ["ACT-103"]
     assert _f(conn, prazo="vencidas") == ["ACT-101"]                       # 05/10 < 06/10
-    assert _f(conn, prazo="7dias") == ["ACT-102", "ACT-103", "ACT-104"]
+    assert _f(conn, prazo="perto") == ["ACT-102", "ACT-103"]                # hoje até 09/10 (3 dias), como o selo laranja
     assert _f(conn, responsavel="U-A", prazo="vencidas") == ["ACT-101"]    # combinados
     assert _f(conn, responsavel=busca.SEM) == []
 

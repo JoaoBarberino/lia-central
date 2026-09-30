@@ -14,6 +14,7 @@ from .db import dumps, now_iso
 from .extractors import normalize
 
 STATUSES = ["A fazer", "Em andamento", "Bloqueada", "Concluída"]
+SOON_DAYS = 3   # "perto do prazo": vence hoje ou nos próximos 3 dias (o mesmo critério em todas as telas)
 _STATUS_BY_NORM = {normalize(s): s for s in STATUSES}
 _STATUS_BY_NORM.update({"concluido": "Concluída", "feito": "Concluída", "bloqueado": "Bloqueada",
                         "fazer": "A fazer", "pendente": "A fazer"})

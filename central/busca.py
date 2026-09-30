@@ -16,7 +16,7 @@ from .extractors import normalize
 
 SEM = "__sem"   # valor de filtro para "Sem responsável" / "Sem frente"
 
-PRAZOS = [("", "Qualquer prazo"), ("vencidas", "Vencidas"), ("7dias", "Próximos 7 dias"), ("mes", "Este mês"),
+PRAZOS = [("", "Qualquer prazo"), ("vencidas", "Vencidas"), ("perto", f"Vencem em até {acts.SOON_DAYS} dias"), ("mes", "Este mês"),
           ("sem", "Sem prazo")]
 SITUACOES = [("", "Abertas"), ("A fazer", "A fazer"), ("Em andamento", "Em andamento"), ("Bloqueada", "Bloqueada"),
              ("Concluída", "Concluída"), ("todas", "Todas, com as concluídas")]
@@ -41,7 +41,7 @@ def matches(text: str, ts: list[str]) -> bool:
 def filter_activities(items: list[dict], *, q: str = "", responsavel: str = "", frente: str = "", situacao: str = "",
                       prazo: str = "", novidade: bool = False, today: date, stale_days: int, names: dict) -> list[dict]:
     ts = terms(q)
-    week = (today + timedelta(days=7)).isoformat()
+    soon = (today + timedelta(days=acts.SOON_DAYS)).isoformat()
     month_end = (date(today.year + (today.month == 12), today.month % 12 + 1, 1) - timedelta(days=1)).isoformat()
     out = []
     for a in items:
@@ -64,7 +64,7 @@ def filter_activities(items: list[dict], *, q: str = "", responsavel: str = "", 
         d = a.get("due_date")
         if prazo == "vencidas" and not (d and d < today.isoformat() and a["status"] != "Concluída"):
             continue
-        if prazo == "7dias" and not (d and today.isoformat() <= d <= week):
+        if prazo == "perto" and not (d and today.isoformat() <= d <= soon and a["status"] != "Concluída"):
             continue
         if prazo == "mes" and not (d and today.isoformat()[:7] == d[:7] and d <= month_end):
             continue

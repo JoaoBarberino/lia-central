@@ -36,7 +36,8 @@
         {% elif r.sync_status == 'nao_suportado' %}<span class="tag neutral">não lido</span>
         {% elif r.sync_status == 'indisponivel' %}<span class="tag err">indisponível</span>
         {% elif r.sync_status == 'erro' %}<span class="tag err">erro na leitura</span>
-        {% else %}<span class="tag neutral">{{ r.sync_status }}</span>{% endif %}</td>
+        {% else %}<span class="tag neutral">{{ r.sync_status }}</span>{% endif %}
+        {% if r.file_id in issues_by_file %}<div class="small"><a href="/pendencias#pendencia-{{ issues_by_file[r.file_id] }}">pendência aberta</a></div>{% endif %}</td>
     <td class="secondary nw" data-label="Modificado">{{ fmt_ts(r.modified_at) }}</td>
     <td class="secondary small" data-label="Resultado">{{ (r.status_message | humano) or '—' }}</td>
   </tr>

@@ -8,6 +8,7 @@
   {% if s.sync_status == 'indisponivel' %}<span class="tag err">Indisponível: o conteúdo abaixo pode estar desatualizado</span>
   {% elif s.sync_status == 'erro' %}<span class="tag err">Erro na última leitura: mostrando a última versão boa</span>{% endif %}
   {% if s.web_url %}<a href="{{ s.web_url }}" target="_blank" rel="noopener">Abrir no Drive<span class="sr"> (nova aba)</span></a>{% endif %}</p>
+{% if issue %}<div class="notice warn" role="note"><strong>Este documento tem uma pendência aberta:</strong> {{ ISSUE_LABELS.get(issue.kind, issue.title) | lower }}. A Central não decide sozinha; alguém precisa registrar o que foi decidido. <a href="/pendencias#pendencia-{{ issue.issue_id }}">Ver a pendência</a></div>{% endif %}
 {% if s.status_message %}<div class="notice">{{ s.status_message | humano }}</div>{% endif %}
 
 {% if tr and tr.status == 'confirmada' and s.sync_status == 'ok' %}

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,6 +15,7 @@ from fastapi import Depends, FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup, escape
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import activities as acts
@@ -25,7 +27,7 @@ from . import suggestions as sugg
 from . import views
 from .authority import ROLE_LABELS
 from .config import get_settings
-from .db import connect, get_setting, init_db, now_iso
+from .db import connect, get_setting, init_db, now_iso, set_setting
 from .issues import ISSUE_LABELS, open_issues, resolve_issue
 from .sources import DriveSource, LocalSource, SourceError
 from .sync import run_sync
@@ -52,6 +54,20 @@ templates.env.filters["humano"] = views.humano
 templates.env.filters["humano_linhas"] = views.humano_linhas
 templates.env.filters["field_label"] = lambda k: acts.FIELD_LABELS.get(k, k).lower()
 templates.env.filters["juntar"] = lambda xs: (" e ".join(xs) if len(xs) <= 2 else ", ".join(xs[:-1]) + " e " + xs[-1])
+def _com_links(text: str, docs: dict) -> Markup:
+    """Nomes de documentos citados num texto viram links para a página do documento (texto escapado)."""
+    if not text or not docs:
+        return escape(text or "")
+    pat = re.compile("|".join(re.escape(n) for n in sorted(docs, key=len, reverse=True)))
+    out, last = [], 0
+    for m in pat.finditer(text):
+        out += [escape(text[last:m.start()]), Markup('<a href="/fontes/%s">%s</a>') % (docs[m.group(0)], m.group(0))]
+        last = m.end()
+    out.append(escape(text[last:]))
+    return Markup("").join(out)
+
+
+templates.env.filters["com_links"] = _com_links
 templates.env.filters["frase"] = lambda t: (t[:1].upper() + t[1:]) if t else t
 def _doc_kind(s) -> str:
     """Tipo do documento na tela; arquivos não lidos dizem o que são ("Imagem", "PDF escaneado")."""
@@ -66,7 +82,7 @@ templates.env.globals.update(
     humano=views.humano, sheet_ref=views.sheet_ref, doc_meta_items=views.doc_meta_items, doc_status=views.doc_status,
     fmt_date=views.fmt_date, fmt_ts=views.fmt_ts, fmt_when=views.fmt_when, due_info=views.due_info, ROLE_LABELS=ROLE_LABELS,
     FIELD_LABELS=acts.FIELD_LABELS, ISSUE_LABELS=ISSUE_LABELS, SUG_STATUS=sugg.SUG_STATUS, STATUSES=acts.STATUSES,
-    STALE_DAYS=settings.stale_days,
+    STALE_DAYS=settings.stale_days, SOON_DAYS=acts.SOON_DAYS,
     # dias sem novidade (ou None): usado no selo "Sem novidade há N dias" dos cartões
     sem_novidade=lambda a: acts.days_without_news(a, views.today(), settings.stale_days),
 )
@@ -269,7 +285,8 @@ def home(request: Request, ordem: str = "prazo", q: str = "", prazo: str = "", s
                     or me in (s["proposed"].get("owners") or [])]
     stats = {
         "open": len(all_mine),
-        "soon": sum(1 for a in all_mine if views.due_info(a["due_date"], a["status"])["kind"] in ("soon", "overdue")),
+        "overdue": sum(1 for a in all_mine if views.due_info(a["due_date"], a["status"])["kind"] == "overdue"),
+        "soon": sum(1 for a in all_mine if views.due_info(a["due_date"], a["status"])["kind"] == "soon"),
         "blocked": sum(1 for a in all_mine if a["status"] == "Bloqueada"),
         "pending_me": len(mine_pending),
         "to_review": conn.execute("SELECT COUNT(*) FROM suggestions WHERE review_status='pendente'").fetchone()[0],
@@ -281,7 +298,17 @@ def home(request: Request, ordem: str = "prazo", q: str = "", prazo: str = "", s
             stale.append(a | {"stale_days": n})
     stale.sort(key=lambda a: -a["stale_days"])
     return render(request, conn, "minhas.html", items=items, ordem=ordem, mine_pending=mine_pending, stats=stats,
-                  stale=stale, filtro=filtro, filtering=filtering, recent=recent)
+                  stale=stale, filtro=filtro, filtering=filtering, recent=recent,
+                  welcome=not get_setting(conn, f"comece_visto:{me}"))
+
+
+@app.post("/comece-aqui/depois")
+def comece_depois(request: Request, conn=Depends(db)):
+    """"Agora não" no aviso de primeira visita: o aviso some; o Comece aqui continua no menu."""
+    me = require_member(request)
+    if me:
+        set_setting(conn, f"comece_visto:{me}", now_iso())
+    return to("/")
 
 
 @app.get("/atividades", response_class=HTMLResponse)
@@ -577,7 +604,10 @@ async def aceitar(request: Request, sid: int, conn=Depends(db)):
         flash(request, str(e), "erro")
         return to(f"/sugestoes/{sid}")
     t = conn.execute("SELECT title FROM activities WHERE activity_id=?", (target,)).fetchone()
-    flash(request, f"Sugestão aceita. “{t['title'] if t else target}” foi atualizada no quadro de atividades.")
+    if s["kind"] == "create":
+        flash(request, f"Sugestão aceita. “{t['title'] if t else target}” entrou no quadro como atividade nova ({target}).")
+    else:
+        flash(request, f"Sugestão aceita. “{t['title'] if t else target}” foi atualizada no quadro de atividades.")
     return to(f"/sugestoes/{sid}#decisao")
 
 
@@ -620,7 +650,11 @@ def novidades(request: Request, desde: str = "visita", conn=Depends(db)):
 @app.get("/comece-aqui", response_class=HTMLResponse)
 def comece(request: Request, pergunta: str = "", conn=Depends(db)):
     resposta = ask.ask(conn, make_qa_llm(), pergunta) if pergunta.strip() else None
-    return render(request, conn, "comece.html", o=views.onboarding(conn, require_member(request)),
+    me = require_member(request)
+    if me and not get_setting(conn, f"comece_visto:{me}"):
+        set_setting(conn, f"comece_visto:{me}", now_iso())   # o aviso "Primeira vez aqui?" não aparece mais
+    o = views.onboarding(conn, me)
+    return render(request, conn, "comece.html", o=o, doc_links={r["name"]: r["file_id"] for r in o["references"]},
                   pergunta=pergunta.strip()[:ask.MAX_QUESTION], resposta=resposta)
 
 
@@ -634,7 +668,10 @@ def fontes(request: Request, q: str = "", tipo: str = "", situacao: str = "", co
     filtro = {"q": q.strip(), "tipo": tipo, "situacao": situacao}
     official = get_setting(conn, "register_file_id")
     transcritos = {r["file_id"] for r in rows if r["sync_status"] == "ok" and transcribe.confirmed_info(conn, r["file_id"])}
+    issues_by_file = {r["file_id"]: r["issue_id"] for r in conn.execute(
+        "SELECT file_id, issue_id FROM issues WHERE status='aberta' AND file_id IS NOT NULL")}
     return render(request, conn, "fontes.html", rows=rows, official=official, transcritos=transcritos,
+                  issues_by_file=issues_by_file,
                   filtro=filtro, total=len(all_rows), filtering=bool(filtro["q"] or tipo or situacao),
                   DOC_TIPOS=busca.DOC_TIPOS, DOC_SITUACOES=busca.DOC_SITUACOES,
                   official_name=next((r["name"] for r in all_rows if r["file_id"] == official), official),
@@ -663,7 +700,9 @@ def fonte(request: Request, file_id: str, conn=Depends(db)):
         tr["by"] = names.get(tr["created_by"], tr["created_by"])
         tr["confirmed_by_name"] = names.get(tr["confirmed_by"], tr["confirmed_by"])
         tr["edited"] = tr["text"].strip() != tr["ai_text"].strip()
-    return render(request, conn, "fonte.html", s=dict(s), versions=versions, diff=diff, current=current, table=table,
+    issue = conn.execute("SELECT issue_id, kind, title FROM issues WHERE file_id=? AND status='aberta' "
+                         "ORDER BY issue_id DESC", (file_id,)).fetchone()
+    return render(request, conn, "fonte.html", s=dict(s), issue=dict(issue) if issue else None, versions=versions, diff=diff, current=current, table=table,
                   notes=notes, sug=sug, meta=json.loads(s["doc_meta"] or "{}"), tr=tr,
                   can_transcribe=transcribe.can_transcribe(s), llm_on=settings.llm_enabled)
 

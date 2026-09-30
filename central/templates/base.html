@@ -114,6 +114,12 @@
     if (window.matchMedia('(max-width: 700px)').matches)
       document.querySelectorAll('details.filt').forEach(function (d) { d.open = false; });
   });
+  /* Formulário com erro: o foco vai direto para o primeiro campo a corrigir */
+  document.addEventListener('DOMContentLoaded', function () {
+    if (document.querySelector('[autofocus]')) return;
+    var bad = document.querySelector('[aria-invalid="true"]');
+    if (bad) { bad.focus(); bad.scrollIntoView({ block: 'center' }); }
+  });
   /* Menus "Mais" e "☰ Menu": fecham com Esc ou ao clicar fora */
   (function () {
     var menus = document.querySelectorAll('details.more, details.mmenu');
@@ -133,7 +139,8 @@
   })();
 </script>
 <main id="conteudo" class="wrap">
-  {% for f in flashes %}<div class="flash {{ f.kind }}" role="alert">{{ f.message }}</div>{% endfor %}
+  {# erro interrompe (alert); confirmação é anunciada sem interromper (status) #}
+  {% for f in flashes %}<div class="flash {{ f.kind }}" role="{{ 'alert' if f.kind == 'erro' else 'status' }}">{{ f.message }}</div>{% endfor %}
   {% block content %}{% endblock %}
 </main>
 <footer class="foot"><div class="wrap">Central da Liga IA UFSCar. Protótipo do case técnico, com pessoas e documentos fictícios.</div></footer>
