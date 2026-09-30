@@ -52,7 +52,7 @@ def due_info(iso: str | None, status: str | None = None) -> dict:
     """Situação do prazo em São Paulo. Datas passadas são sinalizadas, nunca alteradas."""
     if not iso:
         return {"label": "Prazo a definir", "kind": "none"}
-    if status == "Concluída":
+    if status in acts.CLOSED:
         return {"label": f"Prazo {fmt_date(iso)}", "kind": "done"}
     days = (date.fromisoformat(iso) - today()).days
     if days < 0:

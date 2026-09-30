@@ -13,11 +13,15 @@ from datetime import date
 from .db import dumps, now_iso
 from .extractors import normalize
 
-STATUSES = ["A fazer", "Em andamento", "Bloqueada", "Concluída"]
+STATUSES = ["A fazer", "Em andamento", "Bloqueada", "Concluída", "Cancelada"]
+# Encerradas: saem das listas de abertas, não pedem prazo nem "Isso ainda está valendo?" e podem ser reabertas.
+# "Cancelada" = decidiu-se não fazer (nada foi entregue); "Concluída" = entregue.
+CLOSED = ("Concluída", "Cancelada")
 SOON_DAYS = 3   # "perto do prazo": vence hoje ou nos próximos 3 dias (o mesmo critério em todas as telas)
 _STATUS_BY_NORM = {normalize(s): s for s in STATUSES}
 _STATUS_BY_NORM.update({"concluido": "Concluída", "feito": "Concluída", "bloqueado": "Bloqueada",
-                        "fazer": "A fazer", "pendente": "A fazer"})
+                        "fazer": "A fazer", "pendente": "A fazer", "cancelado": "Cancelada",
+                        "descartada": "Cancelada", "descartado": "Cancelada"})
 
 EDITABLE_FIELDS = ["title", "description", "next_step", "front", "priority", "status", "due_date", "notes", "owners"]
 FIELD_LABELS = {
@@ -188,7 +192,7 @@ def list_activities(conn: sqlite3.Connection, member_id: str | None = None, incl
         where.append("o.member_id = ?")
         params.append(member_id)
     if not include_done:
-        where.append("a.status <> 'Concluída'")
+        where.append("a.status NOT IN ('Concluída', 'Cancelada')")
     if where:
         sql += " WHERE " + " AND ".join(where)
     # Prazo mais próximo primeiro; sem prazo ao final
@@ -239,14 +243,27 @@ def last_block_reason(conn: sqlite3.Connection, activity_id: str) -> str | None:
     return None
 
 
+CANCEL_PREFIX = "Motivo do cancelamento: "
+
+
 def status_before_done(conn: sqlite3.Connection, activity_id: str) -> str:
-    """Situação que a atividade tinha antes de ser concluída (para "Reabrir"). Sem registro: "A fazer"."""
+    """Situação que a atividade tinha antes de ser concluída ou cancelada (para "Reabrir"). Sem registro: "A fazer"."""
     for _, before, after in _status_events(conn, activity_id):
-        if after["status"] == "Concluída":
+        if after["status"] in CLOSED:
             prev = (before or {}).get("status")
-            return prev if prev in STATUSES and prev != "Concluída" else "A fazer"
+            return prev if prev in STATUSES and prev not in CLOSED else "A fazer"
         break
     return "A fazer"
+
+
+def cancel_reason(conn: sqlite3.Connection, a: dict) -> str | None:
+    """Motivo do cancelamento atual (registrado no histórico ao cancelar pela Central ou ao aceitar a sugestão)."""
+    for r, _, after in _status_events(conn, a["activity_id"]):
+        if after["status"] == "Cancelada":
+            reason = r["reason"] or ""
+            return reason[len(CANCEL_PREFIX):] if reason.startswith(CANCEL_PREFIX) else None
+        break
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +280,7 @@ def last_movement(conn: sqlite3.Connection, activity_id: str) -> str | None:
 def days_without_news(a: dict, today: date, limit: int) -> int | None:
     """Dias sem novidade quando passou do limite; None se está em dia, concluída ou com sugestão chegando.
     limit 0 desliga a verificação."""
-    if not limit or a.get("status") == "Concluída" or a.get("pending_suggestions"):
+    if not limit or a.get("status") in CLOSED or a.get("pending_suggestions"):
         return None
     last = a.get("last_movement") or a.get("updated_at")
     if not last:

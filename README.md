@@ -54,7 +54,8 @@ Detalhes que sustentam a regra:
 
 - **Criar:** título, descrição, frente, responsáveis, próximo passo, situação e prazo opcional. A atividade ganha ID, autor e horário, e a página dela mostra "Criada por Ana em …" (as importadas mostram "Veio da planilha oficial", e as aprovadas, "Criada a partir de uma sugestão aprovada por …"). Campo vazio fica vazio ("a definir", "responsável a confirmar"): nada é preenchido pela IA.
 - **Editar:** só os campos que mudaram entram no histórico, com antes → depois, autor e horário.
-- **Concluir, bloquear e reabrir:** bloquear exige o motivo, que vai para o histórico e aparece no cartão ("Bloqueio: …") sem apagar as notas da atividade. Uma atividade concluída pode ser **reaberta** e volta para a situação que tinha antes.
+- **Situações:** A fazer, Em andamento, Bloqueada, Concluída e **Cancelada** (a especificação pede no mínimo as quatro primeiras). Cancelada é "decidiu-se não fazer": nada foi entregue, então não se confunde com Concluída.
+- **Concluir, bloquear, cancelar e reabrir:** bloquear e cancelar exigem o motivo, que vai para o histórico e aparece na atividade, sem apagar as notas. Concluídas e canceladas saem das listas de abertas (o filtro "Situação" mostra cada uma) e podem ser **reabertas**, voltando para a situação que tinham antes.
 - **Campos que faltam:** quando uma atividade não tem responsável, frente ou próximo passo (por exemplo, porque a ata não trouxe), a página mostra "Faltam: … **Completar**", que leva à edição.
 - **"Perto do prazo"** tem um critério só em todo o site: vence hoje ou nos próximos 3 dias (o selo laranja, o resumo de Minhas atividades, o atalho e as Novidades).
 - As frentes oferecidas nos formulários vêm do quadro e do guia de entrada, não de uma lista fixa: uma frente nova nos documentos aparece sozinha.
@@ -171,6 +172,8 @@ Toda leitura acima é **determinística, sem IA**: o texto que entra é exatamen
   - a data precisa **estar escrita no documento**, em qualquer formato comum (2026-10-07, 07/10/2026, 7/10, "7 de outubro"). Uma data calculada pela IA ("até sexta que vem") não é apresentada como fato: o item aparece em "O que a IA leu e deixou de fora" como **"Precisa de conferência"**, com o trecho e o motivo;
   - os responsáveis precisam ser membros conhecidos citados no texto (como palavra inteira: "Ana" não conta dentro de "semana");
   - uma atividade nova com título parecido com uma existente vem com um ponto para conferir ("Parecida com ACT-101");
+  - a **situação** só muda quando o trecho diz o novo estado ("terminou", "está bloqueada", "começou"): "ainda não começou" nunca vira "Em andamento", e um **cancelamento** ("decidimos não fazer mais") vira "Cancelada", nunca "Concluída";
+  - um responsável novo ou um prazo que está no documento, mas **não no trecho citado** (por exemplo, "o Bru" no trecho e "Bruno" só na lista de participantes), continua na sugestão com um ponto para conferir;
   - campos iguais ao valor oficial são descartados, o que evita sugestão vazia e duplicata.
 - **Hipóteses** ("talvez", sem dono nem decisão) viram `no_action`. Além do que o modelo diz, a própria Central barra a proposta cujo trecho só fala em possibilidade ("talvez", "poderíamos", "quem sabe") sem nenhuma decisão: hipótese nunca vira sugestão. Se o trecho tem uma decisão e um "talvez" no meio, a sugestão segue com um ponto para conferir.
 - **Responsáveis:** quem já é responsável e continua na lista do modelo é mantido, mesmo sem ser citado no documento; se a proposta tira alguém, isso aparece como ponto para conferir.

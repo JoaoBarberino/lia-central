@@ -194,3 +194,69 @@ def test_precisa_de_conferencia_aparece_na_tela(client):  # noqa: F811
     login(client, "U-B")
     pagina = client.get("/sugestoes").text
     assert "Precisa de conferência" in pagina and "sexta que vem" in pagina and "lo-conferir" in pagina
+
+
+# ---------------------------------------------------------------------------
+# Rodada 2 da avaliação da IA: situação dita no trecho, cancelamento e apelidos
+# ---------------------------------------------------------------------------
+def test_situacao_so_muda_quando_o_trecho_diz(conn, sync):
+    sync()
+    texto = ("Davi disse que ainda não conseguiu começar o checklist. Ficou combinado que ele entrega "
+             "a primeira versão até 2026-10-16.")
+    clean, problema = validate_item(conn, _item(target_activity_id="ACT-102", status="Em andamento",
+                                                due_date="2026-10-16", evidence=texto), texto)
+    assert problema is None and clean["proposed"] == {"due_date": "2026-10-16"}      # "ainda não começou" ≠ andamento
+    assert any("não está dita no trecho" in u for u in clean["uncertainties"])
+
+
+def test_bloqueada_volta_a_andar_quando_o_bloqueio_se_resolve(conn, sync):
+    sync()
+    texto = "Carla confirmou a sala da oficina."
+    clean, problema = validate_item(conn, _item(target_activity_id="ACT-103", status="Em andamento",
+                                                evidence=texto), texto)
+    assert problema is None and clean["proposed"] == {"status": "Em andamento"}
+
+
+def test_cancelamento_nunca_vira_concluida(conn, sync):
+    sync()
+    texto = "Decidimos não fazer mais a ACT-104; Ana e Davi ficam liberados."
+    clean, problema = validate_item(conn, _item(target_activity_id="ACT-104", status="Concluída",
+                                                evidence=texto), texto)
+    assert problema is None and clean["proposed"] == {"status": "Cancelada"}
+    assert any("cancelamento" in u for u in clean["uncertainties"])
+
+
+def test_apelido_pede_conferencia(conn, sync):
+    sync()
+    texto = ("Participaram Ana, Bruno e Davi.\n\nO Bru falou que entra junto com a Aninha no carrossel (ACT-101). "
+             "Novo prazo: 2026-10-09.")
+    evid = "O Bru falou que entra junto com a Aninha no carrossel (ACT-101). Novo prazo: 2026-10-09."
+    clean, problema = validate_item(conn, _item(target_activity_id="ACT-101", owners=["U-A", "U-B"],
+                                                due_date="2026-10-09", evidence=evid), texto)
+    assert problema is None and clean["proposed"]["owners"] == ["U-A", "U-B"]
+    assert any("Bruno não aparece com esse nome no trecho" in u for u in clean["uncertainties"])
+
+
+def test_prazo_fora_do_trecho_pede_conferencia(conn, sync):
+    sync()
+    texto = "Davi assume o checklist (ACT-102).\n\nOutro assunto: a reunião geral é em 2026-10-20."
+    clean, _ = validate_item(conn, _item(target_activity_id="ACT-102", due_date="2026-10-20",
+                                         evidence="Davi assume o checklist (ACT-102)."), texto)
+    assert clean["proposed"]["due_date"] == "2026-10-20"
+    assert any("não no trecho citado" in u for u in clean["uncertainties"])
+
+
+def test_cancelar_pela_interface(client):  # noqa: F811
+    login(client, "U-A")
+    r = client.post("/atividades/ACT-104/estado", data={"status": "Cancelada", "reason": " "}, follow_redirects=False)
+    assert "cancelar=1" in r.headers["location"]                                   # motivo obrigatório
+    client.post("/atividades/ACT-104/estado", data={"status": "Cancelada", "reason": "O departamento troca de sistema"})
+    c = _db()
+    assert acts.snapshot(c, "ACT-104")["status"] == "Cancelada"
+    assert "ACT-104" not in [a["activity_id"] for a in acts.list_activities(c, "U-A")]   # sai das abertas
+    pagina = client.get("/atividades/ACT-104").text
+    assert "Motivo do cancelamento" in pagina and "O departamento troca de sistema" in pagina and "Reabrir" in pagina
+    assert "ACT-104" in client.get("/atividades?situacao=Cancelada").text
+    valor = re.search(r'name="status" value="([^"]+)"><button[^>]*>Reabrir', pagina).group(1)
+    client.post("/atividades/ACT-104/estado", data={"status": valor})
+    assert acts.snapshot(_db(), "ACT-104")["status"] == "A fazer"

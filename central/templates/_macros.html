@@ -1,6 +1,7 @@
 {% macro status_tag(status) -%}
   {% if status == 'Bloqueada' %}<span class="tag blocked">Bloqueada</span>
   {% elif status == 'Concluída' %}<span class="tag done">Concluída</span>
+  {% elif status == 'Cancelada' %}<span class="tag cancel">Cancelada</span>
   {% elif status == 'Em andamento' %}<span class="tag progress">Em andamento</span>
   {% else %}<span class="tag neutral">{{ status }}</span>{% endif %}
 {%- endmacro %}

@@ -189,12 +189,13 @@ code { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: .86
 /* Estados: etiqueta clara com a palavra e uma bolinha da cor do estado (a cor nunca vem sozinha) */
 .tag { display: inline-block; padding: .1rem .55rem; border-radius: 6px; background: #EEF1F8; font-size: .85rem; font-weight: 600;
   color: var(--muted); white-space: nowrap; line-height: 1.5; }
-.tag.neutral::before, .tag.progress::before, .tag.blocked::before, .tag.done::before, .tag.soon::before, .tag.overdue::before, .tag.err::before {
+.tag.neutral::before, .tag.progress::before, .tag.blocked::before, .tag.done::before, .tag.cancel::before, .tag.soon::before, .tag.overdue::before, .tag.err::before {
   content: ""; display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .4rem; vertical-align: .06rem; background: currentColor; }
 .tag.neutral::before { background: #8C95B5; }
 .tag.blocked, .tag.overdue, .tag.err { color: var(--danger); background: var(--danger-soft); }
 .tag.soon { color: var(--warn); background: var(--warn-soft); }
 .tag.done { color: var(--ok); background: var(--ok-soft); }
+.tag.cancel { color: var(--muted); background: #EEF1F8; }
 .tag.progress { color: var(--blue); background: #E3E9FB; }
 .tag.pending { color: var(--blue); background: none; padding: 0; text-decoration: none; }
 a.tag.pending:hover { text-decoration: underline; }

@@ -19,7 +19,7 @@ SEM = "__sem"   # valor de filtro para "Sem responsável" / "Sem frente"
 PRAZOS = [("", "Qualquer prazo"), ("vencidas", "Vencidas"), ("perto", f"Vencem em até {acts.SOON_DAYS} dias"), ("mes", "Este mês"),
           ("sem", "Sem prazo")]
 SITUACOES = [("", "Abertas"), ("A fazer", "A fazer"), ("Em andamento", "Em andamento"), ("Bloqueada", "Bloqueada"),
-             ("Concluída", "Concluída"), ("todas", "Todas, com as concluídas")]
+             ("Concluída", "Concluída"), ("Cancelada", "Cancelada"), ("todas", "Todas, com as encerradas")]
 DOC_TIPOS = [("", "Todos os tipos"), ("atas", "Atas"), ("planilhas", "Planilhas"),
              ("referencia", "Guias e referência"), ("antigos", "Documentos antigos"), ("outros", "Outros arquivos")]
 DOC_SITUACOES = [("", "Qualquer situação"), ("ok", "Lidos"), ("nao_suportado", "Não lidos"), ("erro", "Com erro"),
@@ -51,7 +51,7 @@ def filter_activities(items: list[dict], *, q: str = "", responsavel: str = "", 
         elif situacao:
             if a["status"] != situacao:
                 continue
-        elif a["status"] == "Concluída":
+        elif a["status"] in acts.CLOSED:
             continue
         if responsavel == SEM and a["owners"]:
             continue
@@ -62,9 +62,9 @@ def filter_activities(items: list[dict], *, q: str = "", responsavel: str = "", 
         if frente and frente != SEM and (a.get("front") or "") != frente:
             continue
         d = a.get("due_date")
-        if prazo == "vencidas" and not (d and d < today.isoformat() and a["status"] != "Concluída"):
+        if prazo == "vencidas" and not (d and d < today.isoformat() and a["status"] not in acts.CLOSED):
             continue
-        if prazo == "perto" and not (d and today.isoformat() <= d <= soon and a["status"] != "Concluída"):
+        if prazo == "perto" and not (d and today.isoformat() <= d <= soon and a["status"] not in acts.CLOSED):
             continue
         if prazo == "mes" and not (d and today.isoformat()[:7] == d[:7] and d <= month_end):
             continue

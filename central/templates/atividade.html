@@ -46,13 +46,14 @@
       <div><dt>Prazo</dt><dd>{{ fmt_date(a.due_date) }}{{ sugerido('due_date') }}</dd></div>
       <div><dt>Prioridade</dt><dd>{{ a.priority or '—' }}{{ sugerido('priority') }}</dd></div>
       <div class="wide"><dt>Próximo passo</dt><dd>{{ a.next_step or '—' }}{{ sugerido('next_step') }}</dd></div>
+      {% if a.cancel_reason %}<div class="wide"><dt>Motivo do cancelamento</dt><dd>{{ a.cancel_reason }}</dd></div>{% endif %}
       {% if a.block_reason and a.block_reason != a.notes %}<div class="wide"><dt>Motivo do bloqueio</dt><dd>{{ a.block_reason }}</dd></div>{% endif %}
       <div class="wide"><dt>Notas e bloqueios</dt><dd>{{ a.notes or '—' }}{{ sugerido('notes') }}</dd></div>
       <div class="wide"><dt>Descrição</dt><dd>{{ a.description or '—' }}{{ sugerido('description') }}</dd></div>
   </dl>
     <div class="actions" style="margin-top:1.5rem">
       <a class="btn secondary small" href="/atividades/{{ a.activity_id }}/editar">Editar</a>
-      {% if a.status != 'Concluída' %}
+      {% if a.status not in ('Concluída', 'Cancelada') %}
       <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="Concluída"><button class="btn secondary small" type="submit">Marcar como concluída</button></form>
       {% else %}
       <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="{{ reopen_to }}"><button class="btn secondary small" type="submit">Reabrir</button></form>
@@ -61,7 +62,7 @@
       <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="Em andamento"><button class="btn secondary small" type="submit">Desbloquear</button></form>
       {% endif %}
     </div>
-    {% if a.status not in ('Bloqueada', 'Concluída') %}
+    {% if a.status not in ('Bloqueada', 'Concluída', 'Cancelada') %}
     <details id="bloquear" style="margin-top:.9rem" {% if block_open %}open{% endif %}>
       <summary>Marcar como bloqueada</summary>
       <form method="post" action="/atividades/{{ a.activity_id }}/estado" class="stack" style="margin-top:.6rem">
@@ -71,6 +72,19 @@
         <input type="text" id="motivo" name="reason" required {% if block_open %}aria-invalid="true" aria-describedby="motivo-erro motivo-dica" autofocus{% else %}aria-describedby="motivo-dica"{% endif %} placeholder="Ex.: aguardando confirmação da sala…" autocomplete="off">
         <p class="small muted" id="motivo-dica">O motivo fica no histórico. As notas da atividade não são apagadas.</p></div>
         <div><button class="btn danger small" type="submit">Bloquear</button></div>
+      </form>
+    </details>
+    {% endif %}
+    {% if a.status not in ('Concluída', 'Cancelada') %}
+    <details id="cancelar" style="margin-top:.6rem" {% if cancel_open %}open{% endif %}>
+      <summary>Cancelar atividade</summary>
+      <form method="post" action="/atividades/{{ a.activity_id }}/estado" class="stack" style="margin-top:.6rem">
+        <input type="hidden" name="status" value="Cancelada">
+        <div><label for="motivo-cancel">Motivo do cancelamento (obrigatório)</label>
+        {% if cancel_open %}<p class="error" id="cancel-erro">Escreva o motivo: por que a atividade não vai mais ser feita.</p>{% endif %}
+        <input type="text" id="motivo-cancel" name="reason" required {% if cancel_open %}aria-invalid="true" aria-describedby="cancel-erro cancel-dica" autofocus{% else %}aria-describedby="cancel-dica"{% endif %} placeholder="Ex.: o departamento vai trocar de sistema…" autocomplete="off">
+        <p class="small muted" id="cancel-dica">Cancelar não é concluir: a atividade sai das listas de abertas, fica registrada como cancelada e pode ser reaberta.</p></div>
+        <div><button class="btn danger small" type="submit">Cancelar atividade</button></div>
       </form>
     </details>
     {% endif %}

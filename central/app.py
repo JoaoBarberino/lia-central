@@ -421,18 +421,20 @@ def detalhe(request: Request, activity_id: str, conn=Depends(db)):
             if (new or None) != (cur or None):
                 pend_fields.setdefault(k, []).append({"value": views.describe_value(k, v, names), "id": s["suggestion_id"]})
     row["block_reason"] = acts.block_reason(conn, row) if row["status"] == "Bloqueada" else None
+    row["cancel_reason"] = acts.cancel_reason(conn, row) if row["status"] == "Cancelada" else None
     first = history[-1] if history else None
     row["origin_sug"] = first["suggestion_id"] if first else None
     row["origin_by"] = first["actor"] if first and first["actor"] != "sistema" else None
     # Campos que o formulário de criação pede e ficaram vazios (a ata não trouxe; ninguém inventa): convite a completar
-    row["missing"] = [] if row["status"] == "Concluída" else [
+    row["missing"] = [] if row["status"] in acts.CLOSED else [
         label for k, label in (("owners", "responsáveis"), ("front", "frente"), ("next_step", "próximo passo"))
         if not (row["owners"] if k == "owners" else row.get(k))]
     return render(request, conn, "atividade.html", a=row, history=history, refs=refs, pend=pend, names=names,
                   back_href=back[0], back_label=back[1], stale_days=stale_days,
                   pend_fields=pend_fields, pend_labels=[acts.FIELD_LABELS.get(k, k) for k in pend_fields],
-                  reopen_to=acts.status_before_done(conn, activity_id) if row["status"] == "Concluída" else None,
+                  reopen_to=acts.status_before_done(conn, activity_id) if row["status"] in acts.CLOSED else None,
                   block_open=request.query_params.get("bloquear") == "1",
+                  cancel_open=request.query_params.get("cancelar") == "1",
                   can_confirm=can_confirm(conn, require_member(request), row["owners"]))
 
 
@@ -536,7 +538,7 @@ def mudar_estado(request: Request, activity_id: str, status: str = Form(...), re
         return to(f"/atividades/{activity_id}")
     before = acts.snapshot(conn, activity_id)["status"]
     reason = reason.strip()
-    if status == "Bloqueada" and before == "Concluída" and not reason:
+    if status == "Bloqueada" and before in acts.CLOSED and not reason:
         # Reabrir uma atividade que estava bloqueada: volta bloqueada, com o motivo de antes
         previous = acts.last_block_reason(conn, activity_id)
         why = acts.BLOCK_PREFIX + previous if previous else "Reaberta (voltou para Bloqueada)"
@@ -545,14 +547,21 @@ def mudar_estado(request: Request, activity_id: str, status: str = Form(...), re
         if not reason:   # o erro aparece escrito junto do campo, que já abre com o foco
             return to(f"/atividades/{activity_id}?bloquear=1#bloquear")
         why = acts.BLOCK_PREFIX + reason
-    elif before == "Concluída" and status != "Concluída":
+    elif status == "Cancelada":
+        # cancelar também exige o motivo: fica no histórico e aparece na atividade
+        if not reason:
+            return to(f"/atividades/{activity_id}?cancelar=1#cancelar")
+        why = acts.CANCEL_PREFIX + reason
+    elif before in acts.CLOSED and status not in acts.CLOSED:
         why = f"Reaberta (voltou para {status})"
     else:
         why = reason or f"Marcada como {status}"
     acts.update_activity(conn, activity_id, {"status": status}, actor_id=me, reason=why)
     if status == "Concluída":
         flash(request, "Atividade marcada como concluída. Se foi engano, use “Reabrir”.")
-    elif before == "Concluída":
+    elif status == "Cancelada":
+        flash(request, "Atividade cancelada. Ela sai das listas de abertas; se foi engano, use “Reabrir”.")
+    elif before in acts.CLOSED:
         flash(request, f"Atividade reaberta. Voltou para “{status}”.")
     else:
         flash(request, f"Atividade marcada como {status.lower()}.")

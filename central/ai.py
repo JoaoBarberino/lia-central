@@ -185,11 +185,17 @@ trechos literais com "..." entre eles.
 10. Se nada no documento muda o registro, devolva lista vazia.
 11. Não proponha mudar "notes" ou "next_step" só para reescrever, com outras palavras, o que o registro \
 já diz. Proponha apenas quando houver informação nova (um fato, uma data, uma pessoa, um bloqueio novo).
+12. "status" só quando a ata DISSER o novo estado: terminou/concluiu -> "Concluída"; está travada, \
+aguardando algo -> "Bloqueada"; começou/retomou -> "Em andamento"; foi cancelada, "decidimos não fazer \
+mais", desistimos -> "Cancelada" (NUNCA "Concluída": nada foi entregue). "Ainda não começou" NÃO é \
+"Em andamento". Na dúvida, deixe "status" null.
+13. Responsável citado por apelido ou só pelo primeiro nome diferente do cadastro ("Bru", "Aninha"): \
+use o member_id certo só se não houver ambiguidade e registre em "uncertainties" como identificou a pessoa.
 
 Responda apenas com JSON no formato:
 {"items": [{"kind": "create|update|no_action", "target_activity_id": "ACT-101 ou null",
   "title": "texto curto ou null", "owners": ["U-A"] ou null, "due_date": "AAAA-MM-DD ou null",
-  "next_step": "texto ou null", "status": "A fazer|Em andamento|Bloqueada|Concluída ou null",
+  "next_step": "texto ou null", "status": "A fazer|Em andamento|Bloqueada|Concluída|Cancelada ou null",
   "notes": "texto ou null", "evidence": "trecho literal", "reason": "por que esta proposta",
   "category": "ideia|sem_mudanca|instrucao (só em no_action)", "uncertainties": ["..."]}]}"""
 
@@ -259,6 +265,30 @@ def date_in_text(iso: str, text: str) -> bool:
     return bool(re.search(rf"(?<!\d){dia}(?:o|º)?\s+de\s+{MESES[d.month - 1]}(?:\s+de\s+{d.year})?\b", flat))
 
 
+# A situação só muda quando o trecho DIZ o novo estado (a IA não deduz estado)
+STATUS_CUES = {
+    "Concluída": r"conclu|termin|finaliz|entreg(ou|aram|amos|ue)\b|(ficou|esta|estao|ficaram) pront|foi feit|foram feit",
+    "Bloqueada": r"bloque|travad|parad[oa]|aguard|esperando|depende d|impedid|sem como (seguir|continuar)",
+    "Em andamento": r"andamento|comec(ou|aram|amos|ei)|iniciou|iniciad|retom|desbloque|em execucao|ja (esta|estao) (fazendo|trabalhando)",
+    "A fazer": r"reabr|volt(a|ou) para|ainda nao comec|nao comecou",
+    "Cancelada": r"cancel|nao (vamos |vai |iremos )?(mais )?(fazer|seguir) (mais|com)|nao (vamos )?fazer mais|"
+                 r"nao faz mais sentido|desist|abandon|descart|suspens|nao sera mais feit",
+}
+# Atividade bloqueada que volta a andar: o que a destravou costuma ser dito assim ("a sala foi confirmada")
+UNBLOCK_CUES = r"desbloque|destrav|liberad|liberou|resolv|confirm|deixa de estar bloquead|pode (seguir|continuar|comecar)|segue"
+NOT_STARTED = re.compile(r"ainda nao (consegui|conseguiu|conseguiram|conseguimos)? ?(comec|inici)|nao comecou")
+
+
+def status_supported(status: str, evidence: str, current: str | None = None) -> bool:
+    flat = normalize(evidence or "")
+    if status == "Em andamento" and NOT_STARTED.search(flat):
+        return False
+    if current == "Bloqueada" and status in ("Em andamento", "A fazer") and re.search(UNBLOCK_CUES, flat):
+        return True
+    cue = STATUS_CUES.get(status)
+    return bool(cue and re.search(cue, flat))
+
+
 def mentioned(name: str, text: str) -> bool:
     """O nome aparece como palavra inteira ("Ana" não conta dentro de "semana")."""
     return bool(re.search(rf"(?<!\w){re.escape(normalize(name))}(?!\w)", normalize(text)))
@@ -273,7 +303,7 @@ def similar_activity(conn: sqlite3.Connection, title: str) -> dict | None:
     new = _words(title)
     if not new:
         return None
-    for r in conn.execute("SELECT activity_id, title FROM activities WHERE status <> 'Concluída'"):
+    for r in conn.execute("SELECT activity_id, title FROM activities WHERE status NOT IN ('Concluída', 'Cancelada')"):
         old = _words(r["title"])
         if old and len(new & old) / min(len(new), len(old)) >= 0.6:
             return dict(r)
@@ -347,6 +377,9 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
             uncertainties.append(f"Prazo em formato inválido ({proposed['due_date']!r}); deixado a definir.")
             dropped.append(uncertainties[-1])
             proposed.pop("due_date")
+        elif date_in_text(proposed["due_date"], text) and not date_in_text(proposed["due_date"], evidence):
+            uncertainties.append(f"O prazo {views_date(proposed['due_date'])} está no documento, mas não no trecho "
+                                 "citado: confira se é desta decisão.")
         elif not date_in_text(proposed["due_date"], text):
             uncertainties.append(f"O prazo {views_date(proposed['due_date'])} não aparece escrito como data no documento "
                                  "(pode ter sido calculado a partir de algo como \"sexta que vem\"); deixado a definir.")
@@ -369,6 +402,10 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
                 dropped.append(uncertainties[-1])
             elif mid not in owners:
                 owners.append(mid)   # quem já é responsável e a IA manteve na lista continua, mesmo sem ser citado
+                if mid not in current_owners and not mentioned(names[mid], evidence):
+                    # citado no documento, mas não no trecho da decisão (ex.: apelido "Bru" → Bruno)
+                    uncertainties.append(f"{names[mid]} não aparece com esse nome no trecho da decisão "
+                                         "(o documento o cita em outro lugar): confira se é mesmo essa pessoa.")
         if owners:
             proposed["owners"] = sorted(owners)
             removed = [names.get(o, o) for o in current_owners if o not in owners]
@@ -379,8 +416,20 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
 
     if "status" in proposed:
         proposed["status"] = acts.normalize_status(proposed["status"])
+        cancelled = bool(re.search(STATUS_CUES["Cancelada"], normalize(evidence)))
+        if proposed["status"] == "Concluída" and cancelled:
+            # "decidimos não fazer mais" não é entrega: cancelada, nunca concluída
+            proposed["status"] = "Cancelada"
+            uncertainties.append("O trecho fala em cancelamento, não em entrega: sugerida como Cancelada, não Concluída.")
         if proposed["status"] not in acts.STATUSES:
             uncertainties.append(f"Estado desconhecido {proposed['status']!r} ignorado.")
+            dropped.append(uncertainties[-1])
+            proposed.pop("status")
+        elif not status_supported(proposed["status"], evidence,
+                                  (acts.snapshot(conn, item.get("target_activity_id")) or {}).get("status")
+                                  if kind == "update" and item.get("target_activity_id") else None):
+            uncertainties.append(f"A situação \"{proposed['status']}\" não está dita no trecho citado; "
+                                 "a situação atual foi mantida.")
             dropped.append(uncertainties[-1])
             proposed.pop("status")
 
