@@ -46,7 +46,7 @@
 
 {% set qs = ('q=' ~ (filtro.q | urlencode) ~ '&') if filtro.q else '' %}
 <div class="toolbar finder-top">
-  <form class="search" role="search" method="get" action="/">
+  <form class="search" role="search" method="get" action="/#resultados">
     <label class="sr" for="q">Buscar nas minhas atividades</label>
     <input type="search" id="q" name="q" value="{{ filtro.q }}" placeholder="Buscar nas minhas atividades…" autocomplete="off">
     {% for k in ('prazo', 'situacao') %}{% if filtro[k] %}<input type="hidden" name="{{ k }}" value="{{ filtro[k] }}">{% endif %}{% endfor %}
@@ -69,7 +69,7 @@
     <a href="/?{{ qs }}ordem=estado" {% if ordem == 'estado' %}aria-current="true"{% endif %}>bloqueadas primeiro</a>
   </div>
 </div>
-{% if filtering %}<p class="result-count" role="status">{{ items|length }} {{ 'atividade encontrada' if items|length == 1 else 'atividades encontradas' }} · <a href="/">Limpar filtros</a></p>{% endif %}
+{% if filtering %}<p class="result-count" id="resultados" tabindex="-1" role="status">{{ items|length }} {{ 'atividade encontrada' if items|length == 1 else 'atividades encontradas' }} · <a href="/">Limpar filtros</a></p>{% endif %}
 
 {% if items %}
 <div class="acts">

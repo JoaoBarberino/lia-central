@@ -3,6 +3,8 @@
 {% block title %}Sugestões{% endblock %}
 {% block content %}
 <h1>Sugestões para revisar</h1>
+{% set revisores = members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') %}
+{% if me and not me.can_review %}<p class="lead">Aqui você acompanha o que as atas propõem mudar no quadro. Quem aceita ou rejeita é {{ revisores }}; até lá, nada muda nas atividades.</p>{% endif %}
 <div class="toolbar">
   <div class="filters" role="group" aria-label="Filtrar por estado">
     {% for key, label in [('pendente','Pendentes'),('aceita','Aceitas'),('aceita_com_ajuste','Aceitas com ajuste'),('rejeitada','Rejeitadas'),('desatualizada','Substituídas (a ata mudou)'),('todas','Todas')] %}
@@ -28,7 +30,7 @@
     <p class="said"><span class="said-label">{{ 'A ata diz:' if s.model else 'Na planilha:' }}</span> <q>{{ s.evidence }}</q></p>
     <p class="srcline"><span>{{ source_ref(s.source) }}</span></p>
     {% if s.uncertainties_list %}<div class="uncert"><strong>Pontos para conferir:</strong> {{ s.uncertainties_list | join('; ') }}</div>{% endif %}
-    {% if s.review_status == 'pendente' %}<p style="margin:1rem 0 0"><a class="btn small" href="/sugestoes/{{ s.suggestion_id }}">Revisar</a></p>{% endif %}
+    {% if s.review_status == 'pendente' %}<p style="margin:1rem 0 0">{% if me and me.can_review %}<a class="btn small" href="/sugestoes/{{ s.suggestion_id }}">Revisar</a>{% else %}<a class="btn small secondary" href="/sugestoes/{{ s.suggestion_id }}">Ver detalhes</a> <span class="small muted">Aguardando {{ revisores }}</span>{% endif %}</p>{% endif %}
   </article>
 {% endfor %}
 </div>

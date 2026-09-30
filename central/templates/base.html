@@ -34,11 +34,13 @@
         </nav>
         <form method="post" action="/entrar" class="mm-who">
           <label for="member-switch-m" class="mm-grp">Ver o site como</label>
-          <select id="member-switch-m" name="member_id" onchange="this.form.submit()">
+          <div class="who-row">
+          <select id="member-switch-m" name="member_id">
             {% if not me %}<option value="">Quem é você?</option>{% endif %}
             {% for m in members %}<option value="{{ m.member_id }}" {% if me and me.member_id == m.member_id %}selected{% endif %}>{{ m.display_name }}{% if m.can_review %} (aprova){% endif %}, {{ m.front }}</option>{% endfor %}
           </select>
-          <noscript><button class="btn small" type="submit">Trocar</button></noscript>
+          <button class="btn small" type="submit">Trocar</button>
+          </div>
         </form>
       </div>
     </details>
@@ -58,13 +60,13 @@
     </div>
     <form class="who" method="post" action="/entrar">
       <label class="sr" for="member-switch">Ver o site como</label>
-      <select id="member-switch" name="member_id" onchange="this.form.submit()">
+      <select id="member-switch" name="member_id">
         {% if not me %}<option value="">Quem é você?</option>{% endif %}
         {% for m in members %}
         <option value="{{ m.member_id }}" {% if me and me.member_id == m.member_id %}selected{% endif %}>{{ m.display_name }}{% if m.can_review %} (aprova){% endif %}, {{ m.front }}</option>
         {% endfor %}
       </select>
-      <noscript><button type="submit">Trocar</button></noscript>
+      <button type="submit">Trocar</button>
     </form>
   </div>
   <div class="wrap nav-row">
@@ -91,7 +93,21 @@
     var b = ev.submitter || ev.target.querySelector('button[type=submit], button:not([type])');
     if (!b || ev.defaultPrevented) return;
     setTimeout(function () { b.disabled = true; b.setAttribute('aria-busy', 'true');
-      if (b.dataset.busy) b.textContent = b.dataset.busy; }, 0);
+      if (b.dataset.busy) { b.dataset.label = b.textContent; b.textContent = b.dataset.busy; } }, 0);
+  });
+  /* Filtros: campos vazios ficam fora do endereço (/atividades?prazo=vencidas, e não ?responsavel=&frente=…) */
+  document.addEventListener('submit', function (ev) {
+    var f = ev.target;
+    if ((f.getAttribute('method') || 'get').toLowerCase() !== 'get') return;
+    f.querySelectorAll('select[name], input[name]').forEach(function (el) { if (!el.value) el.disabled = true; });
+  });
+  /* Voltar pelo navegador: a página volta utilizável (botões e campos reativados) */
+  window.addEventListener('pageshow', function (ev) {
+    if (!ev.persisted) return;
+    document.querySelectorAll('[aria-busy="true"], select[name]:disabled, input[name]:disabled').forEach(function (el) {
+      el.disabled = false; el.removeAttribute('aria-busy');
+      if (el.dataset.label) el.textContent = el.dataset.label;
+    });
   });
   /* No celular os filtros começam recolhidos ("Filtros (2)"), para a lista aparecer logo */
   document.addEventListener('DOMContentLoaded', function () {
@@ -107,6 +123,12 @@
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
       menus.forEach(function (d) { if (d.open) { d.open = false; d.querySelector('summary').focus(); } });
+    });
+    /* Ao sair do menu com Tab, ele fecha: o menu aberto não pode cobrir o próximo item em foco */
+    menus.forEach(function (d) {
+      d.addEventListener('focusout', function (e) {
+        if (d.open && e.relatedTarget && !d.contains(e.relatedTarget)) d.open = false;
+      });
     });
   })();
 </script>

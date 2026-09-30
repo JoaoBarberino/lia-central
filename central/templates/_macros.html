@@ -42,7 +42,7 @@
   <div>
     <h2 class="item-title"><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a></h2>
     <p class="meta">{{ a.front or 'Sem frente' }}, <span class="id">código {{ a.activity_id }}</span>.{% if a.due_date and d.kind == 'ok' %} {{ d.label }}.{% endif %}</p>
-    {% if a.status == 'Bloqueada' and a.notes %}<p class="next blocker">Bloqueio: {{ a.notes }}</p>{% endif %}
+    {% set motivo = a.block_reason or a.notes %}{% if a.status == 'Bloqueada' and motivo %}<p class="next blocker">Bloqueio: {{ motivo }}</p>{% endif %}
     <p class="next">Próximo passo: {{ (a.next_step or 'não definido').rstrip('.') }}.</p>
     {% if a.pending_suggestions %}<p class="proposal"><strong>{{ 'Sugestão' if a.pending_suggestions == 1 else a.pending_suggestions ~ ' sugestões' }} aguardando revisão.</strong> <a href="/atividades/{{ a.activity_id }}#sugestoes">Ver o que muda</a></p>{% endif %}
   </div>

@@ -195,7 +195,9 @@ def render(request: Request, conn, template: str, status_code: int = 200, **ctx)
     ctx.update(
         request=request, me=member, members=conn.execute("SELECT * FROM members ORDER BY display_name").fetchall(),
         last_run=last_run, last_ok=last_ok, flashes=request.session.pop("flash", []),
-        n_pending=conn.execute("SELECT COUNT(*) FROM suggestions WHERE review_status='pendente'").fetchone()[0],
+        # o contador de sugestões no menu é um chamado para agir: só aparece para quem pode aprovar
+        n_pending=conn.execute("SELECT COUNT(*) FROM suggestions WHERE review_status='pendente'").fetchone()[0]
+        if member and member["can_review"] else 0,
         n_issues=conn.execute("SELECT COUNT(*) FROM issues WHERE status='aberta'").fetchone()[0],
         source_mode=settings.source_mode, llm_enabled=settings.llm_enabled,
         sync_minutes=round(settings.sync_interval / 60, 1) if settings.sync_interval % 60 else settings.sync_interval // 60,
@@ -369,8 +371,19 @@ def detalhe(request: Request, activity_id: str, conn=Depends(db)):
     row["last_update"] = {"ts": last["ts"], "by": last["actor"]} if last else None
     row["last_movement"] = history[0]["ts"] if history else row["updated_at"]
     stale_days = acts.days_without_news(row, views.today(), settings.stale_days)
+    # Sugestão pendente: o valor proposto aparece discreto, embaixo do valor oficial (que continua valendo)
+    pend_fields: dict[str, list[dict]] = {}
+    for s in pend:
+        for k, v in s["proposed"].items():
+            cur, new = (sorted(row["owners"]), sorted(v or [])) if k == "owners" else (row.get(k), v)
+            if (new or None) != (cur or None):
+                pend_fields.setdefault(k, []).append({"value": views.describe_value(k, v, names), "id": s["suggestion_id"]})
+    row["block_reason"] = acts.block_reason(conn, row) if row["status"] == "Bloqueada" else None
     return render(request, conn, "atividade.html", a=row, history=history, refs=refs, pend=pend, names=names,
                   back_href=back[0], back_label=back[1], stale_days=stale_days,
+                  pend_fields=pend_fields, pend_labels=[acts.FIELD_LABELS.get(k, k) for k in pend_fields],
+                  reopen_to=acts.status_before_done(conn, activity_id) if row["status"] == "Concluída" else None,
+                  block_open=request.query_params.get("bloquear") == "1",
                   can_confirm=can_confirm(conn, require_member(request), row["owners"]))
 
 
@@ -446,11 +459,24 @@ def mudar_estado(request: Request, activity_id: str, status: str = Form(...), re
     if status not in acts.STATUSES:
         flash(request, "Situação inválida. Escolha uma das opções da lista.", "erro")
         return to(f"/atividades/{activity_id}")
-    changes = {"status": status}
-    if status == "Bloqueada" and reason.strip():
-        changes["notes"] = reason.strip()
-    acts.update_activity(conn, activity_id, changes, actor_id=me, reason=reason.strip() or f"Marcada como {status}")
-    flash(request, f"Atividade marcada como {status.lower()}.")
+    before = acts.snapshot(conn, activity_id)["status"]
+    reason = reason.strip()
+    if status == "Bloqueada":
+        # o motivo é obrigatório e vai para o histórico; as notas da atividade não são apagadas
+        if not reason:   # o erro aparece escrito junto do campo, que já abre com o foco
+            return to(f"/atividades/{activity_id}?bloquear=1#bloquear")
+        why = acts.BLOCK_PREFIX + reason
+    elif before == "Concluída" and status != "Concluída":
+        why = f"Reaberta (voltou para {status})"
+    else:
+        why = reason or f"Marcada como {status}"
+    acts.update_activity(conn, activity_id, {"status": status}, actor_id=me, reason=why)
+    if status == "Concluída":
+        flash(request, "Atividade marcada como concluída. Se foi engano, use “Reabrir”.")
+    elif before == "Concluída":
+        flash(request, f"Atividade reaberta. Voltou para “{status}”.")
+    else:
+        flash(request, f"Atividade marcada como {status.lower()}.")
     return to(f"/atividades/{activity_id}")
 
 

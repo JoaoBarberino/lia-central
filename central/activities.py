@@ -201,7 +201,43 @@ def list_activities(conn: sqlite3.Connection, member_id: str | None = None, incl
             "SELECT COUNT(*) FROM suggestions WHERE target_activity_id = ? AND review_status = 'pendente'",
             (r["activity_id"],)).fetchone()[0]
         r["last_movement"] = last_movement(conn, r["activity_id"]) or r["updated_at"]
+        r["block_reason"] = block_reason(conn, r) if r["status"] == "Bloqueada" else None
     return rows
+
+
+# ---------------------------------------------------------------------------
+# Bloquear e reabrir
+# ---------------------------------------------------------------------------
+BLOCK_PREFIX = "Motivo do bloqueio: "
+
+
+def _status_events(conn: sqlite3.Connection, activity_id: str):
+    """Eventos que mudaram a situação, do mais recente ao mais antigo."""
+    for r in conn.execute("SELECT reason, before_json, after_json FROM activity_events WHERE activity_id = ? "
+                          "ORDER BY id DESC", (activity_id,)):
+        after = json.loads(r["after_json"]) if r["after_json"] else {}
+        if "status" in after:
+            yield r, (json.loads(r["before_json"]) if r["before_json"] else {}), after
+
+
+def block_reason(conn: sqlite3.Connection, a: dict) -> str | None:
+    """Motivo do bloqueio atual. Bloqueio feito aqui: o motivo registrado no histórico (as notas ficam intactas).
+    Bloqueio vindo da planilha ou de sugestão: as notas da atividade."""
+    for r, _, after in _status_events(conn, a["activity_id"]):
+        if after["status"] == "Bloqueada" and (r["reason"] or "").startswith(BLOCK_PREFIX):
+            return r["reason"][len(BLOCK_PREFIX):]
+        break
+    return a.get("notes")
+
+
+def status_before_done(conn: sqlite3.Connection, activity_id: str) -> str:
+    """Situação que a atividade tinha antes de ser concluída (para "Reabrir"). Sem registro: "A fazer"."""
+    for _, before, after in _status_events(conn, activity_id):
+        if after["status"] == "Concluída":
+            prev = (before or {}).get("status")
+            return prev if prev in STATUSES and prev != "Concluída" else "A fazer"
+        break
+    return "A fazer"
 
 
 # ---------------------------------------------------------------------------

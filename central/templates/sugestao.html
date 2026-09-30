@@ -97,8 +97,8 @@
       </form>
     </details>
     {% else %}
-    <h2>Revisão</h2>
-    <p class="small">Só {{ members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') }} podem aprovar ou rejeitar. Para testar, troque a pessoa no topo.</p>
+    <h2>Aguardando revisão</h2>
+    <p class="small">Quem aceita ou rejeita sugestões é {{ members | selectattr('can_review') | map(attribute='display_name') | join(' ou ') }}. {{ 'Até a revisão, a atividade continua com os valores atuais.' if s.kind == 'update' else 'Até a revisão, esta atividade não entra no quadro.' }}</p>
     {% endif %}
   {% else %}
     <h2>{% if s.review_status.startswith('aceita') %}Sugestão aceita{% elif s.review_status == 'rejeitada' %}Sugestão rejeitada{% else %}Sugestão substituída{% endif %}</h2>

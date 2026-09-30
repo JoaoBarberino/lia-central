@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import status_tag, due_tag, source_ref, date_block, people, check_actions %}
+{% macro sugerido(k) %}{% for p in pend_fields.get(k, []) %}<span class="pend-val">Sugerido, aguardando revisão: {{ p.value }}</span>{% endfor %}{% endmacro %}
 {% block title %}{{ a.activity_id }}{% endblock %}
 {% block content %}
 <a class="back" href="{{ back_href or '/' }}">{{ back_label or 'Minhas atividades' }}</a>
@@ -22,42 +23,48 @@
 {% endif %}
 
 {% if pend %}
-<section id="sugestoes" class="notice info">
-  <p class="proposal" style="margin:0"><strong>Sugestão aguardando revisão.</strong> Até lá, valem os valores abaixo.</p>
-  <ul class="change">
-  {% for s in pend %}
-    <li>{% for k, v in s.proposed.items() %}<span><span class="f">{{ FIELD_LABELS.get(k, k) }}:</span> <ins>{{ fmt_date(v) if k == 'due_date' else (v | nomes if k == 'owners' else v) }}</ins></span> {% endfor %}<a href="/sugestoes/{{ s.suggestion_id }}">Ver sugestão #{{ s.suggestion_id }}</a></li>
-  {% endfor %}
-  </ul>
+{# O valor oficial continua em primeiro plano; o sugerido aparece discreto, marcado como "aguardando revisão" #}
+<section id="sugestoes" class="pend-note" aria-labelledby="pend-h">
+  <p><strong id="pend-h">{{ 'Uma sugestão de ata aguarda revisão' if pend|length == 1 else pend|length ~ ' sugestões de ata aguardam revisão' }}</strong>{% if pend_labels %} e pode{{ 'm' if pend|length > 1 }} mudar: {{ pend_labels | join(', ') | lower }}{% endif %}.
+    Até a revisão, valem os valores oficiais desta página.
+    {% for s in pend %}<a href="/sugestoes/{{ s.suggestion_id }}">Ver sugestão #{{ s.suggestion_id }}</a>{{ ' · ' if not loop.last }}{% endfor %}</p>
+  {% for k in ('title', 'status', 'front') %}{% for p in pend_fields.get(k, []) %}
+  <p class="pend-val">{{ {'title': 'Título sugerido', 'status': 'Situação sugerida', 'front': 'Frente sugerida'}[k] }}, aguardando revisão: {{ p.value }}</p>
+  {% endfor %}{% endfor %}
 </section>
 {% endif %}
 
 <div class="grid2" style="margin-top:2rem">
 <section>
   <dl class="facts">
-      <div><dt>Responsáveis</dt><dd>{{ people(a.owners, names) }}</dd></div>
-      <div><dt>Prazo</dt><dd>{{ fmt_date(a.due_date) }}</dd></div>
-      <div><dt>Prioridade</dt><dd>{{ a.priority or '—' }}</dd></div>
-      <div class="wide"><dt>Próximo passo</dt><dd>{{ a.next_step or '—' }}</dd></div>
-      <div class="wide"><dt>Notas e bloqueios</dt><dd>{{ a.notes or '—' }}</dd></div>
-      <div class="wide"><dt>Descrição</dt><dd>{{ a.description or '—' }}</dd></div>
+      <div><dt>Responsáveis</dt><dd>{{ people(a.owners, names) }}{{ sugerido('owners') }}</dd></div>
+      <div><dt>Prazo</dt><dd>{{ fmt_date(a.due_date) }}{{ sugerido('due_date') }}</dd></div>
+      <div><dt>Prioridade</dt><dd>{{ a.priority or '—' }}{{ sugerido('priority') }}</dd></div>
+      <div class="wide"><dt>Próximo passo</dt><dd>{{ a.next_step or '—' }}{{ sugerido('next_step') }}</dd></div>
+      {% if a.block_reason and a.block_reason != a.notes %}<div class="wide"><dt>Motivo do bloqueio</dt><dd>{{ a.block_reason }}</dd></div>{% endif %}
+      <div class="wide"><dt>Notas e bloqueios</dt><dd>{{ a.notes or '—' }}{{ sugerido('notes') }}</dd></div>
+      <div class="wide"><dt>Descrição</dt><dd>{{ a.description or '—' }}{{ sugerido('description') }}</dd></div>
   </dl>
     <div class="actions" style="margin-top:1.5rem">
       <a class="btn secondary small" href="/atividades/{{ a.activity_id }}/editar">Editar</a>
       {% if a.status != 'Concluída' %}
       <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="Concluída"><button class="btn secondary small" type="submit">Marcar como concluída</button></form>
+      {% else %}
+      <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="{{ reopen_to }}"><button class="btn secondary small" type="submit">Reabrir</button></form>
       {% endif %}
       {% if a.status == 'Bloqueada' %}
       <form method="post" action="/atividades/{{ a.activity_id }}/estado"><input type="hidden" name="status" value="Em andamento"><button class="btn secondary small" type="submit">Desbloquear</button></form>
       {% endif %}
     </div>
-    {% if a.status != 'Bloqueada' %}
-    <details style="margin-top:.9rem">
+    {% if a.status not in ('Bloqueada', 'Concluída') %}
+    <details id="bloquear" style="margin-top:.9rem" {% if block_open %}open{% endif %}>
       <summary>Marcar como bloqueada</summary>
       <form method="post" action="/atividades/{{ a.activity_id }}/estado" class="stack" style="margin-top:.6rem">
         <input type="hidden" name="status" value="Bloqueada">
-        <div><label for="motivo">Motivo do bloqueio</label>
-        <input type="text" id="motivo" name="reason" placeholder="Ex.: aguardando confirmação da sala…" autocomplete="off"></div>
+        <div><label for="motivo">Motivo do bloqueio (obrigatório)</label>
+        {% if block_open %}<p class="error" id="motivo-erro">Escreva o motivo: quem abrir a atividade precisa saber o que está travando.</p>{% endif %}
+        <input type="text" id="motivo" name="reason" required {% if block_open %}aria-invalid="true" aria-describedby="motivo-erro motivo-dica" autofocus{% else %}aria-describedby="motivo-dica"{% endif %} placeholder="Ex.: aguardando confirmação da sala…" autocomplete="off">
+        <p class="small muted" id="motivo-dica">O motivo fica no histórico. As notas da atividade não são apagadas.</p></div>
         <div><button class="btn danger small" type="submit">Bloquear</button></div>
       </form>
     </details>

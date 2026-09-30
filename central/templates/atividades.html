@@ -5,7 +5,7 @@
 <h1>Todas as atividades</h1>
 {% set qs = ('q=' ~ (filtro.q | urlencode) ~ '&') if filtro.q else '' %}
 <div class="toolbar finder-top">
-  <form class="search" role="search" method="get" action="/atividades">
+  <form class="search" role="search" method="get" action="/atividades#resultados">
     <label class="sr" for="q">Buscar atividades</label>
     <input type="search" id="q" name="q" value="{{ filtro.q }}" placeholder="Buscar por título, próximo passo, código ou pessoa…" autocomplete="off">
     {% for k in ('responsavel', 'frente', 'situacao', 'prazo') %}{% if filtro[k] %}<input type="hidden" name="{{ k }}" value="{{ filtro[k] }}">{% endif %}{% endfor %}
@@ -14,37 +14,37 @@
   </form>
   <a class="btn small secondary" href="/atividades/nova">Nova atividade</a>
 </div>
-<form method="get" action="/atividades">
+<form method="get" action="/atividades#resultados">
   {% if filtro.q %}<input type="hidden" name="q" value="{{ filtro.q }}">{% endif %}
   <details class="filt" open>
     <summary>Filtros{% if n_filtros %} ({{ n_filtros }}){% endif %}</summary>
     <div class="filt-body">
       <label>Responsável
-        <select name="responsavel" onchange="this.form.submit()">
+        <select name="responsavel">
           <option value="">Todos</option>
           {% for m in members %}<option value="{{ m.member_id }}" {% if filtro.responsavel == m.member_id %}selected{% endif %}>{{ m.display_name }}</option>{% endfor %}
           <option value="{{ SEM }}" {% if filtro.responsavel == SEM %}selected{% endif %}>Sem responsável</option>
         </select></label>
       <label>Frente
-        <select name="frente" onchange="this.form.submit()">
+        <select name="frente">
           <option value="">Todas</option>
           {% for f in fronts %}<option {% if filtro.frente == f %}selected{% endif %}>{{ f }}</option>{% endfor %}
           <option value="{{ SEM }}" {% if filtro.frente == SEM %}selected{% endif %}>Sem frente</option>
         </select></label>
       <label>Situação
-        <select name="situacao" onchange="this.form.submit()">
+        <select name="situacao">
           {% for v, l in SITUACOES %}<option value="{{ v }}" {% if filtro.situacao == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
         </select></label>
       <label>Prazo
-        <select name="prazo" onchange="this.form.submit()">
+        <select name="prazo">
           {% for v, l in PRAZOS %}<option value="{{ v }}" {% if filtro.prazo == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
         </select></label>
       {% if filtro.novidade %}<input type="hidden" name="novidade" value="1">{% endif %}
-      <noscript><button class="btn small secondary" type="submit">Aplicar</button></noscript>
+      <div class="filt-go"><button class="btn small secondary" type="submit">Aplicar filtros</button></div>
     </div>
   </details>
 </form>
-<p class="result-count" role="status">{{ items|length }} {{ 'atividade encontrada' if items|length == 1 else 'atividades encontradas' }}{% if filtering %} · <a href="/atividades">Limpar filtros</a>{% endif %}</p>
+<p class="result-count" id="resultados" tabindex="-1" role="status">{{ items|length }} {{ 'atividade encontrada' if items|length == 1 else 'atividades encontradas' }}{% if filtering %} · <a href="/atividades">Limpar filtros</a>{% endif %}</p>
 <table class="stack">
   <caption class="sr">Atividades</caption>
   <thead><tr><th>Atividade</th><th>Responsáveis</th><th>Prazo</th><th>Situação</th><th>Próximo passo</th></tr></thead>

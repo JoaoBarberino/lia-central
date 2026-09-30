@@ -45,7 +45,7 @@
 
 <h2>Precisa de atenção</h2>
 {% if d.attention %}
-<ul>{% for a in d.attention %}<li><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a> {{ status_tag(a.status) }} {{ due_tag(a.due_date, a.status) }}{% if a.status == 'Bloqueada' and a.notes %}. {{ a.notes }}{% endif %}</li>{% endfor %}</ul>
+<ul>{% for a in d.attention %}<li><a href="/atividades/{{ a.activity_id }}">{{ a.title }}</a> {{ status_tag(a.status) }} {{ due_tag(a.due_date, a.status) }}{% set motivo = a.block_reason or a.notes %}{% if a.status == 'Bloqueada' and motivo %}. {{ motivo }}{% endif %}</li>{% endfor %}</ul>
 {% else %}<p>Nenhuma atividade sua bloqueada, vencida ou vencendo nos próximos 3 dias.</p>{% endif %}
 
 <h2>Documentos novos ou editados</h2>
