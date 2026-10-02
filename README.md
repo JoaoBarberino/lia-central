@@ -129,6 +129,8 @@ python -m pytest -q
 python scripts/avaliar_ia.py
 ```
 
+**Teste manual por rodadas no Drive real:** `tests/dados/06_TESTE_POR_RODADAS` tem atas em Word, PDF, PowerPoint, Markdown e texto, além de duas planilhas, divididas em 4 rodadas, com o resultado esperado de cada uma em `ROTEIRO.md`. O resultado está no caso 32 do `docs/REGISTRO_DE_VALIDACAO.md`.
+
 ## 5. Processo de sincronização
 
 - **Automática:** uma thread em segundo plano roda a cada `SYNC_INTERVAL_SECONDS` (padrão: 180 s, bem abaixo da meta de 15 min). Em falha, espera mais a cada tentativa (até 10 min) e volta ao normal no primeiro sucesso.
