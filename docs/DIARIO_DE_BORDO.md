@@ -94,12 +94,51 @@ Foi o dia mais cheio, e o dia em que mais mudei de direção.
 - Criei no Drive uma ata nova (06/10) com uma mudança de prazo, uma tarefa nova sem frente e uma ideia vaga. Apareceram as 2 sugestões certas. «confirmar: a ideia do podcast apareceu em "deixou de fora"?» Aceitei uma com ajuste de prazo e conferi o histórico.
 - Testes automáticos: 107 no fim do dia, todos passando.
 
-## Qua 30/09 — Fechamento
+## Qua 30/09 — Banca simulada e avaliação da IA
 
-- Fiz um levantamento do que faltava para a entrega: diário, revisão final do README, roteiro e ensaio da demo, envio.
-- Conferi o histórico do repositório atrás de chaves e senhas: nenhuma em nenhum commit.
+**Banca simulada**
+- Pedi a um agente que fizesse o papel da banca: instalar do zero só pelo README, rodar cenários novos e dar nota pelos critérios do case. Deu 78 de 100.
+- Achados que corrigi (casos 26 a 30 do registro de validação):
+  - data por extenso ("7 de outubro") era recusada como "data não escrita";
+  - prazo digitado como texto na planilha (`09/10/2026`, `quando der`) não era tratado;
+  - reabrir uma atividade que estava bloqueada pedia um motivo novo;
+  - uma linha nova na planilha com um código já usado pela Central sobrescreveria a atividade;
+  - um responsável desconhecido na planilha sumia sem aviso;
+  - o README se contradizia sobre criar ou não o `.env` no roteiro sem Drive.
+- Instalei de novo do zero e fixei as versões das bibliotecas no `requirements.txt`.
+
+**Avaliação da IA com 18 atas novas**
+- Outro agente, sem ver meu prompt nem meu código, escreveu 18 atas difíceis com o resultado esperado de cada uma. Escrevi um script (`scripts/avaliar_ia.py`) que roda cada ata pelo mesmo caminho do site e compara.
+- Primeira rodada: **15 de 18**. Os três erros:
+  - "ainda não conseguiu começar" virou "Em andamento";
+  - "o Bru" virou Bruno sem nenhum aviso;
+  - "decidimos não fazer mais" virou "Concluída".
+- O que mudei: a situação só muda quando o trecho diz o novo estado, e isso é conferido em código, não só pedido no prompt. Responsável ou prazo que está no documento, mas fora do trecho citado, ganha um ponto para conferir.
+- Para o cancelamento havia dois caminhos: tratar como "nada a fazer" ou criar o estado **Cancelada**. Escolhi o segundo, mesmo sendo mais trabalho e mais risco, porque "Concluída" diria que algo foi entregue sem ter sido. Cancelar exige motivo, sai das listas de abertas e pode ser reaberto. «confirmar: com suas palavras, por que escolheu o caminho mais completo.»
+
+## Qui 01/10 — A planilha que "não mudava"
+
+- Editei o prazo na planilha oficial e a Central dizia "nenhum arquivo mudou". A causa: ao editar, o arquivo oficial no Drive tinha virado `Ata_registro.xlsm`, com o mesmo ID. A Central não lia `.xlsm`, marcou o arquivo como "formato não lido" e não tentava de novo.
+- Antes de achar a causa, precisei corrigir o Claude: ele achava que existia um `Ata_registro.xlsx` na pasta, mas o único `.xlsx` era a "copia vazia". «confirmar: como foi perceber isso.»
+- Correções: ler `.xlsm` sem nunca executar macros; reler arquivos que antes estavam num formato não lido; aceitar como oficial o mesmo arquivo com outra extensão, avisando isso.
+- Achei textos estranhos na tela: a evidência da planilha aparecia como `Atividades!D5`. Virou "Célula D5 (aba Atividades): de 31/10/2026 para 27/10/2026". Também mudar a mesma célula duas vezes gerava duas sugestões para o mesmo campo; agora a nova substitui a anterior.
+- Segunda rodada da avaliação: **18 de 18**. Mas corrigi olhando os três erros, então isso não prova que a IA acerta qualquer ata. Por isso as correções são regras gerais, conferidas em código.
+
+## Sex 02/10 — Teste por rodadas no Drive real
+
+- Montei com o Claude um teste em quatro rodadas, a partir da carga limpa, com o resultado esperado de cada arquivo escrito antes (`tests/dados/06_TESTE_POR_RODADAS`):
+  1. atas em Word, PDF e PowerPoint;
+  2. casos difíceis: cancelamento, "ainda não conseguiu começar", pessoa de fora, apelido, tarefa repetida, ata sem novidade com "talvez" e instrução maliciosa;
+  3. uma planilha concorrente e uma nova versão da oficial, enviada por "Gerenciar versões";
+  4. frentes.
+- As rodadas 1 a 3 saíram como esperado. O teste achou dois problemas:
+  - a atividade nova saiu "Sem frente", mesmo com "Frente: Operações" na ata. O formato de resposta pedido à IA não tinha o campo da frente, então ela nunca podia propor uma. Agora a frente entra só se for conhecida e estiver escrita no documento, nunca deduzida pela pessoa;
+  - os avisos para quem revisa estavam confusos: "a situação atual foi mantida" numa tarefa nova, avisos colados com ";" e frases da IA em minúscula. Agora é um aviso por linha, no formato "o que aconteceu: o que fica".
+- Pequenos acertos de tela: o botão "Próxima sugestão" quebrava a linha deixando um vazio, e a aba do navegador ganhou um ícone.
+- Atualizei o roteiro da demo e as respostas para a banca. Testes automáticos: 141, todos passando.
 - Diário: pedi ao Claude uma versão inicial a partir do histórico de commits e das nossas conversas, e reescrevi com as minhas palavras.
-- «confirmar: completar com o que fizer hoje e nos próximos dias — revisão do README, roteiro da demo, ensaio.»
+- Conferência final: procurei chaves e senhas em todo o histórico do repositório e instalei do zero a partir de um clone novo.
+- «confirmar: ensaios da demo, limpeza do ambiente e entrega (sáb 03/10 e dom 04/10).»
 
 ## Uma decisão que mudei depois de ver o modelo errar
 
@@ -132,5 +171,5 @@ Foi o dia mais cheio, e o dia em que mais mudei de direção.
 **O que eu faria em seguida**
 - Login de verdade, com permissões por frente.
 - Usar o registro de mudanças do Drive em vez de olhar a pasta inteira, se o acervo crescer.
-- Medir a qualidade da IA numa amostra maior de atas reais da Liga, com pessoas da Liga revisando.
+- Medir a qualidade da IA numa amostra maior de atas reais da Liga, com pessoas da Liga revisando. A avaliação atual tem 18 atas fictícias.
 - Testar a usabilidade com membros novos de verdade, sem orientação, como pede o critério de primeiro acesso.
