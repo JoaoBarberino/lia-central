@@ -347,6 +347,8 @@ details.left-out > summary .muted { font-weight: 400; }
 .lo-conferir { border-color: #EBD3A2; background: var(--warn-soft); }
 .uncert { margin-top: 1rem; font-size: .93rem; background: var(--warn-soft); border: 1px solid #EBD3A2; color: var(--warn); border-radius: 10px; padding: .7rem 1rem; }
 .uncert ul { margin: .3rem 0 0; padding-left: 1.1rem; }
+/* A caixa acompanha o texto: não se estica até a direita quando os avisos são curtos */
+.uncert { width: fit-content; max-width: 100%; }
 .panel { border: 1px solid var(--line-strong); border-top: 4px solid var(--blue); border-radius: 12px; padding: 1.35rem 1.35rem 1.5rem; background: #fff; }
 .review-panel { position: sticky; top: 1.25rem; }
 .review-panel h2 { margin-top: 0; font-size: 1.15rem; }

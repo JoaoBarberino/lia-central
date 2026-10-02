@@ -83,7 +83,9 @@ def get(conn: sqlite3.Connection, suggestion_id: int) -> dict | None:
     d["proposed"] = {k: raw[k] for k in order if k in raw} | {k: v for k, v in raw.items() if k not in order}
     d["current"] = json.loads(r["current_fields"]) if r["current_fields"] else None
     from .ai import tidy_note
-    d["uncertainties_list"] = [tidy_note(u) for u in json.loads(r["uncertainties"] or "[]") if str(u).strip()]
+    d["uncertainties_list"] = [tidy_note(u) for u in json.loads(r["uncertainties"] or "[]") if str(u).strip()
+                               # aviso antigo (até 02/10) sem sentido em tarefa nova, que já começa "A fazer"
+                               and not (r["kind"] == "create" and str(u).startswith('A situação "A fazer"'))]
     d["already"] = json.loads(r["already_fields"]) if r["already_fields"] else {}
     # Aceita: o que entrou no quadro. A proposta original continua em "proposed" (auditoria: o que a ata sugeriu
     # e o que a pessoa revisora decidiu ficam lado a lado)
