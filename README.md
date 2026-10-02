@@ -8,22 +8,33 @@ Protótipo para o case técnico da Liga IA UFSCar. A aplicação acompanha uma p
 
 ## 1. Arquitetura em linguagem simples
 
-```
-Google Drive (pasta de teste)            Aplicação (um processo Python)                    Pessoa
-┌──────────────────────┐   a cada 3 min  ┌───────────────────────────────┐   navegador   ┌──────────┐
-│ INDEX.md, atas, .xlsx│ ──────────────► │ 1. Sincronização               │ ◄───────────► │ Ana, Bruno│
-│ Google Docs, PDF...  │   (só leitura)  │ 2. Extratores (md, xlsx, Docs…) │               │ Carla,Davi│
-└──────────────────────┘                 │ 3. Regra de autoridade          │               └──────────┘
-                                          │ 4. IA propõe → validação → fila │
-                                          │ 5. Revisão humana → registro    │
-                                          │    oficial + histórico (SQLite) │
-                                          └───────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph drive["Google Drive: pasta de teste"]
+        arquivos["INDEX.md, atas e planilha oficial<br/>Google Docs, Word, PDF, PowerPoint…"]
+    end
+
+    subgraph central["Central da Liga: um processo Python"]
+        sinc["1. Sincronização<br/>só o que mudou"]
+        ext["2. Extratores<br/>texto ou tabela de cada formato"]
+        aut["3. Regra de autoridade<br/>qual é o papel de cada arquivo"]
+        ia["4. IA propõe<br/>e o código confere"]
+        rev["5. Revisão humana<br/>quadro oficial + histórico (SQLite)"]
+        sinc --> ext --> aut
+        aut -- "ata nova ou editada" --> ia --> rev
+        aut -- "edição da planilha oficial (sem IA)" --> rev
+    end
+
+    pessoas["Pessoas no navegador<br/>Ana, Bruno, Carla e Davi"]
+
+    drive -- "a cada 3 min, só leitura" --> central
+    rev <--> pessoas
 ```
 
 1. **Sincronização** (`central/sync.py`): lista a pasta e as subpastas, compara o `version` de cada arquivo com o que já foi visto e só baixa o que mudou.
 2. **Extratores** (`central/extractors.py`): transformam cada formato em texto ou tabela e leem o cabeçalho dos documentos (`status: ativo`, `substituido_por:`...).
 3. **Regra de autoridade** (`central/authority.py`, `central/registry.py`): decide o papel de cada arquivo (índice, registro oficial, ata, histórico, planilha concorrente...). Na interface, o registro oficial aparece como "quadro de atividades".
-4. **IA** (`central/ai.py`): lê atas novas ou editadas e **propõe** criar ou alterar atividades. O código valida cada proposta antes de mostrá-la.
+4. **IA** (`central/ai.py`): lê atas novas ou editadas e **propõe** criar ou alterar atividades. O código valida cada proposta antes de mostrá-la. A edição da planilha oficial não passa pela IA: a Central compara as células com a versão anterior e cria a sugestão direto.
 5. **Registro oficial** (`central/activities.py`, `central/suggestions.py`): só muda por edição na interface ou por sugestão aprovada. Toda mudança gera um evento com antes/depois, autor, motivo e fonte.
 
 Stack: Python 3.11, FastAPI, Jinja2 (páginas renderizadas no servidor, sem build de JavaScript), SQLite, Google Drive API v3, Gemini API.
