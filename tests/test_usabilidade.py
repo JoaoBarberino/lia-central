@@ -276,3 +276,12 @@ def test_frente_nova_aparece_nos_formularios(client):  # noqa: F811
     form = client.get("/atividades/nova").text
     assert "<option >Pesquisa</option>" in form or ">Pesquisa</option>" in form
     assert ">Growth</option>" in form and ">Operações</option>" in form
+
+
+def test_icone_da_aba(client):
+    """A aba do navegador mostra o ícone da Central, não o globo padrão."""
+    pagina = client.get("/entrar").text
+    assert 'rel="icon" href="/static/favicon.svg"' in pagina
+    r = client.get("/static/favicon.svg")
+    assert r.status_code == 200 and "svg" in r.headers["content-type"]
+    assert client.get("/static/favicon-32.png").status_code == 200
