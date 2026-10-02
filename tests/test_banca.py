@@ -206,7 +206,7 @@ def test_situacao_so_muda_quando_o_trecho_diz(conn, sync):
     clean, problema = validate_item(conn, _item(target_activity_id="ACT-102", status="Em andamento",
                                                 due_date="2026-10-16", evidence=texto), texto)
     assert problema is None and clean["proposed"] == {"due_date": "2026-10-16"}      # "ainda não começou" ≠ andamento
-    assert any("não está dita no trecho" in u for u in clean["uncertainties"])
+    assert any("não diz que a atividade está" in u for u in clean["uncertainties"])
 
 
 def test_bloqueada_volta_a_andar_quando_o_bloqueio_se_resolve(conn, sync):
@@ -364,9 +364,32 @@ def test_frente_nao_escrita_ou_desconhecida_fica_a_definir(conn, sync):
     texto2 = texto + " Frente: Marketing."
     clean, _ = validate_item(conn, _item(kind="create", target_activity_id=None, title="Gravar vídeo",
                                          front="Marketing", evidence=texto2), texto2)
-    assert "front" not in clean["proposed"] and any("não é uma das frentes" in u for u in clean["uncertainties"])
+    assert "front" not in clean["proposed"] and any("não é uma frente da Liga" in u for u in clean["uncertainties"])
 
 
 def test_prompt_pede_a_frente():
     from central.ai import SYSTEM_PROMPT
     assert '"front"' in SYSTEM_PROMPT and "Não deduza a frente" in SYSTEM_PROMPT
+
+
+def test_avisos_de_atividade_nova_sao_claros(conn, sync):
+    """Caso real de 02/10: "A situação 'A fazer' não está dita... a situação atual foi mantida" numa tarefa nova,
+    "frente não especificada" escrito pela IA e avisos colados com ponto e vírgula."""
+    sync()
+    texto = "A Ana vai responder os comentários do post de lançamento até 2026-10-21."
+    clean, _ = validate_item(conn, _item(kind="create", target_activity_id=None, title="Responder comentários",
+                                         owners=["U-A"], due_date="2026-10-21", status="A fazer",
+                                         uncertainties=["frente não especificada"], evidence=texto), texto)
+    avisos = clean["uncertainties"]
+    assert clean["proposed"]["status"] == "A fazer"
+    assert not any("situação" in u for u in avisos)                     # toda tarefa nova começa "A fazer"
+    assert avisos == ["O documento não diz a frente: frente a definir."]  # o texto da Central, não o da IA
+    clean, _ = validate_item(conn, _item(kind="create", target_activity_id=None, title="Responder comentários",
+                                         owners=["U-A"], status="Concluída", evidence=texto), texto)
+    assert any("ela começa como A fazer" in u for u in clean["uncertainties"])
+
+
+def test_aviso_da_ia_vira_frase():
+    from central.ai import tidy_note
+    assert tidy_note("  instrução   dentro da ata ignorada") == "Instrução dentro da ata ignorada."
+    assert tidy_note("Confira o prazo.") == "Confira o prazo."

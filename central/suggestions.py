@@ -82,7 +82,8 @@ def get(conn: sqlite3.Connection, suggestion_id: int) -> dict | None:
     order = ["title", "owners", "due_date", "status", "next_step", "front", "priority", "notes", "description"]
     d["proposed"] = {k: raw[k] for k in order if k in raw} | {k: v for k, v in raw.items() if k not in order}
     d["current"] = json.loads(r["current_fields"]) if r["current_fields"] else None
-    d["uncertainties_list"] = json.loads(r["uncertainties"] or "[]")
+    from .ai import tidy_note
+    d["uncertainties_list"] = [tidy_note(u) for u in json.loads(r["uncertainties"] or "[]") if str(u).strip()]
     d["already"] = json.loads(r["already_fields"]) if r["already_fields"] else {}
     # Aceita: o que entrou no quadro. A proposta original continua em "proposed" (auditoria: o que a ata sugeriu
     # e o que a pessoa revisora decidiu ficam lado a lado)

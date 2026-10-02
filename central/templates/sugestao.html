@@ -29,7 +29,7 @@
   <p class="srcline"><span>{{ source_ref(s.source) }}</span></p>
   {% if s.reason %}<p class="why"><strong>{{ 'Explicação da IA:' if s.model else 'Motivo:' }}</strong> {{ s.reason | humano }}</p>{% endif %}
   {% if s.uncertainties_list %}
-  <div class="uncert"><strong>Pontos para conferir</strong><ul>{% for u in s.uncertainties_list %}<li>{{ u }}</li>{% endfor %}</ul></div>
+  <div class="uncert"><strong>{{ 'Ponto' if s.uncertainties_list | length == 1 else 'Pontos' }} para conferir</strong><ul>{% for u in s.uncertainties_list %}<li>{{ u }}</li>{% endfor %}</ul></div>
   {% endif %}
   <details class="tech">
     <summary>Detalhes técnicos</summary>

@@ -339,6 +339,25 @@ def looks_like_injection(evidence: str) -> bool:
     return any(m in ev for m in INJECTION_MARKERS)
 
 
+def tidy_note(text) -> str:
+    """Aviso como frase: começa com maiúscula e termina com ponto."""
+    s = " ".join(str(text).split())
+    if s and s[0].islower():
+        s = s[0].upper() + s[1:]
+    return s if not s or s[-1] in ".!?…" else s + "."
+
+
+_MISSING = {"owners": r"respons|dono", "due_date": r"prazo|data", "front": r"frente"}
+
+
+def _restates_missing(note: str, proposed: dict) -> bool:
+    """Aviso curto da IA que só diz que falta dono, prazo ou frente (que a Central já avisa do seu jeito)."""
+    flat = normalize(note)
+    if len(flat) > 60 or not re.search(r"\b(nao|sem)\b|indefinid|a definir|a confirmar", flat):
+        return False
+    return any(re.search(pat, flat) and field not in proposed for field, pat in _MISSING.items())
+
+
 def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict | None, str | None]:
     """Devolve (item_limpo, None) ou (None, motivo_da_rejeição)."""
     if not isinstance(item, dict):
@@ -351,7 +370,8 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
         return None, f"evidência não encontrada literalmente no documento: {evidence[:120]!r}"
     if kind != "no_action" and looks_like_injection(evidence):
         return None, "a evidência é uma instrução dirigida ao sistema (possível injeção de prompt), não uma decisão"
-    uncertainties = [str(u) for u in (item.get("uncertainties") or []) if u]
+    uncertainties = [tidy_note(u) for u in (item.get("uncertainties") or []) if str(u).strip()]
+    from_model = set(uncertainties)   # avisos escritos pela IA (os demais são da checagem em código)
     clean = {"kind": kind, "evidence": evidence, "reason": (item.get("reason") or "").strip(),
              "uncertainties": uncertainties}
     if kind == "no_action":
@@ -363,7 +383,7 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
         return clean, None
 
     if mentions_possibility(evidence):   # decisão com um "talvez" no meio: segue, mas o revisor é avisado
-        uncertainties.append("O trecho também fala em possibilidade (\"talvez\"): confira o que foi de fato decidido.")
+        uncertainties.append("O trecho também fala em possibilidade (“talvez”): confira o que foi de fato decidido.")
     current_owners = acts.get_owners(conn, item.get("target_activity_id")) if kind == "update" else []
     dropped: list[str] = []   # o que a IA propôs e a checagem tirou (ex.: prazo que não está escrito)
     proposed: dict = {}
@@ -376,15 +396,15 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
     # Prazo: formato ISO e presente no texto
     if "due_date" in proposed:
         if not isinstance(proposed["due_date"], str) or not acts.valid_iso_date(proposed["due_date"]):
-            uncertainties.append(f"Prazo em formato inválido ({proposed['due_date']!r}); deixado a definir.")
+            uncertainties.append(f"O prazo “{proposed['due_date']}” não é uma data válida: prazo a definir.")
             dropped.append(uncertainties[-1])
             proposed.pop("due_date")
         elif date_in_text(proposed["due_date"], text) and not date_in_text(proposed["due_date"], evidence):
-            uncertainties.append(f"O prazo {views_date(proposed['due_date'])} está no documento, mas não no trecho "
+            uncertainties.append(f"O prazo {views_date(proposed['due_date'])} aparece no documento, mas não no trecho "
                                  "citado: confira se é desta decisão.")
         elif not date_in_text(proposed["due_date"], text):
             uncertainties.append(f"O prazo {views_date(proposed['due_date'])} não aparece escrito como data no documento "
-                                 "(pode ter sido calculado a partir de algo como \"sexta que vem\"); deixado a definir.")
+                                 "(pode ter sido calculado a partir de algo como “sexta que vem”): prazo a definir.")
             dropped.append(uncertainties[-1])
             proposed.pop("due_date")
 
@@ -397,10 +417,10 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
         for o in raw:
             mid = o if o in names else by_name.get(normalize(str(o)))
             if not mid:
-                uncertainties.append(f"Responsável {o!r} não é um membro conhecido; responsável a confirmar.")
+                uncertainties.append(f"{o} não é membro cadastrado na Central: responsável a confirmar.")
                 dropped.append(uncertainties[-1])
             elif not mentioned(names[mid], text) and mid not in current_owners:
-                uncertainties.append(f"{names[mid]} não é citado no documento; responsável a confirmar.")
+                uncertainties.append(f"{names[mid]} não é citado no documento: responsável a confirmar.")
                 dropped.append(uncertainties[-1])
             elif mid not in owners:
                 owners.append(mid)   # quem já é responsável e a IA manteve na lista continua, mesmo sem ser citado
@@ -422,16 +442,18 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
         if proposed["status"] == "Concluída" and cancelled:
             # "decidimos não fazer mais" não é entrega: cancelada, nunca concluída
             proposed["status"] = "Cancelada"
-            uncertainties.append("O trecho fala em cancelamento, não em entrega: sugerida como Cancelada, não Concluída.")
-        if proposed["status"] not in acts.STATUSES:
-            uncertainties.append(f"Estado desconhecido {proposed['status']!r} ignorado.")
+            uncertainties.append("O trecho fala em cancelamento, não em entrega: sugerida como Cancelada, e não Concluída.")
+        if kind == "create" and proposed["status"] == "A fazer":
+            pass   # toda atividade nova começa "A fazer": nada a conferir
+        elif proposed["status"] not in acts.STATUSES:
+            uncertainties.append(f"“{proposed['status']}” não é uma situação da Central: a situação não muda.")
             dropped.append(uncertainties[-1])
             proposed.pop("status")
         elif not status_supported(proposed["status"], evidence,
                                   (acts.snapshot(conn, item.get("target_activity_id")) or {}).get("status")
                                   if kind == "update" and item.get("target_activity_id") else None):
-            uncertainties.append(f"A situação \"{proposed['status']}\" não está dita no trecho citado; "
-                                 "a situação atual foi mantida.")
+            uncertainties.append(f"O trecho citado não diz que a atividade está “{proposed['status']}”: "
+                                 + ("a situação continua a mesma." if kind == "update" else "ela começa como A fazer."))
             dropped.append(uncertainties[-1])
             proposed.pop("status")
 
@@ -441,11 +463,11 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
         known = {normalize(f): f for f in front_options(conn)}
         front = known.get(normalize(str(proposed["front"])))
         if not front:
-            uncertainties.append(f"Frente {proposed['front']!r} não é uma das frentes conhecidas; deixada a definir.")
+            uncertainties.append(f"“{proposed['front']}” não é uma frente da Liga: frente a definir.")
             dropped.append(uncertainties[-1])
             proposed.pop("front")
         elif not mentioned(front, text):
-            uncertainties.append(f"A frente {front} não está escrita no documento; deixada a definir.")
+            uncertainties.append(f"A frente {front} não está escrita no documento: frente a definir.")
             dropped.append(uncertainties[-1])
             proposed.pop("front")
         else:
@@ -481,11 +503,15 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
         if near:
             uncertainties.append(f"Parecida com a atividade {near['activity_id']} (“{near['title']}”): "
                                  "confira se não é a mesma antes de criar outra.")
+        # "frente não especificada", "sem responsável"...: a Central escreve o seu aviso padrão no lugar
+        uncertainties[:] = [u for u in uncertainties if u not in from_model or not _restates_missing(u, proposed)]
         noted = normalize(" ".join(uncertainties))
         if "owners" not in proposed and "responsavel" not in noted:
-            uncertainties.append("Responsável não definido no documento: responsável a confirmar.")
+            uncertainties.append("O documento não diz quem é o responsável: responsável a confirmar.")
         if "due_date" not in proposed and "prazo" not in noted:
-            uncertainties.append("Prazo não definido no documento: a definir.")
+            uncertainties.append("O documento não diz o prazo: prazo a definir.")
+        if "front" not in proposed and "frente" not in noted:
+            uncertainties.append("O documento não diz a frente: frente a definir.")
         clean["target_activity_id"] = None
     clean["proposed"] = {k: proposed[k] for k in PROPOSABLE_FIELDS if k in proposed}
     return clean, None
