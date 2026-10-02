@@ -191,11 +191,13 @@ mais", desistimos -> "Cancelada" (NUNCA "Concluída": nada foi entregue). "Ainda
 "Em andamento". Na dúvida, deixe "status" null.
 13. Responsável citado por apelido ou só pelo primeiro nome diferente do cadastro ("Bru", "Aninha"): \
 use o member_id certo só se não houver ambiguidade e registre em "uncertainties" como identificou a pessoa.
+14. "front" (frente: Growth, Formação, Operações...) só quando o documento a escrever para aquela tarefa \
+("Frente: Operações", "na frente de Formação"). Não deduza a frente pela pessoa responsável; na dúvida, null.
 
 Responda apenas com JSON no formato:
 {"items": [{"kind": "create|update|no_action", "target_activity_id": "ACT-101 ou null",
   "title": "texto curto ou null", "owners": ["U-A"] ou null, "due_date": "AAAA-MM-DD ou null",
-  "next_step": "texto ou null", "status": "A fazer|Em andamento|Bloqueada|Concluída|Cancelada ou null",
+  "next_step": "texto ou null", "front": "frente escrita no documento (ex.: Operações) ou null", "status": "A fazer|Em andamento|Bloqueada|Concluída|Cancelada ou null",
   "notes": "texto ou null", "evidence": "trecho literal", "reason": "por que esta proposta",
   "category": "ideia|sem_mudanca|instrucao (só em no_action)", "uncertainties": ["..."]}]}"""
 
@@ -432,6 +434,22 @@ def validate_item(conn: sqlite3.Connection, item: dict, text: str) -> tuple[dict
                                  "a situação atual foi mantida.")
             dropped.append(uncertainties[-1])
             proposed.pop("status")
+
+    # Frente: uma das frentes conhecidas e escrita no documento (não deduzida pela pessoa)
+    if "front" in proposed:
+        from .views import front_options
+        known = {normalize(f): f for f in front_options(conn)}
+        front = known.get(normalize(str(proposed["front"])))
+        if not front:
+            uncertainties.append(f"Frente {proposed['front']!r} não é uma das frentes conhecidas; deixada a definir.")
+            dropped.append(uncertainties[-1])
+            proposed.pop("front")
+        elif not mentioned(front, text):
+            uncertainties.append(f"A frente {front} não está escrita no documento; deixada a definir.")
+            dropped.append(uncertainties[-1])
+            proposed.pop("front")
+        else:
+            proposed["front"] = front
 
     if kind == "update":
         target = item.get("target_activity_id")

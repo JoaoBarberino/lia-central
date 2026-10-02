@@ -113,7 +113,7 @@
       {% if s.review_status.startswith('aceita') %}O quadro de atividades já mostra a mudança.{% elif s.review_status == 'rejeitada' %}O quadro de atividades não mudou.{% endif %}
     </p>
     <div class="stack-actions">
-      {% if next_pending %}<a class="btn" href="/sugestoes/{{ next_pending }}">Próxima sugestão ({{ n_left }} {{ 'pendente' if n_left == 1 else 'pendentes' }})</a>
+      {% if next_pending %}<a class="btn btn-next" href="/sugestoes/{{ next_pending }}"><span>Próxima sugestão</span><span class="btn-sub">{{ n_left }} {{ 'pendente' if n_left == 1 else 'pendentes' }}</span></a>
       {% else %}<p class="small muted" style="margin:0">Não há mais sugestões pendentes.</p>{% endif %}
       {% if s.target_activity_id %}<a class="btn{{ ' secondary' if next_pending }}" href="/atividades/{{ s.target_activity_id }}">Ver a atividade</a>{% endif %}
       <a class="btn secondary" href="/sugestoes">Voltar para a lista</a>

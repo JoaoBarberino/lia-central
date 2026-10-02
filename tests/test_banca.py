@@ -341,3 +341,32 @@ def test_pendencia_de_responsavel_escrita_para_pessoas(conn, sync, folder):
     detalhe = conn.execute("SELECT detail FROM issues WHERE kind='responsavel_desconhecido'").fetchone()[0]
     assert "aba Atividades, célula C5" in detalhe and "“Ana; Eduardo”" in detalhe and "Eduardo não é membro" in detalhe
     assert "!" not in detalhe                                                      # nada de "Atividades!C5"
+
+
+def test_frente_escrita_na_ata_entra_na_sugestao(conn, sync):
+    """Caso real de 02/10: "Frente: Operações" na ata e a atividade nova saía "Sem frente"."""
+    sync()
+    texto = ("Nova atividade: o Davi vai gravar um vídeo curto de boas-vindas para novos membros até "
+             "16 de outubro. Frente: Operações. Próximo passo: escrever o roteiro do vídeo.")
+    clean, problema = validate_item(conn, _item(kind="create", target_activity_id=None, title="Gravar vídeo de boas-vindas",
+                                                owners=["U-D"], due_date="2026-10-16", front="operações",
+                                                evidence=texto), texto)
+    assert problema is None and clean["proposed"]["front"] == "Operações"   # grafia da Central
+
+
+def test_frente_nao_escrita_ou_desconhecida_fica_a_definir(conn, sync):
+    sync()
+    texto = "O Davi vai gravar um vídeo de boas-vindas até 2026-10-16."
+    clean, _ = validate_item(conn, _item(kind="create", target_activity_id=None, title="Gravar vídeo",
+                                         owners=["U-D"], due_date="2026-10-16", front="Operações", evidence=texto), texto)
+    assert "front" not in clean["proposed"]                                   # deduzida pela pessoa: não entra
+    assert any("frente Operações não está escrita" in u for u in clean["uncertainties"])
+    texto2 = texto + " Frente: Marketing."
+    clean, _ = validate_item(conn, _item(kind="create", target_activity_id=None, title="Gravar vídeo",
+                                         front="Marketing", evidence=texto2), texto2)
+    assert "front" not in clean["proposed"] and any("não é uma das frentes" in u for u in clean["uncertainties"])
+
+
+def test_prompt_pede_a_frente():
+    from central.ai import SYSTEM_PROMPT
+    assert '"front"' in SYSTEM_PROMPT and "Não deduza a frente" in SYSTEM_PROMPT
