@@ -123,7 +123,7 @@ Abra http://localhost:8000, escolha uma pessoa de demonstração, abra **Estado 
 python -m pytest -q
 ```
 
-**Avaliação da IA com atas novas** (precisa da `GEMINI_API_KEY` no `.env`): 18 atas difíceis em `tests/dados/05_AVALIACAO_IA`, escritas por um agente independente só a partir do case e da especificação, cada uma com o resultado esperado. O script roda cada ata pelo mesmo caminho do site, numa Central temporária, e compara com o gabarito (uns 3 a 5 minutos, 18 chamadas à IA):
+**Avaliação da IA com atas novas** (precisa da `GEMINI_API_KEY` no `.env`): 18 atas difíceis em `tests/dados/05_AVALIACAO_IA`, escritas por um agente independente só a partir do case e da especificação, cada uma com o resultado esperado. O script roda cada ata pelo mesmo caminho do site, numa Central temporária, e compara com o gabarito (uns 3 a 5 minutos, 18 chamadas à IA). Na primeira rodada deu 15 de 18; depois das correções, 18 de 18 (detalhes no caso 31 do `docs/REGISTRO_DE_VALIDACAO.md`):
 
 ```bash
 python scripts/avaliar_ia.py
