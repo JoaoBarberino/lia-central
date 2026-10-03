@@ -21,7 +21,7 @@ Como trabalhei: usei o Claude (Anthropic) como par de programação durante todo
 ## Seg 28/09 — Núcleo, Drive e Gemini de verdade
 
 **O que fiz**
-- Criei o projeto no Google Cloud com a Drive API e a chave do Gemini. Descobri que não precisa de cartão: é só não ativar o teste gratuito. «confirmar: descreva com suas palavras o que fez no OAuth — modo Testing, escopo só leitura (`drive.readonly`), pasta de teste compartilhada.»
+- Criei o projeto no Google Cloud com a Drive API e a chave do Gemini. Descobri que não precisa de cartão: é só não ativar o teste gratuito. No OAuth, deixei o app em modo de teste (*Testing*), com a minha conta como única usuária de teste, e pedi só o escopo de leitura (`drive.readonly`): a Central nunca altera nada no Drive. O cliente é do tipo aplicativo web, com retorno para `localhost`. A pasta de teste fica no meu próprio Drive, só com os dados fictícios do case.
 - Com o Claude, montei o núcleo (sincronização, leitura dos arquivos, importação da planilha, sugestões com revisão e checagem da resposta da IA) e a interface.
 - Testes automáticos para os cenários da seção 9 da especificação, rodando sobre uma pasta local que imita o Drive.
 
@@ -91,7 +91,7 @@ Foi o dia mais cheio, e o dia em que mais mudei de direção.
 - **Erro que achei testando:** mandei prints do painel de ajuste e, ao investigar, apareceu um problema sério. Ao aceitar uma sugestão *com ajuste*, o sistema gravava os valores ajustados **por cima** do que a ata tinha sugerido, e a proposta original sumia. Isso quebra a auditoria que a especificação pede (§5D). Agora os dois ficam guardados, e a sugestão mostra "Ajustado na revisão. A ata sugeriu: …". Também achei campos de texto longos cortados numa linha só; viraram caixas que crescem.
 
 **Testes**
-- Criei no Drive uma ata nova (06/10) com uma mudança de prazo, uma tarefa nova sem frente e uma ideia vaga. Apareceram as 2 sugestões certas. «confirmar: a ideia do podcast apareceu em "deixou de fora"?» Aceitei uma com ajuste de prazo e conferi o histórico.
+- Criei no Drive uma ata nova (06/10) com uma mudança de prazo, uma tarefa nova sem frente e uma ideia vaga. Apareceram as 2 sugestões certas, e a ideia vaga não virou sugestão. Aceitei uma com ajuste de prazo e conferi o histórico.
 - Testes automáticos: 107 no fim do dia, todos passando.
 
 ## Qua 30/09 — Banca simulada e avaliação da IA
@@ -114,12 +114,12 @@ Foi o dia mais cheio, e o dia em que mais mudei de direção.
   - "o Bru" virou Bruno sem nenhum aviso;
   - "decidimos não fazer mais" virou "Concluída".
 - O que mudei: a situação só muda quando o trecho diz o novo estado, e isso é conferido em código, não só pedido no prompt. Responsável ou prazo que está no documento, mas fora do trecho citado, ganha um ponto para conferir.
-- Para o cancelamento havia dois caminhos: tratar como "nada a fazer" ou criar o estado **Cancelada**. Escolhi o segundo, mesmo sendo mais trabalho e mais risco, porque "Concluída" diria que algo foi entregue sem ter sido. Cancelar exige motivo, sai das listas de abertas e pode ser reaberto. «confirmar: com suas palavras, por que escolheu o caminho mais completo.»
+- Para o cancelamento havia dois caminhos: tratar como "nada a fazer" ou criar o estado **Cancelada**. Escolhi o segundo, mesmo sendo mais trabalho e mais risco, porque "Concluída" diria que algo foi entregue sem ter sido. Cancelar exige motivo, sai das listas de abertas e pode ser reaberto. Preferi o caminho mais completo porque o outro deixaria a atividade aberta no quadro, como se ainda valesse, e o quadro só é confiável se mostrar o que foi decidido. A especificação pede no mínimo quatro situações, então acrescentar uma quinta não quebra nenhum requisito.
 
 ## Qui 01/10 — A planilha que "não mudava"
 
 - Editei o prazo na planilha oficial e a Central dizia "nenhum arquivo mudou". A causa: ao editar, o arquivo oficial no Drive tinha virado `Ata_registro.xlsm`, com o mesmo ID. A Central não lia `.xlsm`, marcou o arquivo como "formato não lido" e não tentava de novo.
-- Antes de achar a causa, precisei corrigir o Claude: ele achava que existia um `Ata_registro.xlsx` na pasta, mas o único `.xlsx` era a "copia vazia". «confirmar: como foi perceber isso.»
+- Antes de achar a causa, precisei corrigir o Claude: ele achava que existia um `Ata_registro.xlsx` na pasta, mas o único `.xlsx` era a "copia vazia". Abri a pasta no Drive, vi que só havia o `.xlsm` e expliquei isso. A partir daí a causa apareceu. Lição: quando a explicação da IA não bate com o que eu vejo, confiro a fonte eu mesmo antes de seguir.
 - Correções: ler `.xlsm` sem nunca executar macros; reler arquivos que antes estavam num formato não lido; aceitar como oficial o mesmo arquivo com outra extensão, avisando isso.
 - Achei textos estranhos na tela: a evidência da planilha aparecia como `Atividades!D5`. Virou "Célula D5 (aba Atividades): de 31/10/2026 para 27/10/2026". Também mudar a mesma célula duas vezes gerava duas sugestões para o mesmo campo; agora a nova substitui a anterior.
 - Segunda rodada da avaliação: **18 de 18**. Mas corrigi olhando os três erros, então isso não prova que a IA acerta qualquer ata. Por isso as correções são regras gerais, conferidas em código.
@@ -138,7 +138,13 @@ Foi o dia mais cheio, e o dia em que mais mudei de direção.
 - Atualizei o roteiro da demo e as respostas para a banca. Testes automáticos: 141, todos passando.
 - Diário: pedi ao Claude uma versão inicial a partir do histórico de commits e das nossas conversas, e reescrevi com as minhas palavras.
 - Conferência final: procurei chaves e senhas em todo o histórico do repositório e instalei do zero a partir de um clone novo.
-- «confirmar: ensaios da demo, limpeza do ambiente e entrega (sáb 03/10 e dom 04/10).»
+
+## Sáb 03/10 e Dom 04/10 — Entrega
+
+- Conferi item por item o que o case pede na entrega: código com instruções para rodar, demonstração sem depender da minha conta (roteiro "Sem Drive"), os 9 itens do README, o registro de validação com conflito, dado ausente e arquivo adicionado, este diário, as ferramentas de IA usadas e uma decisão que mudei depois de ver o modelo errar.
+- Reescrevi este diário com as minhas palavras.
+- Convidei o avaliador para o repositório, que é privado, e enviei o link pelo WhatsApp.
+- A demonstração é na quarta, 07/10. Até lá, só ensaio pelo roteiro (duas vezes, cronometrando) e deixo o ambiente limpo na véspera: só a carga inicial na pasta do Drive, banco vazio e o Drive reconectado. O repositório não muda depois da entrega.
 
 ## Uma decisão que mudei depois de ver o modelo errar
 
